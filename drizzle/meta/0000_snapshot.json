@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "13013d3c-96e5-454a-95c8-6952acaf4369",
+  "id": "00bb0bc2-ff53-4aa4-8aac-317ba5f8772b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "aliyot": {
@@ -125,13 +125,377 @@
       "checkConstraints": {
         "aliyah_range": {
           "name": "aliyah_range",
-          "value": "\"aliyot\".\"aliyah\" BETWEEN 1 AND 7"
+          "value": "\"aliyot\".\"aliyah\" BETWEEN 1 AND 8"
         },
         "pseukim_positive": {
           "name": "pseukim_positive",
           "value": "\"aliyot\".\"pseukim\" > 0"
         }
       }
+    },
+    "hosafot_readings": {
+      "name": "hosafot_readings",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sefer": {
+          "name": "sefer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "parsha_id_1": {
+          "name": "parsha_id_1",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "parsha_id_2": {
+          "name": "parsha_id_2",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "occasion_id": {
+          "name": "occasion_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "is_double_parsha": {
+          "name": "is_double_parsha",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "chapter_start": {
+          "name": "chapter_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "verse_start": {
+          "name": "verse_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chapter_end": {
+          "name": "chapter_end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "verse_end": {
+          "name": "verse_end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pseukim": {
+          "name": "pseukim",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date_read": {
+          "name": "date_read",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "hosafot_readings_parsha_id_1_parshiot_id_fk": {
+          "name": "hosafot_readings_parsha_id_1_parshiot_id_fk",
+          "tableFrom": "hosafot_readings",
+          "tableTo": "parshiot",
+          "columnsFrom": [
+            "parsha_id_1"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "hosafot_readings_parsha_id_2_parshiot_id_fk": {
+          "name": "hosafot_readings_parsha_id_2_parshiot_id_fk",
+          "tableFrom": "hosafot_readings",
+          "tableTo": "parshiot",
+          "columnsFrom": [
+            "parsha_id_2"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "hosafot_readings_occasion_id_occasions_id_fk": {
+          "name": "hosafot_readings_occasion_id_occasions_id_fk",
+          "tableFrom": "hosafot_readings",
+          "tableTo": "occasions",
+          "columnsFrom": [
+            "occasion_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "occasion_aliyot": {
+      "name": "occasion_aliyot",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "occasion_id": {
+          "name": "occasion_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "parsha_id": {
+          "name": "parsha_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "aliyah_key": {
+          "name": "aliyah_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "is_shabbat_variant": {
+          "name": "is_shabbat_variant",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "pseukim": {
+          "name": "pseukim",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chapter_start": {
+          "name": "chapter_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": -1
+        },
+        "verse_start": {
+          "name": "verse_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": -1
+        },
+        "chapter_end": {
+          "name": "chapter_end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": -1
+        },
+        "verse_end": {
+          "name": "verse_end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": -1
+        },
+        "covers_aliyah_id": {
+          "name": "covers_aliyah_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "occasion_aliyot_occasion_id_aliyah_key_is_shabbat_variant_unique": {
+          "name": "occasion_aliyot_occasion_id_aliyah_key_is_shabbat_variant_unique",
+          "columns": [
+            "occasion_id",
+            "aliyah_key",
+            "is_shabbat_variant"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "occasion_aliyot_occasion_id_occasions_id_fk": {
+          "name": "occasion_aliyot_occasion_id_occasions_id_fk",
+          "tableFrom": "occasion_aliyot",
+          "tableTo": "occasions",
+          "columnsFrom": [
+            "occasion_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "occasion_aliyot_parsha_id_parshiot_id_fk": {
+          "name": "occasion_aliyot_parsha_id_parshiot_id_fk",
+          "tableFrom": "occasion_aliyot",
+          "tableTo": "parshiot",
+          "columnsFrom": [
+            "parsha_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "occasion_aliyot_covers_aliyah_id_aliyot_id_fk": {
+          "name": "occasion_aliyot_covers_aliyah_id_aliyot_id_fk",
+          "tableFrom": "occasion_aliyot",
+          "tableTo": "aliyot",
+          "columnsFrom": [
+            "covers_aliyah_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "oa_pseukim_positive": {
+          "name": "oa_pseukim_positive",
+          "value": "\"occasion_aliyot\".\"pseukim\" > 0"
+        }
+      }
+    },
+    "occasions": {
+      "name": "occasions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name_en": {
+          "name": "name_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "occasions_name_unique": {
+          "name": "occasions_name_unique",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true
+        },
+        "occasions_name_en_unique": {
+          "name": "occasions_name_en_unique",
+          "columns": [
+            "name_en"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "parsha_pairs": {
       "name": "parsha_pairs",
@@ -310,6 +674,36 @@
           ],
           "columnsTo": [
             "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "parshiot_sefer_id_chapter_start_torah_chapters_sefer_id_chapter_fk": {
+          "name": "parshiot_sefer_id_chapter_start_torah_chapters_sefer_id_chapter_fk",
+          "tableFrom": "parshiot",
+          "tableTo": "torah_chapters",
+          "columnsFrom": [
+            "sefer_id",
+            "chapter_start"
+          ],
+          "columnsTo": [
+            "sefer_id",
+            "chapter"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "parshiot_sefer_id_chapter_end_torah_chapters_sefer_id_chapter_fk": {
+          "name": "parshiot_sefer_id_chapter_end_torah_chapters_sefer_id_chapter_fk",
+          "tableFrom": "parshiot",
+          "tableTo": "torah_chapters",
+          "columnsFrom": [
+            "sefer_id",
+            "chapter_end"
+          ],
+          "columnsTo": [
+            "sefer_id",
+            "chapter"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -498,6 +892,335 @@
         }
       },
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "special_readings": {
+      "name": "special_readings",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "occasion_aliyah_id": {
+          "name": "occasion_aliyah_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date_read": {
+          "name": "date_read",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(date('now'))"
+        }
+      },
+      "indexes": {
+        "idx_special_readings_date": {
+          "name": "idx_special_readings_date",
+          "columns": [
+            "date_read"
+          ],
+          "isUnique": false
+        },
+        "idx_special_readings_aliyah_date": {
+          "name": "idx_special_readings_aliyah_date",
+          "columns": [
+            "occasion_aliyah_id",
+            "date_read"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "special_readings_occasion_aliyah_id_occasion_aliyot_id_fk": {
+          "name": "special_readings_occasion_aliyah_id_occasion_aliyot_id_fk",
+          "tableFrom": "special_readings",
+          "tableTo": "occasion_aliyot",
+          "columnsFrom": [
+            "occasion_aliyah_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "torah_chapters": {
+      "name": "torah_chapters",
+      "columns": {
+        "sefer_id": {
+          "name": "sefer_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chapter": {
+          "name": "chapter",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "verse_count": {
+          "name": "verse_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "torah_chapters_sefer_id_sefarim_id_fk": {
+          "name": "torah_chapters_sefer_id_sefarim_id_fk",
+          "tableFrom": "torah_chapters",
+          "tableTo": "sefarim",
+          "columnsFrom": [
+            "sefer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "torah_chapters_sefer_id_chapter_pk": {
+          "columns": [
+            "sefer_id",
+            "chapter"
+          ],
+          "name": "torah_chapters_sefer_id_chapter_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "weekday_aliyot": {
+      "name": "weekday_aliyot",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "parsha_id": {
+          "name": "parsha_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "aliyah_num": {
+          "name": "aliyah_num",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pseukim": {
+          "name": "pseukim",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chapter_start": {
+          "name": "chapter_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "verse_start": {
+          "name": "verse_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chapter_end": {
+          "name": "chapter_end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "verse_end": {
+          "name": "verse_end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "covers_aliyah_id": {
+          "name": "covers_aliyah_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "weekday_aliyot_parsha_id_aliyah_num_unique": {
+          "name": "weekday_aliyot_parsha_id_aliyah_num_unique",
+          "columns": [
+            "parsha_id",
+            "aliyah_num"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "weekday_aliyot_parsha_id_parshiot_id_fk": {
+          "name": "weekday_aliyot_parsha_id_parshiot_id_fk",
+          "tableFrom": "weekday_aliyot",
+          "tableTo": "parshiot",
+          "columnsFrom": [
+            "parsha_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "weekday_aliyot_covers_aliyah_id_aliyot_id_fk": {
+          "name": "weekday_aliyot_covers_aliyah_id_aliyot_id_fk",
+          "tableFrom": "weekday_aliyot",
+          "tableTo": "aliyot",
+          "columnsFrom": [
+            "covers_aliyah_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "weekday_aliyah_num": {
+          "name": "weekday_aliyah_num",
+          "value": "\"weekday_aliyot\".\"aliyah_num\" BETWEEN 1 AND 3"
+        },
+        "weekday_pseukim_positive": {
+          "name": "weekday_pseukim_positive",
+          "value": "\"weekday_aliyot\".\"pseukim\" > 0"
+        }
+      }
+    },
+    "weekday_readings": {
+      "name": "weekday_readings",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "weekday_aliyah_id": {
+          "name": "weekday_aliyah_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date_read": {
+          "name": "date_read",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(date('now'))"
+        }
+      },
+      "indexes": {
+        "weekday_readings_weekday_aliyah_id_unique": {
+          "name": "weekday_readings_weekday_aliyah_id_unique",
+          "columns": [
+            "weekday_aliyah_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "weekday_readings_weekday_aliyah_id_weekday_aliyot_id_fk": {
+          "name": "weekday_readings_weekday_aliyah_id_weekday_aliyot_id_fk",
+          "tableFrom": "weekday_readings",
+          "tableTo": "weekday_aliyot",
+          "columnsFrom": [
+            "weekday_aliyah_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}

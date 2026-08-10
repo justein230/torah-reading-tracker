@@ -13,10 +13,10 @@ __pycache__/
 .fontconfig/
 .npm/
 
-# Databases (live data, not source)
+# Databases (live data, not source). The mobile seed DB is generated from
+# migrations at build time (npm run cap:db) — never committed.
 *.db
 *.db.*
-!seed.db
 *.db.bak.*
 *.db.bak
 

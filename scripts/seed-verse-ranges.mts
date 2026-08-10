@@ -13,7 +13,7 @@
  *
  * Usage:
  *   npx tsx scripts/seed-verse-ranges.mts [path-to-db]
- *   TORAH_DB_PATH=seed.db npx tsx scripts/seed-verse-ranges.mts
+ *   TORAH_DB_PATH=torah.db npx tsx scripts/seed-verse-ranges.mts
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

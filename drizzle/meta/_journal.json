@@ -5,78 +5,15 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1780166127937,
-      "tag": "0000_initial",
+      "when": 1786378696172,
+      "tag": "0000_baseline",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "6",
-      "when": 1780166138079,
+      "when": 1786378702995,
       "tag": "0001_seed",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1780533046646,
-      "tag": "0002_add_maftir_and_occasions",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1780533650662,
-      "tag": "0003_seed_occasions",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1780843653441,
-      "tag": "0004_weekday_tables",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1780843666204,
-      "tag": "0005_seed_weekday_aliyot",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1780871096874,
-      "tag": "0006_chol_hamoed_shabbat_variant",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1781186326701,
-      "tag": "0007_hosafot_readings",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1781190311943,
-      "tag": "0008_chapter_verses",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "6",
-      "when": 1781369849676,
-      "tag": "0009_torah_chapters",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "6",
-      "when": 1781478435779,
-      "tag": "0010_seed_torah_chapters",
       "breakpoints": true
     }
   ]

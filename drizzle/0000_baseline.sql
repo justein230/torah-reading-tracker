@@ -11,11 +11,61 @@ CREATE TABLE `aliyot` (
 	`verse_end` integer DEFAULT -1 NOT NULL,
 	FOREIGN KEY (`parsha_id`) REFERENCES `parshiot`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`pair_id`) REFERENCES `parsha_pairs`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "aliyah_range" CHECK("aliyot"."aliyah" BETWEEN 1 AND 7),
+	CONSTRAINT "aliyah_range" CHECK("aliyot"."aliyah" BETWEEN 1 AND 8),
 	CONSTRAINT "pseukim_positive" CHECK("aliyot"."pseukim" > 0)
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `aliyot_parsha_id_aliyah_unique` ON `aliyot` (`parsha_id`,`aliyah`);--> statement-breakpoint
+CREATE TABLE `hosafot_readings` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`sefer` text NOT NULL,
+	`parsha_id_1` integer,
+	`parsha_id_2` integer,
+	`occasion_id` integer,
+	`is_double_parsha` integer DEFAULT 0 NOT NULL,
+	`chapter_start` integer NOT NULL,
+	`verse_start` integer NOT NULL,
+	`chapter_end` integer NOT NULL,
+	`verse_end` integer NOT NULL,
+	`pseukim` integer NOT NULL,
+	`date_read` text NOT NULL,
+	`note` text,
+	`location` text,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (`parsha_id_1`) REFERENCES `parshiot`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`parsha_id_2`) REFERENCES `parshiot`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`occasion_id`) REFERENCES `occasions`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `occasion_aliyot` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`occasion_id` integer NOT NULL,
+	`parsha_id` integer NOT NULL,
+	`aliyah_key` text NOT NULL,
+	`is_shabbat_variant` integer DEFAULT false NOT NULL,
+	`pseukim` integer NOT NULL,
+	`chapter_start` integer DEFAULT -1 NOT NULL,
+	`verse_start` integer DEFAULT -1 NOT NULL,
+	`chapter_end` integer DEFAULT -1 NOT NULL,
+	`verse_end` integer DEFAULT -1 NOT NULL,
+	`covers_aliyah_id` integer,
+	FOREIGN KEY (`occasion_id`) REFERENCES `occasions`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`parsha_id`) REFERENCES `parshiot`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`covers_aliyah_id`) REFERENCES `aliyot`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "oa_pseukim_positive" CHECK("occasion_aliyot"."pseukim" > 0)
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `occasion_aliyot_occasion_id_aliyah_key_is_shabbat_variant_unique` ON `occasion_aliyot` (`occasion_id`,`aliyah_key`,`is_shabbat_variant`);--> statement-breakpoint
+CREATE TABLE `occasions` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`name` text NOT NULL,
+	`name_en` text NOT NULL,
+	`category` text NOT NULL,
+	`sort_order` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `occasions_name_unique` ON `occasions` (`name`);--> statement-breakpoint
+CREATE UNIQUE INDEX `occasions_name_en_unique` ON `occasions` (`name_en`);--> statement-breakpoint
 CREATE TABLE `parsha_pairs` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
@@ -38,7 +88,9 @@ CREATE TABLE `parshiot` (
 	`verse_start` integer DEFAULT -1 NOT NULL,
 	`chapter_end` integer DEFAULT -1 NOT NULL,
 	`verse_end` integer DEFAULT -1 NOT NULL,
-	FOREIGN KEY (`sefer_id`) REFERENCES `sefarim`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`sefer_id`) REFERENCES `sefarim`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`sefer_id`,`chapter_start`) REFERENCES `torah_chapters`(`sefer_id`,`chapter`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`sefer_id`,`chapter_end`) REFERENCES `torah_chapters`(`sefer_id`,`chapter`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `parshiot_name_unique` ON `parshiot` (`name`);--> statement-breakpoint
@@ -69,6 +121,54 @@ CREATE TABLE `sefarim` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `sefarim_name_unique` ON `sefarim` (`name`);--> statement-breakpoint
 CREATE UNIQUE INDEX `sefarim_sort_order_unique` ON `sefarim` (`sort_order`);--> statement-breakpoint
+CREATE TABLE `special_readings` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`occasion_aliyah_id` integer NOT NULL,
+	`date_read` text NOT NULL,
+	`note` text,
+	`location` text,
+	`created_at` text DEFAULT (date('now')) NOT NULL,
+	FOREIGN KEY (`occasion_aliyah_id`) REFERENCES `occasion_aliyot`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `idx_special_readings_date` ON `special_readings` (`date_read`);--> statement-breakpoint
+CREATE UNIQUE INDEX `idx_special_readings_aliyah_date` ON `special_readings` (`occasion_aliyah_id`,`date_read`);--> statement-breakpoint
+CREATE TABLE `torah_chapters` (
+	`sefer_id` integer NOT NULL,
+	`chapter` integer NOT NULL,
+	`verse_count` integer NOT NULL,
+	PRIMARY KEY(`sefer_id`, `chapter`),
+	FOREIGN KEY (`sefer_id`) REFERENCES `sefarim`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `weekday_aliyot` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`parsha_id` integer NOT NULL,
+	`aliyah_num` integer NOT NULL,
+	`pseukim` integer NOT NULL,
+	`chapter_start` integer NOT NULL,
+	`verse_start` integer NOT NULL,
+	`chapter_end` integer NOT NULL,
+	`verse_end` integer NOT NULL,
+	`covers_aliyah_id` integer,
+	FOREIGN KEY (`parsha_id`) REFERENCES `parshiot`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`covers_aliyah_id`) REFERENCES `aliyot`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "weekday_aliyah_num" CHECK("weekday_aliyot"."aliyah_num" BETWEEN 1 AND 3),
+	CONSTRAINT "weekday_pseukim_positive" CHECK("weekday_aliyot"."pseukim" > 0)
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `weekday_aliyot_parsha_id_aliyah_num_unique` ON `weekday_aliyot` (`parsha_id`,`aliyah_num`);--> statement-breakpoint
+CREATE TABLE `weekday_readings` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`weekday_aliyah_id` integer NOT NULL,
+	`date_read` text NOT NULL,
+	`note` text,
+	`location` text,
+	`created_at` text DEFAULT (date('now')) NOT NULL,
+	FOREIGN KEY (`weekday_aliyah_id`) REFERENCES `weekday_aliyot`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `weekday_readings_weekday_aliyah_id_unique` ON `weekday_readings` (`weekday_aliyah_id`);--> statement-breakpoint
 CREATE VIEW `v_aliyot` AS 
   SELECT
     a.id                                                                    AS aliyah_id,

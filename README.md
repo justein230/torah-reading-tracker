@@ -73,7 +73,6 @@ torah/
 ├── server.ts             # Express API server
 ├── drizzle.config.ts     # Drizzle Kit configuration
 ├── schema.sql            # Legacy schema reference (superseded by Drizzle)
-├── seed.db               # Pre-populated SQLite DB for mobile builds
 ├── Caddyfile             # Reverse proxy config (two vhosts)
 ├── torah-api.service     # systemd unit file
 ├── build-all.sh          # Production build script
@@ -188,6 +187,12 @@ npm run cap:sync    # sync web assets to native projects
 npm run cap:ios     # open in Xcode
 npm run cap:android # open in Android Studio
 ```
+
+Each `cap:*` command first runs `cap:db`, which builds a fresh pre-populated
+SQLite database from the Drizzle migrations into `public/assets/databases/torah.db`.
+Capacitor bundles it into the app and copies it onto the device on first launch
+(`copyFromAssets`). The seed DB is generated at build time — never committed —
+so it always matches the current schema and reference data.
 
 ## Deployment (Docker + Caddy)
 
