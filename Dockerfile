@@ -12,7 +12,7 @@ WORKDIR /app
 COPY --from=builder /app/node_modules    ./node_modules
 COPY --from=builder /app/dist            ./dist
 COPY --from=builder /app/dist-server     ./dist-server
-COPY package.json schema.sql seed.db docker-entrypoint.sh ./
+COPY package.json schema.sql docker-entrypoint.sh ./
 COPY drizzle ./drizzle
 RUN chmod +x docker-entrypoint.sh
 
