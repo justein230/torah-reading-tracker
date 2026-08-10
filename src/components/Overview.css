@@ -1,0 +1,19 @@
+.ring-svg { transform: rotate(-90deg); }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.est-divider { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--surface2); width: 100%; }
+.sefercard-footer { border-top: 1px solid var(--surface2); padding-top: 6px; }
+.book-label { min-width: 160px; text-align: center; }
+
+.sefercards-narrow { display: block; }
+.sefercards-wide { display: none; }
+@media (min-width: 388px) {
+  .sefercards-narrow { display: none; }
+  .sefercards-wide { display: block; }
+}
+
+@media (max-width: 576px) {
+  .book-label { order: -1; width: 100%; }
+  .hero-ring { flex: 1; display: flex; justify-content: center; align-items: flex-start; }
+  .est-divider { padding-bottom: 10px; border-bottom: 1px solid var(--surface2); margin-bottom: 4px; }
+  .hero-group { align-items: flex-start; }
+}

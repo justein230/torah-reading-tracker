@@ -1,0 +1,171 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600&family=Inter:wght@400;500;600;700&display=swap');
+
+/* Hide Mantine's tab list ::before separator line — we draw our own indicator */
+[role="tablist"]::before { display: none !important; }
+
+/* Mantine's own Tabs.Tab applies border-color: var(--tabs-color) instantly on
+   [data-active], with no transition. Left alone, that native border-bottom
+   flashes on at the destination tab the instant activeTab changes, riding
+   alongside (and masking) our custom animated .indicator-line underneath —
+   whenever the destination is at or near the bar's resting position, the
+   native flash visually dominates and the real (correctly animating) slide
+   underneath becomes imperceptible, looking like a snap. Suppress it so our
+   custom indicator is the only visible active-state cue. */
+.app-tab[data-active] { border-color: transparent !important; }
+
+/* Remove browser default focus ring on tabs */
+[role="tab"]:focus { outline: none; }
+
+/* ── CSS variables ───────────────────────────────────────────────────────────*/
+:root {
+  --bg:      #0f172a;
+  --surface: #1e293b;
+  --surface2:#334155;
+  --border:  #475569;
+  --text:    #f1f5f9;
+  --muted:   #94a3b8;
+  --muted2:  #64748b;
+  --accent:  #38BDF8;
+  --accent2: #FB923C;
+  --error:   #f87171;
+  --success: #4ade80;
+  --surface-mid:        #2d3f52; /* mid-tone between --surface and --surface2, used for dimmed cell borders */
+  --cell-unread:        #293548; /* background for aliyah cells that have not been read */
+  --cell-unread-border: #5b7080; /* border for unread aliyah cells */
+  --grid-cell-size:    32px;   /* width and height of each aliyah cell in the portions grid */
+  --grid-label-width:  160px;  /* width of the parsha label column in the portions grid */
+}
+
+html, body, #root {
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+}
+
+/* Pin the document itself to the viewport so it never scrolls — only
+   .mantine-AppShell-main does. iOS Safari's dynamic toolbar can hide/show in
+   response to a touch scroll on a *nested* overflow:auto container, but its
+   position:fixed repositioning (used by AppShell.Footer's bottom:0) is tied
+   to document scroll offset. With body free to scroll, that offset can drift
+   out of sync during the toolbar animation, leaving the fixed footer
+   "stranded" — it never returns to the true viewport bottom. Locking html/
+   body to position:fixed keeps scrollY permanently at 0, so there's no
+   offset to desync and the footer tracks the viewport reliably. */
+html, body {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mantine AppShell container */
+.mantine-AppShell-root {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.mantine-AppShell-main {
+  flex-grow: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Spacer so content can scroll above browser chrome on iOS/Android.
+   - (100lvh - 100svh) = exact toolbar height when it auto-hides (bottom-bar mode); 0 when fixed.
+   - max(..., 56px) = minimum clearance for fixed toolbars (top-bar mode), derived from Apple's
+     44pt minimum touch target — no browser toolbar can ever be narrower than this.
+   - env(safe-area-inset-bottom) = home indicator height on notched iPhones. */
+@media (pointer: coarse) {
+  .app-main-inner::after {
+    content: '';
+    display: block;
+    height: calc(max(100lvh - 100svh, 56px) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  -webkit-overflow-scrolling: touch;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+/* Prevent iOS zoom on input focus */
+@media (max-width: 768px) {
+  input, select, textarea, [role="combobox"] {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Safe area utilities ──────────────────────────────────────────────────────*/
+.safe-area-top { padding-top: env(safe-area-inset-top); }
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.safe-area-left { padding-left: env(safe-area-inset-left); }
+.safe-area-right { padding-right: env(safe-area-inset-right); }
+.modal-header-safe { padding-top: max(var(--mantine-spacing-md), env(safe-area-inset-top)); }
+
+.hebrew { font-family: 'Noto Sans Hebrew', serif; direction: rtl; unicode-bidi: embed; }
+
+/* Prevent iOS Safari from zooming on input focus (triggered when font-size < 16px) */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────────*/
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Shared utility classes ──────────────────────────────────────────────────*/
+
+/* Card with surface background */
+.card-surface { background: var(--surface) !important; border: 1px solid var(--surface2) !important; }
+
+/* Uppercase section label */
+.label-caps { text-transform: uppercase; letter-spacing: .06em; }
+
+/* Table patterns */
+.table-base { width: 100%; border-collapse: collapse; }
+.th-base { text-align: left; padding: 6px 8px; font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+.td-base { padding: 8px; }
+.tr-divider { border-bottom: 1px solid var(--surface); }
+.tr-divider-strong { border-bottom: 1px solid var(--surface2); }
+.td-right { text-align: right; }
+.td-bold  { font-weight: 600; }
+.td-sm    { font-size: 12px; }
+
+/* Inline stats row used in reading item layouts */
+.ri-stats { display: flex; gap: 8px; align-items: center; }
+
+/* Active button state driven by data-active attribute */
+.window-btn[data-active] { color: var(--text) !important; border-color: var(--accent) !important; }
+
+/* ── App shell layout ────────────────────────────────────────────────────────*/
+.app-header { background: var(--bg); user-select: none; -webkit-user-select: none; padding-top: env(safe-area-inset-top); }
+.app-header-inner { max-width: 1200px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+.app-title { color: var(--text); font-family: 'Noto Sans Hebrew', sans-serif; }
+.app-tabs-bar { border-top: 1px solid var(--surface2); border-bottom: 1px solid var(--surface2); overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; --tabs-list-border-width: 0px; }
+.app-tabs-bar::-webkit-scrollbar { display: none; }
+.app-tabs-inner { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+.app-tabs-list { flex-wrap: nowrap !important; gap: 0 !important; border-bottom: none !important; min-width: max-content; user-select: none; -webkit-user-select: none; }
+.app-tab { font-size: 13px !important; padding: 10px 14px !important; white-space: nowrap; user-select: none; -webkit-user-select: none; }
+.app-main { background: var(--bg); min-height: 100vh; }
+.app-main-inner { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+.tab-list-wrap { position: relative; }
+.indicator-line { position: absolute; bottom: 0; left: 0; width: 0; height: 2px; background: var(--accent); border-radius: 1px; z-index: 2; }
+
+/* Bottom nav (BottomNav.tsx) replaces the top tab bar below this breakpoint */
+@media (max-width: 767px) {
+  .app-tabs-bar { display: none; }
+}

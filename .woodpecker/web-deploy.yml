@@ -1,0 +1,45 @@
+when:
+  - event: push
+  - event: manual
+  - event: cron
+
+
+steps:
+  - name: test
+    image: node:lts-slim
+    commands:
+      - npm ci --ignore-scripts
+      - npm rebuild better-sqlite3
+      - npm run typecheck
+      - npm test
+
+  - name: docker-build-push
+    when:
+      - branch: main
+        event: [push, manual, cron]
+    image: gitea.services.justein.com/homelab/container_uploader:latest
+    settings:
+      registry: gitea.services.justein.com
+      repo: gitea.services.justein.com/justein/torah
+      username: justein
+      password:
+        from_secret: registry_token
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA}
+
+  # Uncomment when ready to enable automatic deployment
+  # - name: deploy
+  #   image: appleboy/drone-ssh
+  #   settings:
+  #     host:
+  #       from_secret: deploy_host
+  #     username:
+  #       from_secret: deploy_user
+  #     key:
+  #       from_secret: deploy_ssh_key
+  #     port: 22
+  #     script:
+  #       - docker compose -f /opt/torah/docker-compose.yml pull
+  #       - docker compose -f /opt/torah/docker-compose.yml up -d --remove-orphans
+  #       - docker image prune -f

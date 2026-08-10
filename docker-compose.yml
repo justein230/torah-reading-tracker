@@ -1,0 +1,22 @@
+services:
+  torah:
+    build: .
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      PORT: "3000"
+      TORAH_HOST: "0.0.0.0"
+      TORAH_DB_PATH: /data/torah.db
+      # Comma-separated CIDRs allowed to hit write endpoints (localhost only by
+      # default). Widen this in docker-compose.override.yml, not here.
+      TORAH_ALLOWED_IPS: "127.0.0.0/8"
+    volumes:
+      - torah-data:/data
+    restart: unless-stopped
+
+volumes:
+  torah-data:
+
+# Deployment-specific values (private registry image, real allowed CIDRs, host
+# bind-mount paths) belong in docker-compose.override.yml, which Compose merges
+# automatically on `docker compose up`. See docker-compose.override.yml.example.

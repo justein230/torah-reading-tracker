@@ -1,0 +1,30 @@
+.sefer-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 40px; }
+.sefer-section { margin-bottom: 28px; }
+.sefer-hdr { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.sefer-hdr .heb { font-size: 18px; font-weight: 600; }
+.sefer-hdr .eng { font-size: 13px; color: var(--muted); }
+.sefer-hdr .badge { font-size: 12px; background: var(--surface2); padding: 2px 8px; border-radius: 99px; margin-left: auto; }
+.parsha-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.parsha-label { width: var(--grid-label-width); min-width: var(--grid-label-width); display: flex; flex-direction: column; gap: 1px; padding-right: 8px; }
+.parsha-label .heb { font-size: 13px; font-weight: 600; text-align: right; }
+.parsha-label .eng { font-size: 10px; color: var(--muted); text-align: right; }
+.aliyah-cells { display: flex; gap: 5px; flex-wrap: nowrap; }
+.aliyah-col-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.aliyah-col-spacer { width: var(--grid-label-width); min-width: var(--grid-label-width); }
+.aliyah-col-num { width: var(--grid-cell-size); font-size: 10px; color: var(--muted2); text-align: center; }
+.acell { width: var(--grid-cell-size); height: var(--grid-cell-size); border-radius: 6px; border: 2px solid; cursor: pointer; position: relative; transition: transform .1s, opacity .2s; display: flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .acell:hover { transform: scale(1.18); z-index: 10; } }
+.acell.acell-raised { transform: scale(1.18); z-index: 10; }
+.acell.dashed { border-style: dashed; }
+.reread-dot { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: #fff; opacity: .85; pointer-events: none; }
+
+@media (max-width: 990px) {
+  .sefer-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 700px) {
+  .parsha-label { width: 100px; min-width: 100px; }
+  .aliyah-col-spacer { width: 100px; min-width: 100px; }
+  .aliyah-col-num { width: 26px; }
+  .acell { width: 26px; height: 26px; border-radius: 4px; }
+}

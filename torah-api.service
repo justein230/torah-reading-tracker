@@ -1,0 +1,19 @@
+[Unit]
+Description=Torah Tracker API
+After=network.target
+
+[Service]
+Type=simple
+User=${SERVICE_USER}
+WorkingDirectory=${APP_DIR}
+ExecStart=${NODE_BIN} ${APP_DIR}/node_modules/.bin/tsx server.ts
+Restart=on-failure
+RestartSec=5
+Environment=PORT=${PORT}
+Environment=TORAH_HOST=${TORAH_HOST}
+Environment=TORAH_DB_PATH=${TORAH_DB_PATH}
+Environment=TORAH_ALLOWED_IPS=${TORAH_ALLOWED_IPS}
+Environment=SERVICE_MODE=prod
+
+[Install]
+WantedBy=multi-user.target

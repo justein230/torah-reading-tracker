@@ -1,0 +1,45 @@
+when:
+  - event: tag
+    evaluate: CI_COMMIT_TAG matches "^v"
+  - event: manual
+
+steps:
+  - name: electron-windows
+    image: electronuserland/builder:wine
+    commands:
+      - npm ci --ignore-scripts
+      - npm run build
+      - npx electron-builder --win --publish never
+
+  # Android build commented out — pending inline SDK install approach
+  # - name: android-web-assets
+  #   image: node:lts-slim
+  #   commands:
+  #     - npm ci --ignore-scripts
+  #     - mkdir -p public/assets/databases
+  #     - cp seed.db public/assets/databases/torah.db
+  #     - npm run build
+  #     - rm -rf public/assets
+  #     - npx cap sync android
+  #
+  # - name: android-build
+  #   image: eclipse-temurin:21-jdk-noble
+  #   volumes:
+  #     - /cache/android-sdk:/opt/android-sdk
+  #     - /cache/gradle:/root/.gradle
+  #   commands:
+  #     - apt-get update -qq && apt-get install -y -qq unzip wget
+  #     - wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
+  #     - mkdir -p /opt/android-sdk/cmdline-tools && unzip -q /tmp/cmdline-tools.zip -d /opt/android-sdk/cmdline-tools
+  #     - mv /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest
+  #     - export ANDROID_HOME=/opt/android-sdk PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin
+  #     - yes | sdkmanager --licenses 2>/dev/null || true
+  #     - sdkmanager "platforms;android-36" "build-tools;36.0.0"
+  #     - cd android && ./gradlew assembleDebug
+
+  - name: collect-artifacts
+    image: alpine
+    commands:
+      - mkdir -p artifacts
+      - cp dist-electron/*.exe artifacts/ 2>/dev/null || true
+      - ls -lh artifacts/

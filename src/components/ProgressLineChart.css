@@ -1,0 +1,10 @@
+.plc-wrapper {
+  position: relative;
+  height: 220px;
+}
+
+@media (max-width: 576px) {
+  .plc-wrapper {
+    height: 180px;
+  }
+}

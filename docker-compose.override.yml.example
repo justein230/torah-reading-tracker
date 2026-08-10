@@ -1,0 +1,16 @@
+# Copy to docker-compose.override.yml and fill in your deployment values.
+# This file is merged automatically over docker-compose.yml on `docker compose up`.
+# docker-compose.override.yml is gitignored — keep real infra values there only.
+services:
+  torah:
+    # Pull a prebuilt image from your registry instead of building locally:
+    # image: registry.example.com/you/torah:latest
+
+    # Networks permitted to use write endpoints, in addition to localhost:
+    environment:
+      TORAH_ALLOWED_IPS: "127.0.0.0/8,10.0.0.0/8"
+
+    # Bind-mount a host directory for the SQLite data instead of a named volume.
+    # The container path (right of the colon) must stay /data.
+    # volumes:
+    #   - /var/lib/torah:/data

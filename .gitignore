@@ -1,0 +1,57 @@
+node_modules/
+dist/
+dist-server/
+dist-electron/
+prebuilt-binaries/
+.cache/
+backup-*/
+sonarextr*/
+.scannerwork/
+.vscode/
+__pycache__/
+.claude/
+.fontconfig/
+.npm/
+
+# Databases (live data, not source)
+*.db
+*.db.*
+!seed.db
+*.db.bak.*
+*.db.bak
+
+# Local env (never commit real values)
+.env
+
+# Local Docker overrides (private registry image, real CIDRs, host paths)
+docker-compose.override.yml
+
+# Generated / scratch files
+*.ipynb
+*copy*.html
+2026-*.txt
+2025-*.txt
+old/
+
+# Capacitor native platforms (generated)
+ios/
+android/
+
+# Mac files
+.DS_Store
+
+# All .bak folders
+*.bak/
+
+local_files/
+
+# Test coverage output (generated)
+coverage/
+
+sonar-project.properties
+
+*.log
+*.csv
+*.xlsx
+
+plans/

@@ -1,0 +1,6 @@
+.dot-row { display: flex; gap: 3px; }
+.parsha-heb { text-align: left; }
+.sort-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid; transition: background 0.2s, border-color 0.2s; }
+.dot.dot-active { background: #fff !important; border-color: #fff !important; }
+.sefer-cell { display: flex; align-items: center; gap: 5px; }

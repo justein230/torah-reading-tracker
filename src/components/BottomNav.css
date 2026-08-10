@@ -1,0 +1,59 @@
+/* Fixed positioning, height, safe-area padding, and z-index are handled by
+   Mantine's AppShell.Footer (see App.tsx); this only styles its contents.
+   The footer's configured height collapses to 0 above the 768px breakpoint,
+   so .bottom-nav never needs to be hidden manually. overflow: hidden is
+   required for that collapse to actually hide the content: flex items
+   default to min-height: auto, so .bottom-nav-item would otherwise refuse
+   to shrink below its icon+label size and spill out past the 0-height footer. */
+.bottom-nav { display: flex; height: 100%; overflow: hidden; }
+
+/* AppShell.Footer's withBorder renders border-top on the <footer> itself,
+   independent of the height variable that collapses to 0 above 768px, so
+   the border survives as a stray line unless removed here too. Its height
+   formula is also `calc(var(--app-shell-footer-height) + env(safe-area-
+   inset-bottom))`, which never reaches true 0 on devices with a non-zero
+   safe-area inset (e.g. gesture-nav tablets) — it just becomes an empty
+   colored band. Force both to 0 explicitly above the breakpoint. */
+@media (min-width: 768px) {
+  footer:has(> .bottom-nav) {
+    height: 0 !important;
+    padding-bottom: 0 !important;
+    border-top: none;
+  }
+}
+
+.bottom-nav-item {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bottom-nav-item::before {
+  content: '';
+  position: absolute;
+  inset: 6px 4px;
+  border-radius: 12px;
+  z-index: -1;
+  transition: background-color 0.15s ease;
+}
+
+.bottom-nav-item[data-active="true"] { color: var(--accent); font-weight: 600; }
+
+.bottom-nav-item[data-active="true"]::before {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.bottom-nav-item span { white-space: nowrap; }

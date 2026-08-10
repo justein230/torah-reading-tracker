@@ -1,0 +1,1 @@
+ALTER TABLE `sefarim` ADD `chapter_verses` text;

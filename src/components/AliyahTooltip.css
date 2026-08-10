@@ -1,0 +1,4 @@
+#tip { position: fixed; z-index: 9999; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 10px 13px; pointer-events: none; font-size: 12px; max-width: 320px; box-shadow: 0 8px 28px rgba(0,0,0,.5); line-height: 1.5; }
+.tip-title { font-weight: 600; margin-bottom: 4px; font-size: 13px; }
+.tip-row { color: var(--muted); display: flex; justify-content: space-between; gap: 10px; }
+.tip-row span:last-child { color: var(--text); text-align: right; }
