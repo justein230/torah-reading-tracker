@@ -36,7 +36,7 @@ const MAX_REQUESTS = 40;
 const REQUEST_GAP  = 600;
 
 // The REST API renders names with a typographic apostrophe (U+2019); the DB uses ASCII.
-const foldApostrophe = (s: string) => s.split('’').join("'");
+const foldApostrophe = (s: string) => s.replaceAll('’', "'");
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 // Vezot Haberakhah is read on Simchat Torah, where its aliyot are divided differently
@@ -53,32 +53,44 @@ const VEZOT_HABERAKHAH: FullKriyah = {
   '7': { b: '34:1',  e: '34:12' },
 };
 
+/** Fetches one /leyning chunk starting at `startISO` (the API clamps the end to ~6 months). */
+async function fetchLeyningChunk(startISO: string): Promise<LeyningResponse> {
+  const url = 'https://www.hebcal.com/leyning?cfg=json&triennial=off'
+            + `&start=${startISO}&end=${FINAL_DATE}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'torah-tracker/1.0' } });
+  if (!res.ok) throw new Error(`Hebcal API returned HTTP ${res.status} for ${startISO}`);
+  return await res.json() as LeyningResponse;
+}
+
+/** Adds any wanted standalone readings from `items` into `found` (first occurrence wins). */
+function recordMatches(items: LeyningItem[], wanted: Set<string>, found: Map<string, FullKriyah>): void {
+  for (const item of items) {
+    if (!item.fullkriyah || !item.name) continue;
+    const name = foldApostrophe(item.name.en);
+    if (wanted.has(name) && !found.has(name)) found.set(name, item.fullkriyah);
+  }
+}
+
+/** The day after the chunk's served `end`, or null when the walk should stop. */
+function nextCursor(end: string | undefined, cursor: string): string | null {
+  if (!end || end >= FINAL_DATE || end < cursor) return null;
+  const next = new Date(`${end}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
+}
+
 /** Walks /leyning until every name in `wanted` has a standalone fullkriyah, or we run out. */
 async function collectFullKriyah(wanted: Set<string>): Promise<Map<string, FullKriyah>> {
   const found = new Map<string, FullKriyah>();
-  let cursor = new Date().toISOString().slice(0, 10);
+  let cursor: string | null = new Date().toISOString().slice(0, 10);
   let requests = 0;
 
-  while (cursor <= FINAL_DATE && requests < MAX_REQUESTS && found.size < wanted.size) {
+  while (cursor && requests < MAX_REQUESTS && found.size < wanted.size) {
     if (requests > 0) await sleep(REQUEST_GAP);
-    const url = 'https://www.hebcal.com/leyning?cfg=json&triennial=off'
-              + `&start=${cursor}&end=${FINAL_DATE}`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'torah-tracker/1.0' } });
-    if (!res.ok) throw new Error(`Hebcal API returned HTTP ${res.status} for ${cursor}`);
-    const body = await res.json() as LeyningResponse;
+    const body = await fetchLeyningChunk(cursor);
     requests++;
-
-    for (const item of body.items ?? []) {
-      if (!item.fullkriyah || !item.name) continue;
-      const name = foldApostrophe(item.name.en);
-      if (wanted.has(name) && !found.has(name)) found.set(name, item.fullkriyah);
-    }
-
-    const end = body.range?.end;
-    if (!end || end >= FINAL_DATE || end < cursor) break;
-    const next = new Date(`${end}T00:00:00Z`);
-    next.setUTCDate(next.getUTCDate() + 1);
-    cursor = next.toISOString().slice(0, 10);
+    recordMatches(body.items ?? [], wanted, found);
+    cursor = nextCursor(body.range?.end, cursor);
   }
   return found;
 }
@@ -108,7 +120,7 @@ for (const { id: parshaId, nameEn: parsha } of allParshiot) {
     .filter(([num]) => !Number.isNaN(num)) // drop maftir 'M'; this script seeds aliyot 1-7
     .sort(([a], [b]) => a - b);
   const first = aliyahEntries[0][1];
-  const last  = aliyahEntries[aliyahEntries.length - 1][1];
+  const last  = aliyahEntries.at(-1)![1];
   const [parshaChapterStart, parshaVerseStart] = first.b.split(':').map(Number);
   const [parshaChapterEnd,   parshaVerseEnd]   = last.e.split(':').map(Number);
 

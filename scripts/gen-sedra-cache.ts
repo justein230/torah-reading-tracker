@@ -64,7 +64,7 @@ async function fetchChunk(startISO: string, endISO: string): Promise<{ entries: 
   const entries = entriesFromHebcalItems(body.items ?? []);
 
   const servedEnd = body.range?.end?.slice(0, 10)
-    ?? entries[entries.length - 1]?.[0]
+    ?? entries.at(-1)?.[0]
     ?? endISO;
 
   return { entries, servedEnd };
@@ -135,7 +135,7 @@ async function main(): Promise<void> {
   // Only the years outside the existing coverage need fetching. Any gap at either end
   // widens the window; a full rebuild happens when there is no usable cache at all.
   const rebuildAll = force || !coverage;
-  const from = rebuildAll ? TARGET[0] : Math.min(TARGET[0], coverage![1] + 1);
+  const from = coverage && !rebuildAll ? Math.min(TARGET[0], coverage[1] + 1) : TARGET[0];
   const to   = TARGET[1];
 
   console.log(`sedra cache: fetching ${from}-${to} from hebcal.com…`);

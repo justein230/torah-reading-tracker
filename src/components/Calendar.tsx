@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { isSeferAllowed } from '../compute.js';
 import './Calendar.css';
 import { Box, Text, Group, ActionIcon } from '@mantine/core';
@@ -16,7 +16,8 @@ import type {
 const MONTHS = Array.from({ length: 12 }, (_, i) => formatDate(new Date(2000, i, 1), 'MMMM'));
 
 function pushToMap(map: CalDayMap, key: string, entry: CalEntry): void {
-  (map[key] ??= []).push(entry);
+  map[key] ??= [];
+  map[key].push(entry);
 }
 
 function yearAllowed(dateStr: string, filters: Filters): boolean {
