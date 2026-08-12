@@ -1,4 +1,4 @@
-import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, SpecialReadingRecord } from '../../src/types/index.js';
+import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, SpecialReadingRecord, CalEntry } from '../../src/types/index.js';
 
 export function makeRow(overrides: Partial<MappedRow> = {}): MappedRow {
   const row: MappedRow = {
@@ -64,5 +64,14 @@ export function makeHosafah(overrides: Partial<MappedHosafah> = {}): MappedHosaf
     isReadPast: true, partialOrig: '',
     ...overrides,
     isReadFuture: overrides.isReadFuture ?? false,
+  };
+}
+
+/** One reading as the calendar views consume it (the value type of a CalDayMap). */
+export function makeCalEntry(overrides: Partial<CalEntry> = {}): CalEntry {
+  return {
+    kind: 'standard', sefer: 'Genesis', parsha: 'בראשית', aliyah: 1, pseukim: 10,
+    isReread: false, isFuture: false,
+    ...overrides,
   };
 }

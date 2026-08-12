@@ -70,6 +70,32 @@ describe('buildDayMap — reread and future handling', () => {
     const on = buildDayMap([], [occ({ allDates: [PAST, FUTURE] })], [], [], filters({ includeFutureDates: true }));
     expect(on[FUTURE]?.[0]).toMatchObject({ isFuture: true, isReread: true });
   });
+
+  // A standard aliyah carries its scheduled re-readings in futDates rather than allDates,
+  // so it takes a separate path through addStandardRow than the other three sources.
+  it('places a standard row on both its original date and its scheduled future dates', () => {
+    const row = stdRow({ hasFuture: true, futDates: [FUTURE] });
+    const map = buildDayMap([row], [], [], [], filters({ includeFutureDates: true }));
+
+    expect(map[PAST]?.[0]).toMatchObject({ isReread: false, isFuture: false });
+    expect(map[FUTURE]?.[0]).toMatchObject({ isReread: true, isFuture: true });
+  });
+
+  it('drops a standard row future date when includeFutureDates is off', () => {
+    const row = stdRow({ hasFuture: true, futDates: [FUTURE] });
+    const map = buildDayMap([row], [], [], [], filters());
+
+    expect(map[PAST]).toBeDefined();
+    expect(map[FUTURE]).toBeUndefined();
+  });
+
+  it('applies the year filter to a standard row future date', () => {
+    const row = stdRow({ hasFuture: true, futDates: [FUTURE] });
+    const map = buildDayMap([row], [], [], [], filters({ includeFutureDates: true, years: [2023] }));
+
+    expect(map[PAST]).toBeDefined();          // 2023 — kept
+    expect(map[FUTURE]).toBeUndefined();      // 2099 — filtered out
+  });
 });
 
 describe('buildDayMap — filters', () => {
