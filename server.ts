@@ -9,11 +9,12 @@ import { createDb } from './src/db/drizzle-server.js';
 import { initDb } from './src/db/init.js';
 import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot, specialReadings, weekdayAliyot, weekdayReadings, hosafotReadings, torahChapters } from './src/db/schema.js';
 import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './src/db/queries.js';
-import { scheduleFromEntries, entriesFromHebcalItems, type HebcalItem } from './src/utils/sedra.js';
+import { buildSchedule, fetchLiveHebcalItems } from './src/utils/sedra.js';
 import { SEDRA_CACHE, SEDRA_YEARS } from './src/data/sedraCache.js';
 import { compileCidrs, isAllowed, getClientIp } from './src/utils/ip.js';
 import { buildExportBuffer } from './src/utils/export-server.js';
 import { buildCalendarFeed } from './src/utils/calendar-feed.js';
+import { errText } from './src/utils/errText.js';
 
 if (process.env.SERVICE_MODE !== 'prod') {
   const dotenv = await import('dotenv');
@@ -80,39 +81,18 @@ app.use('/api/readings', (req, res, next) => {
 
 let _schedule: Record<string, string> | null = null;
 
-// Fetches the coming year of parshiot from Hebcal.com. Used only to extend past the
-// baked cache; any failure is caught by the caller and falls back to cache-only.
-async function fetchLiveEntries(today: string): Promise<HebcalItem[]> {
-  const end = new Date(`${today}T00:00:00Z`);
-  end.setUTCFullYear(end.getUTCFullYear() + 2);
-  const url = 'https://www.hebcal.com/hebcal?v=1&cfg=json&s=on&i=off&leyning=off'
-            + `&start=${today}&end=${end.toISOString().slice(0, 10)}`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'torah-tracker/1.0' } });
-  if (!res.ok) throw new Error(`Hebcal API returned HTTP ${res.status}`);
-  const body = await res.json() as { items?: HebcalItem[] };
-  return body.items ?? [];
-}
-
 async function getSchedule(): Promise<Record<string, string>> {
   if (_schedule) return _schedule;
 
-  const parshaNames = new Set(
-    db.select({ name_en: parshiot.nameEn }).from(parshiot).all().map(r => r.name_en)
-  );
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Cache covers the annual cycle unless today is within a year of the cache's end.
-  const needsLive = new Date().getUTCFullYear() >= SEDRA_YEARS[1];
-  let entries = [...SEDRA_CACHE];
-  if (needsLive) {
-    try {
-      entries = [...entries, ...entriesFromHebcalItems(await fetchLiveEntries(today))];
-    } catch (err) {
-      console.warn('Hebcal live extend failed, using cache only:', err instanceof Error ? err.message : err);
-    }
-  }
-
-  _schedule = scheduleFromEntries(entries, parshaNames, today);
+  _schedule = await buildSchedule({
+    parshaNames: new Set(
+      db.select({ name_en: parshiot.nameEn }).from(parshiot).all().map(r => r.name_en)
+    ),
+    today:        new Date().toISOString().slice(0, 10),
+    cache:        SEDRA_CACHE,
+    cacheEndYear: SEDRA_YEARS[1],
+    fetchLive:    fetchLiveHebcalItems,
+  });
   return _schedule;
 }
 
@@ -160,7 +140,7 @@ app.get('/api/hebcal', async (_req, res) => {
   try {
     res.json({ schedule: await getSchedule() });
   } catch (err: unknown) {
-    console.error('Hebcal error:', err instanceof Error ? err.message : err);
+    console.error('Hebcal error:', errText(err));
     res.json({ schedule: {} });
   }
 });
@@ -184,7 +164,7 @@ app.get('/api/export/excel', privateOnly, async (_req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buf);
   } catch (err: unknown) {
-    console.error('Excel export error:', err instanceof Error ? err.message : err);
+    console.error('Excel export error:', errText(err));
     res.status(500).json({ detail: 'Failed to generate export.' });
   }
 });
@@ -435,7 +415,7 @@ app.get('/api/calendar.ics', async (_req, res) => {
     res.setHeader('Content-Disposition', 'inline; filename="torah-readings.ics"');
     res.send(ics);
   } catch (err: unknown) {
-    console.error('Calendar feed error:', err instanceof Error ? err.message : err);
+    console.error('Calendar feed error:', errText(err));
     res.status(500).json({ detail: 'Failed to generate calendar feed.' });
   }
 });
