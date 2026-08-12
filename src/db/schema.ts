@@ -73,6 +73,9 @@ export const readings = sqliteTable('readings', {
   check('reading_type_check', sql`${t.readingType} IN ('standard', 'double_parsha', 'additional')`),
 ]);
 
+// v_aliyot / v_readings are not queried by app code (queries.ts computes the same joins
+// plus coverage-detection fallbacks the views don't have). They exist so an exported
+// torah.db can be explored from a plain SQL client without hand-rewriting the joins.
 export const vAliyot = sqliteView('v_aliyot', {
   aliyahId:       integer('aliyah_id'),
   seferId:        integer('sefer_id'),
@@ -107,7 +110,7 @@ export const vAliyot = sqliteView('v_aliyot', {
     COALESCE(pp.name_en, '')                                                AS pair_name_en,
     a.combined_aliyah,
     a.pseukim,
-    ROUND(CAST(a.pseukim AS REAL) / (SELECT SUM(pseukim) FROM aliyot) * 100, 6) AS pct
+    ROUND(CAST(a.pseukim AS REAL) / (SELECT SUM(pseukim) FROM aliyot WHERE aliyah != 8) * 100, 6) AS pct
   FROM aliyot a
   JOIN parshiot    p  ON p.id  = a.parsha_id
   JOIN sefarim     s  ON s.id  = p.sefer_id

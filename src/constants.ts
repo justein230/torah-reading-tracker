@@ -10,3 +10,32 @@ export const TAB_LABELS: Record<string, string> = {
   log: 'Reading Log', details: 'Details',
   calendar: 'Calendar',
 };
+
+// ── Occasion category taxonomy ────────────────────────────────────────────────
+// Shared by HolidayGrid (section headings) and AddReadingForm (holiday dropdown).
+// yom_tov's label differs by context on purpose: the grid heading names the whole
+// category, so it uses the plural "Yamim Tovim"; the form option is picked for one
+// holiday at a time, so it uses the singular "Yom Tov".
+
+export const CATEGORY_ORDER: string[] = ['yom_tov', 'chanukah', 'rosh_chodesh', 'maftir_special', 'other'];
+
+export const CATEGORY_LABELS_GRID: Record<string, string> = {
+  yom_tov:        'Yamim Tovim',
+  chanukah:       'Chanukah',
+  rosh_chodesh:   'Rosh Chodesh',
+  maftir_special: 'Special Maftir Shabbatot',
+  other:          'Other',
+};
+
+export const CATEGORY_LABELS_FORM: Record<string, string> = {
+  ...CATEGORY_LABELS_GRID,
+  yom_tov: 'Yom Tov',
+};
+
+export const CATEGORY_COLORS: Record<string, string> = {
+  yom_tov:        '#7C3AED',
+  chanukah:       '#2563EB',
+  rosh_chodesh:   '#059669',
+  maftir_special: '#D97706',
+  other:          '#6B7280',
+};

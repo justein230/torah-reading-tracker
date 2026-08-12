@@ -1,30 +1,15 @@
 import { useState } from 'react';
 import { Box, Switch, Text } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
-import { useAliyahTooltip, AliyahTooltip, TouchAwareCell } from './AliyahTooltip.js';
+import { useAliyahTooltip, AliyahTooltip, TouchAwareCell, type CellHandlers } from './AliyahTooltip.js';
 import { GridLegend } from './GridLegend.js';
 import { SeferSection } from './shared/SeferSection.js';
-import { aliyahCellStyle, fmtAliyah, fmtPct } from '../utils.js';
+import { aliyahCellStyle, aliyahState, fmtAliyah, fmtPct } from '../utils.js';
+import { CATEGORY_ORDER, CATEGORY_LABELS_GRID, CATEGORY_COLORS } from '../constants.js';
 import type { MappedOccasionAliyah } from '../types/index.js';
 import './Grid.css';
 
 const ALIYAH_KEYS = ['1', '2', '3', '4', '5', '6', '7', 'M'];
-
-const CATEGORY_ORDER = ['yom_tov', 'chanukah', 'rosh_chodesh', 'maftir_special', 'other'];
-const CATEGORY_LABELS: Record<string, string> = {
-  yom_tov:        'Yamim Tovim',
-  chanukah:       'Chanukah',
-  rosh_chodesh:   'Rosh Chodesh',
-  maftir_special: 'Special Maftir Shabbatot',
-  other:          'Other',
-};
-const CATEGORY_COLORS: Record<string, string> = {
-  yom_tov:        '#7C3AED',
-  chanukah:       '#2563EB',
-  rosh_chodesh:   '#059669',
-  maftir_special: '#D97706',
-  other:          '#6B7280',
-};
 
 
 type ShowOccasionTip = (e: React.MouseEvent | React.TouchEvent, oa: MappedOccasionAliyah, occasionName: string) => void;
@@ -34,26 +19,19 @@ interface HolidayCellProps {
   color: string;
   occNameEn: string;
   showOccasionTip: ShowOccasionTip;
-  moveTipPos: (e: React.MouseEvent) => void;
-  positionFromRect: (rect: DOMRect) => void;
-  hideTip: () => void;
+  handlers: CellHandlers;
 }
 
-function HolidayCell({ oa, color, occNameEn, showOccasionTip, moveTipPos, positionFromRect, hideTip }: Readonly<HolidayCellProps>) {
+function HolidayCell({ oa, color, occNameEn, showOccasionTip, handlers }: Readonly<HolidayCellProps>) {
   if (!oa) {
     return <div className="acell" style={{ background: 'transparent', border: '2px dashed var(--cell-unread-border)', opacity: 0.2 }} />;
   }
-  let state: 'read' | 'future' | 'partial' | 'unread';
-  if (oa.isReadPast)        state = 'read';
-  else if (oa.isReadFuture) state = 'future';
-  else if (oa.partialOrig)  state = 'partial';
-  else                      state = 'unread';
-  const { bg, border, dashed } = aliyahCellStyle(state, color);
+  const { bg, border, dashed } = aliyahCellStyle(aliyahState(oa), color);
   return (
     <TouchAwareCell
       bg={bg} border={border} dashed={dashed}
       onShowTip={(e: React.MouseEvent | React.TouchEvent) => showOccasionTip(e, oa, occNameEn)}
-      moveTipPos={moveTipPos} positionFromRect={positionFromRect} hideTip={hideTip}
+      handlers={handlers}
     >
       {oa.isReadPast && oa.hasFuture && <span className="reread-dot" />}
     </TouchAwareCell>
@@ -62,7 +40,7 @@ function HolidayCell({ oa, color, occNameEn, showOccasionTip, moveTipPos, positi
 
 export default function HolidayGrid() {
   const { occasions, occasionAliyot } = useApp();
-  const { tip, tipPos, showOccasionTip, moveTipPos, positionFromRect, hideTip } = useAliyahTooltip();
+  const { tip, tipPos, showOccasionTip, handlers } = useAliyahTooltip();
   const [shabbatMode, setShabbatMode] = useState(false);
 
   // Group occasions by category preserving sort_order
@@ -117,7 +95,7 @@ export default function HolidayGrid() {
         return (
           <SeferSection
             key={cat}
-            title={<span className="eng" style={{ color, fontWeight: 600, fontSize: 15 }}>{CATEGORY_LABELS[cat] ?? cat}</span>}
+            title={<span className="eng" style={{ color, fontWeight: 600, fontSize: 15 }}>{CATEGORY_LABELS_GRID[cat] ?? cat}</span>}
             badge={<>{readCount}/{totalCount} Aliyot &bull; {aPct}%</>}
             columnKeys={visibleKeys}
             renderColumnLabel={k => k === 'M' ? fmtAliyah(String(k), true) : String(k)}
@@ -141,9 +119,7 @@ export default function HolidayGrid() {
                         color={color}
                         occNameEn={occ.nameEn}
                         showOccasionTip={showOccasionTip}
-                        moveTipPos={moveTipPos}
-                        positionFromRect={positionFromRect}
-                        hideTip={hideTip}
+                        handlers={handlers}
                       />
                     ))}
                   </div>

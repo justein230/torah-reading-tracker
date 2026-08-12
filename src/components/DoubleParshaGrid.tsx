@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
-import { useAliyahTooltip, AliyahTooltip, TouchAwareCell } from './AliyahTooltip.js';
+import { useAliyahTooltip, AliyahTooltip, TouchAwareCell, type CellHandlers } from './AliyahTooltip.js';
 import { GridLegend } from './GridLegend.js';
 import { SeferSection } from './shared/SeferSection.js';
-import { aliyahCellStyle, fmtPct } from '../utils.js';
+import { aliyahCellStyle, aliyahState, fmtPct } from '../utils.js';
 import { isAliyahRead, isAliyahPartial, countReadAliyot, computePairTotalPseukim, computePairReadPseukim } from '../compute.js';
 import type { MappedRow, ParshaPair } from '../types/index.js';
 import './Grid.css';
@@ -19,28 +19,22 @@ interface DoubleCellProps {
   readonly aliyahNum: number;
   readonly pairTotalPseukim: number;
   readonly showDoublePairTip: (e: React.MouseEvent | React.TouchEvent, heb: string, en: string, num: number, rows: MappedRow[], color: string, pairTotalPseukim: number) => void;
-  readonly moveTipPos: (e: React.MouseEvent) => void;
-  readonly positionFromRect: (rect: DOMRect) => void;
-  readonly hideTip: () => void;
+  readonly handlers: CellHandlers;
 }
 
-function DoubleCell({ rows, color, pairNameHeb, pairNameEn, aliyahNum, pairTotalPseukim, showDoublePairTip, moveTipPos, positionFromRect, hideTip }: DoubleCellProps) {
+function DoubleCell({ rows, color, pairNameHeb, pairNameEn, aliyahNum, pairTotalPseukim, showDoublePairTip, handlers }: DoubleCellProps) {
   const isReadPast   = isAliyahRead(rows);
   const isReadFuture = !isReadPast && rows.some(r => r.readAsDouble && r.isReadFuture);
   const hasReread    = isReadPast && rows.some(r => r.readAsDouble && r.hasFuture);
 
-  let state: 'read' | 'future' | 'partial' | 'unread';
-  if (isReadPast)            state = 'read';
-  else if (isReadFuture)     state = 'future';
-  else if (isAliyahPartial(rows)) state = 'partial';
-  else                       state = 'unread';
+  const state = aliyahState({ isReadPast, isReadFuture, partialOrig: isAliyahPartial(rows) });
   const { bg, border, dashed } = aliyahCellStyle(state, color);
 
   return (
     <TouchAwareCell
       bg={bg} border={border} dashed={dashed}
       onShowTip={e => showDoublePairTip(e, pairNameHeb, pairNameEn, aliyahNum, rows, color, pairTotalPseukim)}
-      moveTipPos={moveTipPos} positionFromRect={positionFromRect} hideTip={hideTip}
+      handlers={handlers}
     >
       {hasReread && <span className="reread-dot" />}
     </TouchAwareCell>
@@ -80,7 +74,7 @@ function buildPairsBySefer(
 
 export default function DoubleParshaGrid() {
   const { allRows, pairs, parshaById, SEFER_ORDER, SEFER_MAP, TLIT } = useApp();
-  const { tip, tipPos, showDoublePairTip, moveTipPos, positionFromRect, hideTip } = useAliyahTooltip();
+  const { tip, tipPos, showDoublePairTip, handlers } = useAliyahTooltip();
 
   const parshaToSefer: Record<string, string> = {};
   for (const r of allRows) parshaToSefer[r.parsha] = r.sefer;
@@ -133,9 +127,7 @@ export default function DoubleParshaGrid() {
                         aliyahNum={ca}
                         pairTotalPseukim={pairTotalPs}
                         showDoublePairTip={showDoublePairTip}
-                        moveTipPos={moveTipPos}
-                        positionFromRect={positionFromRect}
-                        hideTip={hideTip}
+                        handlers={handlers}
                       />
                     ))}
                   </div>

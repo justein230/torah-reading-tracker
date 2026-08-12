@@ -1,24 +1,38 @@
 import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody } from '../types/index.js';
 
+// ── fetch helpers ────────────────────────────────────────────────────────────
+// Every function below is a thin wrapper around one of these four shapes:
+// plain GET, a mutation that returns JSON on success, a mutation whose success
+// body is ignored (void), and a DELETE that reports a fixed error message.
+
+const getJson = <T>(path: string): Promise<T> => fetch(path).then(r => r.json() as Promise<T>);
+
+async function mutateJson<T>(path: string, method: string, body: unknown, fallback: string): Promise<T> {
+  const res = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) throw await res.json().catch(() => ({ detail: fallback }));
+  return res.json();
+}
+
+async function mutateVoid(path: string, method: string, body: unknown, fallback: string): Promise<void> {
+  const res = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) throw await res.json().catch(() => ({ detail: fallback }));
+}
+
+async function del(path: string, fallback: string): Promise<void> {
+  const res = await fetch(path, { method: 'DELETE' });
+  if (!res.ok && res.status !== 204) throw Object.assign(new Error(fallback), { detail: fallback });
+}
+
+// ── reading catalog / stats ───────────────────────────────────────────────────
+
 export async function fetchCanWrite(): Promise<boolean> {
   return fetch('/api/can-write').then(r => r.json()).then(r => r.canWrite).catch(() => false);
 }
 
-export async function fetchMeta(): Promise<MetaResult> {
-  return fetch('/api/meta').then(r => r.json());
-}
-
-export async function fetchAliyot(): Promise<RawRow[]> {
-  return fetch('/api/aliyot').then(r => r.json());
-}
-
-export async function fetchReadings(): Promise<ReadingRecord[]> {
-  return fetch('/api/readings').then(r => r.json());
-}
-
-export async function fetchLocationStats(): Promise<LocationStat[]> {
-  return fetch('/api/stats/location').then(r => r.json());
-}
+export const fetchMeta          = (): Promise<MetaResult>              => getJson('/api/meta');
+export const fetchAliyot        = (): Promise<RawRow[]>                => getJson('/api/aliyot');
+export const fetchReadings      = (): Promise<ReadingRecord[]>         => getJson('/api/readings');
+export const fetchLocationStats = (): Promise<LocationStat[]>          => getJson('/api/stats/location');
 
 export async function fetchHebcal(): Promise<{ schedule: Record<string, string> }> {
   const res = await fetch('/api/hebcal');
@@ -26,110 +40,44 @@ export async function fetchHebcal(): Promise<{ schedule: Record<string, string> 
   return res.json();
 }
 
-export async function postReading(body: PostReadingBody): Promise<{ id: number; reading_type: string }> {
-  const res = await fetch('/api/readings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw await res.json().catch(() => ({ detail: 'Error adding reading.' }));
-  return res.json();
-}
+// ── standard readings ─────────────────────────────────────────────────────────
 
-export async function putReading(id: number, body: PutReadingBody): Promise<{ id: number }> {
-  const res = await fetch(`/api/readings/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw await res.json().catch(() => ({ detail: 'Error updating reading.' }));
-  return res.json();
-}
+export const postReading   = (body: PostReadingBody): Promise<{ id: number; reading_type: string }> =>
+  mutateJson('/api/readings', 'POST', body, 'Error adding reading.');
+export const putReading    = (id: number, body: PutReadingBody): Promise<{ id: number }> =>
+  mutateJson(`/api/readings/${id}`, 'PUT', body, 'Error updating reading.');
+export const deleteReading = (id: number): Promise<void> =>
+  del(`/api/readings/${id}`, 'Error deleting reading.');
 
-export async function deleteReading(id: number): Promise<void> {
-  const res = await fetch(`/api/readings/${id}`, { method: 'DELETE' });
-  if (!res.ok && res.status !== 204) throw Object.assign(new Error('Error deleting reading.'), { detail: 'Error deleting reading.' });
-}
+// ── occasions / special readings ──────────────────────────────────────────────
 
-export async function fetchOccasions(): Promise<OccasionRecord[]> {
-  return fetch('/api/occasions').then(r => r.json());
-}
+export const fetchOccasions         = (): Promise<OccasionRecord[]>          => getJson('/api/occasions');
+export const fetchOccasionAliyot    = (): Promise<RawOccasionAliyahRow[]>    => getJson('/api/occasion-aliyot');
+export const fetchSpecialReadings   = (): Promise<RawSpecialReadingRow[]>    => getJson('/api/readings/special');
 
-export async function fetchOccasionAliyot(): Promise<RawOccasionAliyahRow[]> {
-  return fetch('/api/occasion-aliyot').then(r => r.json());
-}
+export const postSpecialReading   = (body: PostSpecialReadingBody): Promise<{ id: number }> =>
+  mutateJson('/api/readings/special', 'POST', body, 'Error adding special reading.');
+export const deleteSpecialReading = (id: number): Promise<void> =>
+  del(`/api/readings/special/${id}`, 'Error deleting special reading.');
 
-export async function fetchSpecialReadings(): Promise<RawSpecialReadingRow[]> {
-  return fetch('/api/readings/special').then(r => r.json());
-}
+// ── weekday readings ──────────────────────────────────────────────────────────
 
-export async function postSpecialReading(body: PostSpecialReadingBody): Promise<{ id: number }> {
-  const res = await fetch('/api/readings/special', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw await res.json().catch(() => ({ detail: 'Error adding special reading.' }));
-  return res.json();
-}
+export const fetchWeekdayAliyot = (): Promise<RawWeekdayAliyahRow[]> => getJson('/api/weekday-aliyot');
 
-export async function deleteSpecialReading(id: number): Promise<void> {
-  const res = await fetch(`/api/readings/special/${id}`, { method: 'DELETE' });
-  if (!res.ok && res.status !== 204) throw Object.assign(new Error('Error deleting special reading.'), { detail: 'Error deleting special reading.' });
-}
+export const postWeekdayReading = (body: PostWeekdayReadingBody): Promise<{ id: number }> =>
+  mutateJson('/api/readings/weekday', 'POST', body, 'Error adding weekday reading.');
+export const putWeekdayReading  = (id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> =>
+  mutateVoid(`/api/readings/weekday/${id}`, 'PUT', body, 'Error updating weekday reading.');
+export const deleteWeekdayReading = (id: number): Promise<void> =>
+  del(`/api/readings/weekday/${id}`, 'Error deleting weekday reading.');
 
-export async function fetchWeekdayAliyot(): Promise<RawWeekdayAliyahRow[]> {
-  return fetch('/api/weekday-aliyot').then(r => r.json());
-}
+// ── hosafot readings ──────────────────────────────────────────────────────────
 
-export async function postWeekdayReading(body: PostWeekdayReadingBody): Promise<{ id: number }> {
-  const res = await fetch('/api/readings/weekday', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw await res.json().catch(() => ({ detail: 'Error adding weekday reading.' }));
-  return res.json();
-}
+export const fetchHosafotReadings = (): Promise<RawHosafahRow[]> => getJson('/api/readings/hosafot');
 
-export async function putWeekdayReading(id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> {
-  const res = await fetch(`/api/readings/weekday/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw await res.json().catch(() => ({ detail: 'Error updating weekday reading.' }));
-}
-
-export async function deleteWeekdayReading(id: number): Promise<void> {
-  const res = await fetch(`/api/readings/weekday/${id}`, { method: 'DELETE' });
-  if (!res.ok && res.status !== 204) throw Object.assign(new Error('Error deleting weekday reading.'), { detail: 'Error deleting weekday reading.' });
-}
-
-export async function fetchHosafotReadings(): Promise<RawHosafahRow[]> {
-  return fetch('/api/readings/hosafot').then(r => r.json());
-}
-
-export async function postHosafah(body: PostHosafahBody): Promise<{ id: number }> {
-  const res = await fetch('/api/readings/hosafot', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw await res.json().catch(() => ({ detail: 'Error adding hosafah reading.' }));
-  return res.json();
-}
-
-export async function putHosafah(id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> {
-  const res = await fetch(`/api/readings/hosafot/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw await res.json().catch(() => ({ detail: 'Error updating hosafah reading.' }));
-}
-
-export async function deleteHosafah(id: number): Promise<void> {
-  const res = await fetch(`/api/readings/hosafot/${id}`, { method: 'DELETE' });
-  if (!res.ok && res.status !== 204) throw Object.assign(new Error('Error deleting hosafah reading.'), { detail: 'Error deleting hosafah reading.' });
-}
+export const postHosafah   = (body: PostHosafahBody): Promise<{ id: number }> =>
+  mutateJson('/api/readings/hosafot', 'POST', body, 'Error adding hosafah reading.');
+export const putHosafah    = (id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> =>
+  mutateVoid(`/api/readings/hosafot/${id}`, 'PUT', body, 'Error updating hosafah reading.');
+export const deleteHosafah = (id: number): Promise<void> =>
+  del(`/api/readings/hosafot/${id}`, 'Error deleting hosafah reading.');

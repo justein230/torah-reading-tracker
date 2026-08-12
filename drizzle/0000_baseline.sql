@@ -186,7 +186,7 @@ CREATE VIEW `v_aliyot` AS
     COALESCE(pp.name_en, '')                                                AS pair_name_en,
     a.combined_aliyah,
     a.pseukim,
-    ROUND(CAST(a.pseukim AS REAL) / (SELECT SUM(pseukim) FROM aliyot) * 100, 6) AS pct
+    ROUND(CAST(a.pseukim AS REAL) / (SELECT SUM(pseukim) FROM aliyot WHERE aliyah != 8) * 100, 6) AS pct
   FROM aliyot a
   JOIN parshiot    p  ON p.id  = a.parsha_id
   JOIN sefarim     s  ON s.id  = p.sefer_id

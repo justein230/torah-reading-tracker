@@ -101,6 +101,7 @@ function dpComponent(over: Partial<DisplayEntry>): DisplayEntry {
     pseukim: 0, pct: 0, occasion: '', location: '', reread: false,
     displayDate: '2024-04-13', displayYear: 2024,
     ...over,
+    kind: over.kind ?? 'standard',
   };
 }
 
@@ -164,7 +165,7 @@ describe('groupDoubleParsha', () => {
   it('leaves non-double-parsha entries as singles', () => {
     const single: DisplayEntry = {
       sefer: 'Genesis', parsha: 'Bereishit', aliyah: 1, pairName: '', pairNameEn: '', combinedAliyah: null,
-      pseukim: 10, pct: 1, occasion: '', location: '', reread: false, displayDate: '2024-04-13', displayYear: 2024,
+      pseukim: 10, pct: 1, occasion: '', location: '', reread: false, displayDate: '2024-04-13', displayYear: 2024, kind: 'standard',
     };
     const { combined, singles } = groupDoubleParsha([single]);
     expect(combined).toHaveLength(0);

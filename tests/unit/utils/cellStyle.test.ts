@@ -1,7 +1,32 @@
 import { describe, it, expect } from 'vitest';
-import { aliyahCellStyle, fmtPct } from '../../../src/utils.js';
+import { aliyahCellStyle, aliyahState, fmtPct } from '../../../src/utils.js';
 
 const COLOR = '#4a7c59';
+
+// ── aliyahState ───────────────────────────────────────────────────────────────
+
+describe('aliyahState', () => {
+  it('isReadPast wins over everything else', () => {
+    expect(aliyahState({ isReadPast: true, isReadFuture: true, partialOrig: 'x' })).toBe('read');
+  });
+
+  it('isReadFuture wins over partialOrig', () => {
+    expect(aliyahState({ isReadPast: false, isReadFuture: true, partialOrig: 'x' })).toBe('future');
+  });
+
+  it('partialOrig wins over unread', () => {
+    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: 'x' })).toBe('partial');
+  });
+
+  it('falls back to unread when nothing is set', () => {
+    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: '' })).toBe('unread');
+  });
+
+  it('accepts a boolean partialOrig (e.g. isAliyahPartial result)', () => {
+    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: true })).toBe('partial');
+    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: false })).toBe('unread');
+  });
+});
 
 // ── aliyahCellStyle ───────────────────────────────────────────────────────────
 

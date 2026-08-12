@@ -1,3 +1,10 @@
+/* Collapsible "Add a Reading" card at the top of the log — reuses .collapsible-row chrome but matches
+   the app's .card-surface palette (--surface fill, subtler --surface2 borders) so the header and body
+   read as one continuous card instead of a light bar over a dark box. */
+.add-reading-section { margin-bottom: 24px; }
+.add-reading-section .collapsible-summary { background: var(--surface); border: 1px solid var(--surface2); }
+.add-reading-body { background: var(--surface); padding: 16px; border: 1px solid var(--surface2); border-top: none; border-radius: 0 0 10px 10px; }
+
 .upcoming-section { margin-bottom: 36px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; border-left: 4px solid #60a5fa; }
 .upcoming-hdr { font-size: 14px; font-weight: 700; color: #60a5fa; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 16px; }
 .upcoming-section .year-group { margin-bottom: 16px; }

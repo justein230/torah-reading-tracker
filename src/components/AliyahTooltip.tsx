@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext.js';
 import { fmtDate, fmtAliyah, fmtPct } from '../utils.js';
 import { positionTooltip } from '../utils/tooltip.js';
@@ -6,6 +6,13 @@ import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, TipData, Tip
 import './AliyahTooltip.css';
 
 export const isTouch = globalThis.window !== undefined && globalThis.matchMedia('(pointer: coarse)').matches;
+
+/** Bundled tooltip event handlers threaded through grid cells as a single prop. */
+export interface CellHandlers {
+  moveTipPos: (e: React.MouseEvent) => void;
+  positionFromRect: (rect: DOMRect) => void;
+  hideTip: () => void;
+}
 
 
 const ALIYAH_TIP_W = 220; /* aliyah tooltip width in px */
@@ -147,7 +154,13 @@ export function useAliyahTooltip() {
     return () => document.removeEventListener('click', onDocClick);
   }, [hideTip]);
 
-  return { tip, tipPos, showTip, showOccasionTip, showWeekdayTip, showDoublePairTip, moveTipPos, positionFromRect, hideTip };
+  // Bundled so grids can thread one prop through their cell components instead of three.
+  const handlers = useMemo<CellHandlers>(
+    () => ({ moveTipPos, positionFromRect, hideTip }),
+    [moveTipPos, positionFromRect, hideTip],
+  );
+
+  return { tip, tipPos, showTip, showOccasionTip, showWeekdayTip, showDoublePairTip, moveTipPos, positionFromRect, hideTip, handlers };
 }
 
 interface TouchAwareCellProps {
@@ -157,12 +170,11 @@ interface TouchAwareCellProps {
   readonly dashed?: boolean;
   readonly children?: React.ReactNode;
   readonly onShowTip: (e: React.MouseEvent | React.TouchEvent) => void;
-  readonly moveTipPos: (e: React.MouseEvent) => void;
-  readonly positionFromRect: (rect: DOMRect) => void;
-  readonly hideTip: () => void;
+  readonly handlers: CellHandlers;
 }
 
-export function TouchAwareCell({ bg, border, op = 1, dashed, children, onShowTip, moveTipPos, positionFromRect, hideTip }: TouchAwareCellProps) {
+export function TouchAwareCell({ bg, border, op = 1, dashed, children, onShowTip, handlers }: TouchAwareCellProps) {
+  const { moveTipPos, positionFromRect, hideTip } = handlers;
   function handleTouchClick(e: React.MouseEvent<HTMLButtonElement>) {
     document.querySelectorAll('.acell-raised').forEach(el => el.classList.remove('acell-raised'));
     e.currentTarget.classList.add('acell-raised');

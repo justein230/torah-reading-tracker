@@ -7,10 +7,9 @@ import { exportExcel, exportDb } from '../utils/export.js';
 interface SettingsDrawerProps {
   readonly opened: boolean;
   readonly onClose: () => void;
-  readonly onManageReadings: () => void;
 }
 
-export default function SettingsDrawer({ opened, onClose, onManageReadings }: SettingsDrawerProps) {
+export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps) {
   const { SEFER_ORDER, SEFER_MAP, allYears, filters, setFilters } = useApp();
   const [canWrite, setCanWrite]   = useState(false);
   const [exporting, setExporting] = useState<'excel' | 'db' | null>(null);
@@ -115,12 +114,6 @@ export default function SettingsDrawer({ opened, onClose, onManageReadings }: Se
 
         <Button variant="subtle" color="gray" onClick={reset}>
           Reset all filters
-        </Button>
-
-        <Divider />
-        <Text size="xs" tt="uppercase" fw={600} c="dimmed" lts={1}>Data</Text>
-        <Button variant="light" color="gray" fullWidth onClick={onManageReadings}>
-          Manage Readings
         </Button>
 
         {canWrite && (

@@ -1,20 +1,17 @@
 import { Box } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
-import { useAliyahTooltip, AliyahTooltip, TouchAwareCell } from './AliyahTooltip.js';
+import { useAliyahTooltip, AliyahTooltip, TouchAwareCell, type CellHandlers } from './AliyahTooltip.js';
 import { GridLegend } from './GridLegend.js';
 import { SeferSection } from './shared/SeferSection.js';
-import { versesOverlap, aliyahCellStyle, fmtPct } from '../utils.js';
+import { versesOverlap, aliyahCellStyle, aliyahState, fmtPct } from '../utils.js';
 import type { MappedWeekdayAliyah } from '../types/index.js';
 import './Grid.css';
 
 type CoveredBy = { date: string; label: string };
 
 function cellColors(wa: MappedWeekdayAliyah, coveredBy: CoveredBy | undefined, color: string) {
-  let state: 'read' | 'future' | 'partial' | 'unread';
-  if (wa.isReadPast || coveredBy) state = 'read';
-  else if (wa.isReadFuture)       state = 'future';
-  else if (wa.partialOrig)        state = 'partial';
-  else                            state = 'unread';
+  // coveredBy (a Shabbat/holiday reading that includes this weekday aliyah) counts as read.
+  const state = aliyahState({ isReadPast: wa.isReadPast || !!coveredBy, isReadFuture: wa.isReadFuture, partialOrig: wa.partialOrig });
   return { ...aliyahCellStyle(state, color), op: 1 };
 }
 
@@ -25,20 +22,16 @@ interface WeekdayCellProps {
   coveredBy: CoveredBy | undefined;
   color: string;
   showWeekdayTip: ShowWeekdayTip;
-  moveTipPos: (e: React.MouseEvent) => void;
-  positionFromRect: (rect: DOMRect) => void;
-  hideTip: () => void;
+  handlers: CellHandlers;
 }
 
-function WeekdayCell({ wa, coveredBy, color, showWeekdayTip, moveTipPos, positionFromRect, hideTip }: Readonly<WeekdayCellProps>) {
+function WeekdayCell({ wa, coveredBy, color, showWeekdayTip, handlers }: Readonly<WeekdayCellProps>) {
   const { bg, border, op, dashed } = cellColors(wa, coveredBy, color);
   return (
     <TouchAwareCell
       bg={bg} border={border} op={op} dashed={dashed}
       onShowTip={(e: React.MouseEvent | React.TouchEvent) => showWeekdayTip(e, wa, coveredBy)}
-      moveTipPos={moveTipPos}
-      positionFromRect={positionFromRect}
-      hideTip={hideTip}
+      handlers={handlers}
     >
       {wa.isReadPast && wa.hasFuture && <span className="reread-dot" />}
     </TouchAwareCell>
@@ -65,7 +58,7 @@ function buildHolidayCoverById(
 
 export default function WeekdayGrid() {
   const { weekdayAliyot, occasionAliyot, allRows, SEFER_ORDER, SEFER_MAP, parshaIndex } = useApp();
-  const { tip, tipPos, showWeekdayTip, moveTipPos, positionFromRect, hideTip } = useAliyahTooltip();
+  const { tip, tipPos, showWeekdayTip, handlers } = useAliyahTooltip();
 
   const waByParsha: Record<string, MappedWeekdayAliyah[]> = {};
   for (const wa of weekdayAliyot) {
@@ -120,9 +113,7 @@ export default function WeekdayGrid() {
                           key={wa.id}
                           wa={wa} coveredBy={coveredBy} color={color}
                           showWeekdayTip={showWeekdayTip}
-                          moveTipPos={moveTipPos}
-                          positionFromRect={positionFromRect}
-                          hideTip={hideTip}
+                          handlers={handlers}
                         />
                       );
                     })}

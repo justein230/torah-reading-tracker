@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchMeta, fetchAliyot, fetchHebcal, mapRow, enrichRows, mapOccasionAliyahRow, mapSpecialReadingRow,
          mapWeekdayAliyahRow, mapHosafahRow, fetchOccasions, fetchOccasionAliyot, fetchSpecialReadings,
-         fetchWeekdayAliyot } from '../api.js';
-import { fetchHosafotReadings } from '../db/web.js';
+         fetchWeekdayAliyot, fetchHosafotReadings } from '../api.js';
 import { computeStats, enrichPartialOrig, enrichOccasionPartialOrig, enrichWeekdayPartialOrig, enrichHosafotPartialOrig } from '../compute.js';
 import { TABS } from '../constants.js';
 import type { AppContextValue, MappedRow, MappedOccasionAliyah, MappedHosafah, OccasionRecord, SpecialReadingRecord,

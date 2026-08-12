@@ -20,6 +20,13 @@ export function fmtDate(dateStr: string): string {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/** Long-form date for delete-confirm previews, e.g. "January 5, 2026". Expects a 'YYYY-MM-DD' string. */
+export function fmtLongDate(dateStr: string | null | undefined): string {
+  return dateStr
+    ? new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '—';
+}
+
 export function hex(c: string, a: number): string {
   return c + Math.round(a * 255).toString(16).padStart(2, '0');
 }
@@ -36,6 +43,18 @@ export function partialBg(color: string): string     { return color + '44'; }
 export function partialBorder(color: string): string  { return color + 'aa'; }
 
 export type AliyahCellState = 'read' | 'future' | 'partial' | 'unread';
+
+/**
+ * Reduces a cell's read/future/partial flags to a single AliyahCellState.
+ * Callers fold any grid-specific extras (e.g. "covered by a holiday reading" counting as
+ * read, or hasFuture counting as future) into isReadPast/isReadFuture before calling this.
+ */
+export function aliyahState(item: { isReadPast: boolean; isReadFuture: boolean; partialOrig: string | boolean }): AliyahCellState {
+  if (item.isReadPast)   return 'read';
+  if (item.isReadFuture) return 'future';
+  if (item.partialOrig)  return 'partial';
+  return 'unread';
+}
 
 /** Maps a cell's read-state to its background/border/dash styling. */
 export function aliyahCellStyle(state: AliyahCellState, color: string): { bg: string; border: string; dashed: boolean } {

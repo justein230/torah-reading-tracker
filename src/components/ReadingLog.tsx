@@ -1,17 +1,22 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import './ReadingLog.css';
-import { Box } from '@mantine/core';
+import { Box, Modal, ActionIcon, Group, Text } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
 import { fmtDate } from '../utils.js';
 import { TODAY_STR } from '../api.js';
 import { EmptyState } from './shared/EmptyState.js';
 import { CollapsibleRow } from './shared/CollapsibleRow.js';
 import { ReadingRow } from './shared/ReadingRow.js';
+import { AddReadingForm } from './AddReadingForm.js';
+import { useReadingCrud, readingKey } from '../hooks/useReadingCrud.js';
 import {
   collectReadings, collectSpecialEntries, collectWeekdayEntries, collectHosafotEntries,
   groupDoubleParsha, type DisplayEntry, type CombinedAliyah,
 } from '../utils/logEntries.js';
 import type { LogEntry, SeferMeta } from '../types/index.js';
+
+/** A closure that returns the edit/delete controls for one display row, or null when not actionable. */
+type RowActions = (e: DisplayEntry) => React.ReactNode;
 
 /** Pseukim/pct of a displayed top-level row, with maftir (aliyah 8) excluded to avoid double-counting. */
 const countablePseukim = (r: DisplayEntry): number => (Number(r.aliyah) === 8 ? 0 : r.pseukim);
@@ -66,9 +71,10 @@ interface DayCardProps {
   sefers: string[];
   occasions: string[];
   mainColor: string;
+  rowActions?: RowActions;
 }
 
-function DayCard({ dateStr, day, dayPseukim, dayPct, sefers, occasions, mainColor }: Readonly<DayCardProps>) {
+function DayCard({ dateStr, day, dayPseukim, dayPct, sefers, occasions, mainColor, rowActions }: Readonly<DayCardProps>) {
   const { SEFER_MAP } = useApp();
   const verseRangeStr = buildVerseRangeStr(day);
   const parshiot = [...new Set(day.map(r => r.parsha).filter(Boolean))];
@@ -109,14 +115,14 @@ function DayCard({ dateStr, day, dayPseukim, dayPct, sefers, occasions, mainColo
   return (
     <CollapsibleRow summary={summary} accentColor={mainColor}>
       <div className="day-breakdown">
-        {day.map(r => <ReadingRow key={`${r.parsha}-${r.aliyah}`} r={r as LogEntry} compact />)}
+        {day.map(r => <ReadingRow key={`${r.parsha}-${r.aliyah}`} r={r as LogEntry} compact actions={rowActions?.(r)} />)}
       </div>
     </CollapsibleRow>
   );
 }
 
 /** One double-parsha combined aliyah: summary row that expands to its component weekend aliyot. */
-function CombinedAliyahCard({ group }: Readonly<{ group: CombinedAliyah }>) {
+function CombinedAliyahCard({ group, rowActions }: Readonly<{ group: CombinedAliyah; rowActions?: RowActions }>) {
   const { SEFER_MAP } = useApp();
   const s = group.summary;
   const seferMeta = SEFER_MAP[s.sefer];
@@ -152,7 +158,7 @@ function CombinedAliyahCard({ group }: Readonly<{ group: CombinedAliyah }>) {
     <CollapsibleRow summary={summary} accentColor={mainColor}>
       <div className="day-breakdown">
         {group.components.map(c => (
-          <ReadingRow key={`${c.parsha}-${c.aliyah}-${c.displayDate}`} r={c} compact />
+          <ReadingRow key={`${c.parsha}-${c.aliyah}-${c.displayDate}`} r={c} compact actions={rowActions?.(c)} />
         ))}
       </div>
     </CollapsibleRow>
@@ -193,9 +199,10 @@ interface YearGroupProps {
   yr: number;
   group: DisplayEntry[];
   SEFER_MAP: Record<string, SeferMeta>;
+  rowActions?: RowActions;
 }
 
-function YearGroup({ yr, group, SEFER_MAP }: Readonly<YearGroupProps>) {
+function YearGroup({ yr, group, SEFER_MAP, rowActions }: Readonly<YearGroupProps>) {
   const days = groupYearByDate(group);
 
   // Year totals run over the displayed top-level rows (combined summaries + singles) so a
@@ -212,8 +219,8 @@ function YearGroup({ yr, group, SEFER_MAP }: Readonly<YearGroupProps>) {
       </div>
       {days.map(({ dateStr, combined, singles }) => (
         <React.Fragment key={dateStr}>
-          {combined.map(g => <CombinedAliyahCard key={`${g.summary.pairNameEn}-${g.summary.combinedAliyah}`} group={g} />)}
-          {renderSingles(dateStr, singles, combined.length > 0, SEFER_MAP)}
+          {combined.map(g => <CombinedAliyahCard key={`${g.summary.pairNameEn}-${g.summary.combinedAliyah}`} group={g} rowActions={rowActions} />)}
+          {renderSingles(dateStr, singles, combined.length > 0, SEFER_MAP, rowActions)}
         </React.Fragment>
       ))}
     </div>
@@ -230,11 +237,12 @@ function renderSingles(
   singles: DisplayEntry[],
   hasCombined: boolean,
   SEFER_MAP: Record<string, SeferMeta>,
+  rowActions?: RowActions,
 ): React.ReactNode {
   if (singles.length === 0) return null;
 
   if (hasCombined || singles.length === 1) {
-    return singles.map(r => <ReadingRow key={`${r.displayDate}-${r.parsha}-${r.aliyah}`} r={r} />);
+    return singles.map(r => <ReadingRow key={`${r.displayDate}-${r.parsha}-${r.aliyah}`} r={r} actions={rowActions?.(r)} />);
   }
 
   const dayPseukim = singles.reduce((s, r) => s + countablePseukim(r), 0);
@@ -243,12 +251,24 @@ function renderSingles(
   const occasions  = [...new Set(singles.map(r => r.occasion).filter(Boolean))];
   const mainColor  = SEFER_MAP[sefers[0] ?? '']?.color ?? '#888';
   return (
-    <DayCard dateStr={dateStr} day={singles} dayPseukim={dayPseukim} dayPct={dayPct} sefers={sefers} occasions={occasions} mainColor={mainColor} />
+    <DayCard dateStr={dateStr} day={singles} dayPseukim={dayPseukim} dayPct={dayPct} sefers={sefers} occasions={occasions} mainColor={mainColor} rowActions={rowActions} />
+  );
+}
+
+/** The paired edit/delete controls rendered in a row's actions slot. */
+function editDeleteIcons(onEdit: () => void, onDelete: () => void): React.ReactNode {
+  return (
+    <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
+      <ActionIcon variant="subtle" onClick={onEdit} title="Edit">✏️</ActionIcon>
+      <ActionIcon variant="subtle" color="red" onClick={onDelete} title="Delete">🗑️</ActionIcon>
+    </Group>
   );
 }
 
 export default function ReadingLog() {
   const { allRows, SEFER_MAP, filters, specialReadings, weekdayAliyot, occasionAliyot, hosafotReadings, stats } = useApp();
+  const crud = useReadingCrud();
+
   const readings = [
     ...collectReadings(allRows, filters),
     ...collectSpecialEntries(specialReadings, occasionAliyot, stats, filters),
@@ -256,9 +276,50 @@ export default function ReadingLog() {
     ...collectHosafotEntries(hosafotReadings, stats, filters),
   ].sort((a, b) => (b.displayDate ?? '').localeCompare(a.displayDate ?? ''));
 
-  if (readings.length === 0) {
-    return <EmptyState icon="📖" message="No readings match the current filters." />;
+  // Resolve a display row's `recordId` back to its full source record so edit/delete get the object
+  // their handlers expect. Standard rows carry no id and are looked up by parsha|aliyah|date instead.
+  const specialById = useMemo(() => new Map(specialReadings.map(sr => [sr.id, sr] as const)), [specialReadings]);
+  const weekdayById = useMemo(() => new Map(weekdayAliyot.map(wa => [wa.readingId, wa] as const)), [weekdayAliyot]);
+  const hosafahById = useMemo(() => new Map(hosafotReadings.map(hr => [hr.id, hr] as const)), [hosafotReadings]);
+
+  function standardActions(e: DisplayEntry): React.ReactNode {
+    const rec = crud.readingsById.get(readingKey(e.parsha, e.aliyah, e.displayDate));
+    if (!rec) return null;
+    const color = SEFER_MAP[e.sefer]?.color ?? 'var(--muted)';
+    return editDeleteIcons(() => crud.edit.startEdit(rec), () => crud.confirmDelete(rec, color));
   }
+
+  function holidayActions(e: DisplayEntry): React.ReactNode {
+    const sr = e.recordId == null ? undefined : specialById.get(e.recordId);
+    if (!sr) return null;
+    return editDeleteIcons(() => crud.edit.startEditSpecial(sr), () => crud.confirmDeleteSpecial(sr));
+  }
+
+  function weekdayActions(e: DisplayEntry): React.ReactNode {
+    const wa = e.recordId == null ? undefined : weekdayById.get(e.recordId);
+    if (!wa) return null;
+    return editDeleteIcons(() => crud.edit.startEditWeekday(wa), () => crud.confirmDeleteWeekday(wa.readingId, `${wa.parshaEn} · aliyah ${wa.aliyahNum}`));
+  }
+
+  function hosafahActions(e: DisplayEntry): React.ReactNode {
+    const hr = e.recordId == null ? undefined : hosafahById.get(e.recordId);
+    if (!hr) return null;
+    const verseRange = `${hr.chapterStart}:${hr.verseStart}–${hr.chapterEnd}:${hr.verseEnd}`;
+    return editDeleteIcons(() => crud.edit.startEditHosafah(hr), () => crud.confirmDeleteHosafah(hr.id, `${hr.parsha1En} · ${verseRange}`));
+  }
+
+  function rowActionsFor(e: DisplayEntry): React.ReactNode {
+    if (e.isDoubleParsha) return null; // aggregate summary — edit/delete live on the component rows
+    switch (e.kind) {
+      case 'standard': return standardActions(e);
+      case 'holiday':  return holidayActions(e);
+      case 'weekday':  return weekdayActions(e);
+      case 'hosafah':  return hosafahActions(e);
+      default:         return null;
+    }
+  }
+
+  const rowActions: RowActions | undefined = crud.canWrite ? rowActionsFor : undefined;
 
   const upcoming = [...readings.filter(r => r.displayDate > TODAY_STR)]
     .sort((a, b) => new Date(a.displayDate).getTime() - new Date(b.displayDate).getTime());
@@ -270,17 +331,50 @@ export default function ReadingLog() {
 
   return (
     <Box>
-      {upcomingYears.length > 0 && (
-        <div className="upcoming-section">
-          <div className="upcoming-hdr">Upcoming Readings</div>
-          {upcomingYears.map(yr => (
-            <YearGroup key={yr} yr={yr} group={byYearUpcoming[yr]!} SEFER_MAP={SEFER_MAP} />
-          ))}
-        </div>
+      {crud.canWrite && (
+        <>
+          <div className="add-reading-section">
+            <CollapsibleRow summary={<Text fw={600}>Add a Reading</Text>}>
+              <div className="add-reading-body">
+                <AddReadingForm
+                  form={crud.add.form} setField={crud.add.setField} editId={null} recreate={false} locked={false} msg={crud.add.msg}
+                  formTitle="Add Reading" submitLabel="Add Reading"
+                  doRecreate={() => {}} submit={() => void crud.add.submit()} resetForm={crud.add.reset}
+                  parshaOptions={crud.addOptions.parshaOptions} aliyahOptions={crud.addOptions.aliyahOptions}
+                  inModal
+                />
+              </div>
+            </CollapsibleRow>
+          </div>
+          <Modal opened={crud.edit.open} onClose={crud.edit.close} title={crud.edit.formTitle} size="lg" centered>
+            <AddReadingForm
+              form={crud.edit.form} setField={crud.edit.setField} editId={crud.edit.editId} recreate={crud.edit.recreate} locked={crud.edit.locked} msg={crud.edit.msg}
+              formTitle={crud.edit.formTitle} submitLabel={crud.edit.submitLabel}
+              doRecreate={crud.edit.doRecreate} submit={() => void crud.edit.submit()} resetForm={crud.edit.close}
+              parshaOptions={crud.editOptions.parshaOptions} aliyahOptions={crud.editOptions.aliyahOptions}
+              inModal
+            />
+          </Modal>
+        </>
       )}
-      {pastYears.map(yr => (
-        <YearGroup key={yr} yr={yr} group={byYearPast[yr]!} SEFER_MAP={SEFER_MAP} />
-      ))}
+
+      {readings.length === 0 ? (
+        <EmptyState icon="📖" message="No readings match the current filters." />
+      ) : (
+        <>
+          {upcomingYears.length > 0 && (
+            <div className="upcoming-section">
+              <div className="upcoming-hdr">Upcoming Readings</div>
+              {upcomingYears.map(yr => (
+                <YearGroup key={yr} yr={yr} group={byYearUpcoming[yr]!} SEFER_MAP={SEFER_MAP} rowActions={rowActions} />
+              ))}
+            </div>
+          )}
+          {pastYears.map(yr => (
+            <YearGroup key={yr} yr={yr} group={byYearPast[yr]!} SEFER_MAP={SEFER_MAP} rowActions={rowActions} />
+          ))}
+        </>
+      )}
     </Box>
   );
 }

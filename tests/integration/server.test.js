@@ -221,6 +221,42 @@ describe('GET /api/stats/location', () => {
     expect(shul).toBeDefined();
     expect(typeof shul.count).toBe('number');
   });
+
+  it('counts weekday and hosafot readings alongside standard and special readings', async () => {
+    const weekdayAliyahId = (await request(app).get('/api/weekday-aliyot')).body[0].id;
+
+    await request(app).post('/api/readings')
+      .send({ parsha: 'בראשית', aliyah: 1, date_read: '2024-01-01', location: 'Shul' });
+    await request(app).post('/api/readings/weekday')
+      .send({ weekday_aliyah_id: weekdayAliyahId, date_read: '2024-01-02', location: 'Shul' });
+    await request(app).post('/api/readings/hosafot')
+      .send({
+        sefer: 'בראשית', chapter_start: 1, verse_start: 1, chapter_end: 1, verse_end: 5,
+        pseukim: 5, date_read: '2024-01-03', location: 'Shul',
+      });
+
+    const res  = await request(app).get('/api/stats/location');
+    const shul = res.body.find(r => r.location === 'Shul');
+    expect(shul.count).toBe(3);
+    expect(shul.past_count).toBe(3);
+  });
+
+  it('splits weekday and hosafot readings into past vs upcoming buckets', async () => {
+    const weekdayAliyahId = (await request(app).get('/api/weekday-aliyot')).body[0].id;
+
+    await request(app).post('/api/readings/weekday')
+      .send({ weekday_aliyah_id: weekdayAliyahId, date_read: '2024-01-02', location: 'Home' });
+    await request(app).post('/api/readings/hosafot')
+      .send({
+        sefer: 'בראשית', chapter_start: 1, verse_start: 1, chapter_end: 1, verse_end: 5,
+        pseukim: 5, date_read: '2099-01-03', location: 'Home',
+      });
+
+    const res  = await request(app).get('/api/stats/location');
+    const home = res.body.find(r => r.location === 'Home');
+    expect(home.past_count).toBe(1);
+    expect(home.upcoming_count).toBe(1);
+  });
 });
 
 // ── GET /api/hebcal ───────────────────────────────────────────────────────────
@@ -478,6 +514,20 @@ describe('POST /api/readings/hosafot', () => {
     const row = res.body.find(r => r.id === post.body.id);
     expect(row.is_double_parsha).toBe(1);
   });
+
+  it('returns 400 when chapter_start is not numeric', async () => {
+    const res = await request(app).post('/api/readings/hosafot')
+      .send({ ...HOSAFAH_BODY, chapter_start: 'abc' });
+    expect(res.status).toBe(400);
+    const after = await request(app).get('/api/readings/hosafot');
+    expect(after.body).toEqual([]);
+  });
+
+  it('returns 400 when pseukim is zero or negative', async () => {
+    const res = await request(app).post('/api/readings/hosafot')
+      .send({ ...HOSAFAH_BODY, pseukim: 0 });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('PUT /api/readings/hosafot/:id', () => {
@@ -517,6 +567,20 @@ describe('DELETE /api/readings/hosafot/:id', () => {
   it('returns 404 for a non-existent hosafah reading', async () => {
     const res = await request(app).delete('/api/readings/hosafot/999999');
     expect(res.status).toBe(404);
+  });
+});
+
+// ── error handler ─────────────────────────────────────────────────────────────
+
+describe('unhandled route errors', () => {
+  it('responds with a generic 500 and no stack trace', async () => {
+    // date_read is not a type better-sqlite3 can bind (string/number/bigint/buffer/null),
+    // so the insert throws a non-unique-constraint error that reaches the error middleware.
+    const res = await request(app).post('/api/readings')
+      .send({ parsha: 'בראשית', aliyah: 1, date_read: { not: 'a string' } });
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ detail: 'Internal error' });
+    expect(res.text).not.toMatch(/at .*\(.*:\d+:\d+\)/); // no stack frame leaked
   });
 });
 

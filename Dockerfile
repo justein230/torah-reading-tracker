@@ -17,7 +17,8 @@ COPY drizzle ./drizzle
 RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 3000
-ENV PORT=3000 \
+ENV NODE_ENV=production \
+    PORT=3000 \
     TORAH_HOST=0.0.0.0 \
     TORAH_DB_PATH=/data/torah.db
 

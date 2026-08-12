@@ -28,4 +28,8 @@ export const {
   postWeekdayReading,
   putWeekdayReading,
   deleteWeekdayReading,
+  fetchHosafotReadings,
+  postHosafah,
+  putHosafah,
+  deleteHosafah,
 } = impl;

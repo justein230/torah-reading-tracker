@@ -1,18 +1,14 @@
-import { useState, useEffect } from 'react';
-import './Manage.css';
-import { Box, Button, Modal, Stack, Text } from '@mantine/core';
+import { useState, useEffect, useMemo } from 'react';
+import { Button, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { useApp } from '../context/AppContext.js';
-import { fetchReadings, fetchCanWrite, deleteReading, deleteSpecialReading, deleteWeekdayReading, postWeekdayReading, putWeekdayReading } from '../api.js';
-import { postHosafah, deleteHosafah, putHosafah } from '../db/web.js';
+import { fetchReadings, fetchCanWrite, deleteReading, deleteSpecialReading, deleteWeekdayReading, postWeekdayReading, putWeekdayReading, postHosafah, deleteHosafah, putHosafah } from '../api.js';
 import { validateForm, submitReading, applyFieldChange } from '../utils/manage-utils.js';
-import { fmtAliyah, toDateStr } from '../utils.js';
+import { fmtAliyah, fmtLongDate, toDateStr } from '../utils.js';
 import { buildGroupedOptions } from '../utils/form-options.js';
-import { AddReadingForm } from './AddReadingForm.js';
-import { ManageList } from './ManageList.js';
-import type { ManageForm, MappedRow, ParshaPair, ReadingRecord, SpecialReadingRecord } from '../types/index.js';
+import type { ManageForm, MappedRow, ParshaPair, ReadingRecord, SpecialReadingRecord, MappedWeekdayAliyah, MappedHosafah } from '../types/index.js';
 
-const EMPTY_FORM: ManageForm = {
+export const EMPTY_FORM: ManageForm = {
   parsha: '', aliyah: [], date: null, occasion: '', location: '',
   readingType: 'standard', pairId: null,
   occasionId: null, occasionAliyahIds: [], isShabbatVariant: false,
@@ -20,6 +16,12 @@ const EMPTY_FORM: ManageForm = {
   hosafahOccasionId: null, hosafahIsDoubleParsha: false,
   hosafahChapterStart: '', hosafahVerseStart: '', hosafahChapterEnd: '', hosafahVerseEnd: '', hosafahPseukim: '',
 };
+
+const ERR_UNREACHABLE = 'The server could not be reached. Check your connection and try again.';
+
+/** Key used to recover a standard reading's DB id from a display row: unique per (aliyah, date). */
+export const readingKey = (parsha: string | number, aliyah: string | number, date: string): string =>
+  `${parsha}|${aliyah}|${date}`;
 
 function buildEditForm(r: ReadingRecord): ManageForm {
   return {
@@ -52,55 +54,18 @@ function runWithErrorModal(action: () => Promise<void>, fallback: string): void 
   })();
 }
 
-function openDeleteModal(r: ReadingRecord, color: string, onConfirm: () => void) {
-  const dateDisp = r.date_read
-    ? new Date(r.date_read + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    : '—';
+function confirmDeleteReading(opts: {
+  title: string;
+  body: React.ReactNode;
+  onDelete: () => Promise<void>;
+  errorFallback: string;
+}) {
   modals.openConfirmModal({
-    title: 'Delete reading',
-    children: (
-      <Stack gap={12}>
-        <Text size="sm" c="dimmed">Are you sure you want to delete this reading?</Text>
-        <div className="confirm-preview">
-          <Text size="sm">
-            <span className="hebrew" style={{ color }}>{r.parsha}</span>
-            <span style={{ color: 'var(--muted)', fontSize: 12 }}> — {r.parsha_en} · {fmtAliyah(r.aliyah)}</span>
-          </Text>
-          <Text size="xs" c="dimmed">
-            {dateDisp}
-            {r.occasion ? ` · ${r.occasion}` : ''}
-            {r.location ? ` · ${r.location}` : ''}
-          </Text>
-        </div>
-      </Stack>
-    ),
+    title: opts.title,
+    children: opts.body,
     labels: { confirm: 'Delete', cancel: 'Cancel' },
     confirmProps: { color: 'red' },
-    onConfirm,
-  });
-}
-
-function openDeleteSpecialModal(sr: SpecialReadingRecord, onConfirm: () => void) {
-  const dateDisp = sr.dateRead
-    ? new Date(sr.dateRead + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    : '—';
-  modals.openConfirmModal({
-    title: 'Delete holiday reading',
-    children: (
-      <Stack gap={12}>
-        <Text size="sm" c="dimmed">Are you sure you want to delete this holiday reading?</Text>
-        <div className="confirm-preview">
-          <Text size="sm">{sr.occasionEn} · {sr.aliyahKey}</Text>
-          <Text size="xs" c="dimmed">
-            {dateDisp}
-            {sr.location ? ` · ${sr.location}` : ''}
-          </Text>
-        </div>
-      </Stack>
-    ),
-    labels: { confirm: 'Delete', cancel: 'Cancel' },
-    confirmProps: { color: 'red' },
-    onConfirm,
+    onConfirm: () => runWithErrorModal(opts.onDelete, opts.errorFallback),
   });
 }
 
@@ -167,50 +132,80 @@ function useManageData(refresh: () => Promise<void>, refreshSpecial: () => Promi
   }
 
   function confirmDelete(r: ReadingRecord, color: string) {
-    openDeleteModal(r, color, () =>
-      runWithErrorModal(async () => {
+    confirmDeleteReading({
+      title: 'Delete reading',
+      body: (
+        <Stack gap={12}>
+          <Text size="sm" c="dimmed">Are you sure you want to delete this reading?</Text>
+          <div className="confirm-preview">
+            <Text size="sm">
+              <span className="hebrew" style={{ color }}>{r.parsha}</span>
+              <span style={{ color: 'var(--muted)', fontSize: 12 }}> — {r.parsha_en} · {fmtAliyah(r.aliyah)}</span>
+            </Text>
+            <Text size="xs" c="dimmed">
+              {fmtLongDate(r.date_read)}
+              {r.occasion ? ` · ${r.occasion}` : ''}
+              {r.location ? ` · ${r.location}` : ''}
+            </Text>
+          </div>
+        </Stack>
+      ),
+      onDelete: async () => {
         await deleteReading(r.id);
         await refresh();
         await loadReadings();
-      }, 'Failed to delete reading.'),
-    );
+      },
+      errorFallback: 'Failed to delete reading.',
+    });
   }
 
   function confirmDeleteSpecial(sr: SpecialReadingRecord) {
-    openDeleteSpecialModal(sr, () =>
-      runWithErrorModal(async () => {
+    confirmDeleteReading({
+      title: 'Delete holiday reading',
+      body: (
+        <Stack gap={12}>
+          <Text size="sm" c="dimmed">Are you sure you want to delete this holiday reading?</Text>
+          <div className="confirm-preview">
+            <Text size="sm">{sr.occasionEn} · {sr.aliyahKey}</Text>
+            <Text size="xs" c="dimmed">
+              {fmtLongDate(sr.dateRead)}
+              {sr.location ? ` · ${sr.location}` : ''}
+            </Text>
+          </div>
+        </Stack>
+      ),
+      onDelete: async () => {
         await deleteSpecialReading(sr.id);
         await refreshSpecial();
         await refresh();
-      }, 'Failed to delete holiday reading.'),
-    );
+      },
+      errorFallback: 'Failed to delete holiday reading.',
+    });
   }
 
   function confirmDeleteWeekday(readingId: number, label: string) {
-    modals.openConfirmModal({
+    confirmDeleteReading({
       title: 'Delete weekday reading',
-      children: <Text size="sm" c="dimmed">Delete weekday reading: {label}?</Text>,
-      labels: { confirm: 'Delete', cancel: 'Cancel' },
-      confirmProps: { color: 'red' },
-      onConfirm: () => runWithErrorModal(async () => {
+      body: <Text size="sm" c="dimmed">Delete weekday reading: {label}?</Text>,
+      onDelete: async () => {
         await deleteWeekdayReading(readingId);
         await refreshWeekday();
         await refresh();
-      }, 'Failed to delete weekday reading.'),
+      },
+      errorFallback: 'Failed to delete weekday reading.',
     });
   }
 
   function confirmDeleteHosafah(id: number, label: string) {
-    modals.openConfirmModal({
+    confirmDeleteReading({
       title: 'Delete hosafah',
-      children: <Text size="sm" c="dimmed">Delete hosafah: {label}?</Text>,
-      labels: { confirm: 'Delete', cancel: 'Cancel' },
-      confirmProps: { color: 'red' },
-      onConfirm: () => runWithErrorModal(async () => {
+      body: <Text size="sm" c="dimmed">Delete hosafah: {label}?</Text>,
+      onDelete: async () => {
         await deleteHosafah(id);
         await refreshHosafot();
         await refresh();
-      }, 'Failed to delete hosafah.'),
+      },
+      errorFallback: 'Failed to delete hosafah.',
     });
   }
 
@@ -237,7 +232,7 @@ async function submitWeekdayReading(
     reset();
     await refreshWeekday();
   } catch (e: unknown) {
-    openErrorModal((e as { detail?: string }).detail ?? 'The server could not be reached.');
+    openErrorModal((e as { detail?: string }).detail ?? ERR_UNREACHABLE);
   }
   return true;
 }
@@ -274,7 +269,7 @@ async function submitHosafahReading(
     reset();
     await refreshHosafot();
   } catch (e: unknown) {
-    openErrorModal((e as { detail?: string }).detail ?? 'The server could not be reached.');
+    openErrorModal((e as { detail?: string }).detail ?? ERR_UNREACHABLE);
   }
   return true;
 }
@@ -338,53 +333,59 @@ function useAddForm(callbacks: AddFormCallbacks, allRows: MappedRow[], pairs: Pa
       reset();
       await loadReadings();
     } catch (e: unknown) {
-      openErrorModal((e as { detail?: string }).detail ?? 'The server could not be reached. Check your connection and try again.');
+      openErrorModal((e as { detail?: string }).detail ?? ERR_UNREACHABLE);
     }
   }
 
   return { form, setField, msg, reset, submit };
 }
 
+/** The four reading kinds that can be edited via the modal — mirrors ManageForm.readingType minus 'double_parsha'. */
+type ReadingKind = 'standard' | 'holiday' | 'weekday' | 'hosafah';
+
 function useEditModal(refresh: () => Promise<void>, refreshSpecial: () => Promise<void>, refreshWeekday: () => Promise<void>, refreshHosafot: () => Promise<void>, loadReadings: () => Promise<void>, allRows: MappedRow[], pairs: ParshaPair[]) {
   const { form, setForm, msg, setMsg, setField, resetFormAndMsg, validateOrSetMsg } = useReadingFormBase();
 
-  const [editId,        setEditId]        = useState<number | null>(null);
-  const [editSpecialId, setEditSpecialId] = useState<number | null>(null);
-  const [editWeekdayId, setEditWeekdayId] = useState<number | null>(null);
-  const [editHosafahId, setEditHosafahId] = useState<number | null>(null);
+  const [editing,  setEditing]  = useState<{ kind: ReadingKind; id: number } | null>(null);
   const [recreate, setRecreate] = useState(false);
   const [locked,   setLocked]   = useState(false);
   const [open,     setOpen]     = useState(false);
 
+  // Public surface kept identical to the old four separate states — consumers/tests read these.
+  const editId        = editing?.kind === 'standard' ? editing.id : null;
+  const editSpecialId = editing?.kind === 'holiday'  ? editing.id : null;
+  const editWeekdayId = editing?.kind === 'weekday'  ? editing.id : null;
+  const editHosafahId = editing?.kind === 'hosafah'  ? editing.id : null;
+
+  // Simple put(id, body) -> refresh() pairs for the two kinds whose submit is just a date/note/location update.
+  const EDIT_KINDS = {
+    weekday: { title: 'Edit Weekday Reading', put: putWeekdayReading, refresh: refreshWeekday },
+    hosafah: { title: 'Edit Hosafah',         put: putHosafah,        refresh: refreshHosafot },
+  } as const;
+
   function close() {
     resetFormAndMsg();
-    setEditId(null);
-    setEditSpecialId(null);
-    setEditWeekdayId(null);
-    setEditHosafahId(null);
+    setEditing(null);
     setRecreate(false);
     setLocked(false);
     setOpen(false);
   }
 
-  function startEdit(r: ReadingRecord) {
-    setEditId(r.id);
-    setEditSpecialId(null);
-    setEditWeekdayId(null);
+  function beginEdit(kind: ReadingKind, id: number, editForm: ManageForm, message: string, isLocked = false) {
+    setEditing({ kind, id });
     setRecreate(false);
-    setLocked(true);
-    setForm(buildEditForm(r));
-    setMsg({ text: 'Parsha, aliyah, and date are locked. Use Re-create to change them.', error: false });
+    setLocked(isLocked);
+    setForm(editForm);
+    setMsg({ text: message, error: false });
     setOpen(true);
   }
 
+  function startEdit(r: ReadingRecord) {
+    beginEdit('standard', r.id, buildEditForm(r), 'Parsha, aliyah, and date are locked. Use Re-create to change them.', true);
+  }
+
   function startEditSpecial(sr: SpecialReadingRecord) {
-    setEditSpecialId(sr.id);
-    setEditId(null);
-    setEditWeekdayId(null);
-    setRecreate(false);
-    setLocked(false);
-    setForm({
+    beginEdit('holiday', sr.id, {
       ...EMPTY_FORM,
       readingType:       'holiday',
       occasionId:        sr.occasionId,
@@ -393,45 +394,27 @@ function useEditModal(refresh: () => Promise<void>, refreshSpecial: () => Promis
       date:              sr.dateRead ? new Date(sr.dateRead + 'T00:00:00') : null,
       occasion:          sr.note,
       location:          sr.location,
-    });
-    setMsg({ text: 'Editing holiday reading — change any fields and save, or cancel.', error: false });
-    setOpen(true);
+    }, 'Editing holiday reading — change any fields and save, or cancel.');
   }
 
-  function startEditWeekday(wa: import('../types/index.js').MappedWeekdayAliyah) {
-    setEditWeekdayId(wa.readingId);
-    setEditId(null);
-    setEditSpecialId(null);
-    setEditHosafahId(null);
-    setRecreate(false);
-    setLocked(false);
-    setForm({
+  function startEditWeekday(wa: MappedWeekdayAliyah) {
+    beginEdit('weekday', wa.readingId, {
       ...EMPTY_FORM,
       readingType: 'weekday',
       date:        wa.dateRead ? new Date(wa.dateRead + 'T00:00:00') : null,
       location:    wa.location,
       occasion:    wa.note,
-    });
-    setMsg({ text: 'Editing weekday reading — change date, note, or location and save.', error: false });
-    setOpen(true);
+    }, 'Editing weekday reading — change date, note, or location and save.');
   }
 
-  function startEditHosafah(hr: import('../types/index.js').MappedHosafah) {
-    setEditHosafahId(hr.id);
-    setEditId(null);
-    setEditSpecialId(null);
-    setEditWeekdayId(null);
-    setRecreate(false);
-    setLocked(false);
-    setForm({
+  function startEditHosafah(hr: MappedHosafah) {
+    beginEdit('hosafah', hr.id, {
       ...EMPTY_FORM,
       readingType: 'hosafah',
       date:        hr.dateRead ? new Date(hr.dateRead + 'T00:00:00') : null,
       location:    hr.location,
       occasion:    hr.note,
-    });
-    setMsg({ text: 'Editing hosafah — change date, note, or location and save.', error: false });
-    setOpen(true);
+    }, 'Editing hosafah — change date, note, or location and save.');
   }
 
   function doRecreate() {
@@ -441,27 +424,16 @@ function useEditModal(refresh: () => Promise<void>, refreshSpecial: () => Promis
   }
 
   async function submit() {
-    if (editHosafahId !== null) {
-      if (!form.date) return setMsg({ text: 'A date is required.', error: true });
+    if (editing && (editing.kind === 'weekday' || editing.kind === 'hosafah')) {
+      if (!form.date) { setMsg({ text: 'A date is required.', error: true }); return; }
       const dateStr = toDateStr(form.date);
+      const { put, refresh: refreshKind } = EDIT_KINDS[editing.kind];
       try {
-        await putHosafah(editHosafahId, { date_read: dateStr, note: form.occasion || undefined, location: form.location || undefined });
+        await put(editing.id, { date_read: dateStr, note: form.occasion || undefined, location: form.location || undefined });
         close();
-        await refreshHosafot();
+        await refreshKind();
       } catch (e: unknown) {
-        openErrorModal((e as { detail?: string }).detail ?? 'The server could not be reached. Check your connection and try again.');
-      }
-      return;
-    }
-    if (editWeekdayId !== null) {
-      if (!form.date) return setMsg({ text: 'A date is required.', error: true });
-      const dateStr = toDateStr(form.date);
-      try {
-        await putWeekdayReading(editWeekdayId, { date_read: dateStr, note: form.occasion || undefined, location: form.location || undefined });
-        close();
-        await refreshWeekday();
-      } catch (e: unknown) {
-        openErrorModal((e as { detail?: string }).detail ?? 'The server could not be reached. Check your connection and try again.');
+        openErrorModal((e as { detail?: string }).detail ?? ERR_UNREACHABLE);
       }
       return;
     }
@@ -471,25 +443,30 @@ function useEditModal(refresh: () => Promise<void>, refreshSpecial: () => Promis
       close();
       await loadReadings();
     } catch (e: unknown) {
-      openErrorModal((e as { detail?: string }).detail ?? 'The server could not be reached. Check your connection and try again.');
+      openErrorModal((e as { detail?: string }).detail ?? ERR_UNREACHABLE);
     }
   }
 
   let formTitle: string;
   let submitLabel: string;
-  if (editHosafahId !== null)      { formTitle = 'Edit Hosafah';         submitLabel = 'Save Changes'; }
-  else if (editWeekdayId !== null) { formTitle = 'Edit Weekday Reading'; submitLabel = 'Save Changes'; }
-  else if (editSpecialId !== null) { formTitle = 'Edit Holiday Reading'; submitLabel = 'Save Changes'; }
-  else if (recreate)               { formTitle = 'Re-create Reading';    submitLabel = 'Re-create'; }
-  else                             { formTitle = 'Edit Reading';         submitLabel = 'Save Changes'; }
+  if (editing && (editing.kind === 'weekday' || editing.kind === 'hosafah')) {
+    formTitle   = EDIT_KINDS[editing.kind].title;
+    submitLabel = 'Save Changes';
+  } else if (editSpecialId !== null) { formTitle = 'Edit Holiday Reading'; submitLabel = 'Save Changes'; }
+  else if (recreate)                 { formTitle = 'Re-create Reading';    submitLabel = 'Re-create'; }
+  else                                { formTitle = 'Edit Reading';         submitLabel = 'Save Changes'; }
 
   return { open, form, setField, editId, editSpecialId, editWeekdayId, editHosafahId, recreate, locked, msg, startEdit, startEditSpecial, startEditWeekday, startEditHosafah, doRecreate, close, submit, formTitle, submitLabel };
 }
 
-export default function Manage() {
+/**
+ * Bundles the entire readings CRUD surface (add form, edit modal, delete confirmations, write access,
+ * and the standard-reading id lookup) so the Reading Log can host it. Extracted from the old
+ * Manage page.
+ */
+export function useReadingCrud() {
   const { allRows, SEFER_ORDER, SEFER_MAP, TLIT, parshaIndex, pairs, parshaById, refresh,
-          specialReadings, refreshSpecial, weekdayAliyot, refreshWeekday,
-          hosafotReadings, refreshHosafot } = useApp();
+          refreshSpecial, weekdayAliyot, refreshWeekday, refreshHosafot } = useApp();
 
   const { canWrite, readings, loadReadings, confirmDelete, confirmDeleteSpecial, confirmDeleteWeekday, confirmDeleteHosafah }
     = useManageData(refresh, refreshSpecial, refreshWeekday, refreshHosafot);
@@ -497,53 +474,24 @@ export default function Manage() {
   const add  = useAddForm({ refresh, refreshSpecial, refreshWeekday, refreshHosafot, loadReadings }, allRows, pairs, weekdayAliyot);
   const edit = useEditModal(refresh, refreshSpecial, refreshWeekday, refreshHosafot, loadReadings, allRows, pairs);
 
-
-
   const seferMeta: FormSeferMeta = { SEFER_ORDER, SEFER_MAP, parshaIndex, TLIT, parshaById };
-  const { parshaOptions: addParshaOptions, aliyahOptions: addAliyahOptions } = buildFormOptions(add.form, allRows, pairs, seferMeta);
-  const { parshaOptions: editParshaOptions, aliyahOptions: editAliyahOptions } = buildFormOptions(edit.form, allRows, pairs, seferMeta);
+  const addOptions  = useMemo(() => buildFormOptions(add.form,  allRows, pairs, seferMeta),
+    [add.form.parsha, add.form.readingType, add.form.pairId, allRows, pairs, seferMeta]);
+  const editOptions = useMemo(() => buildFormOptions(edit.form, allRows, pairs, seferMeta),
+    [edit.form.parsha, edit.form.readingType, edit.form.pairId, allRows, pairs, seferMeta]);
 
-  if (canWrite === null) return null;
+  // Lookup from a standard display row (parsha|aliyah|date) back to its DB ReadingRecord.
+  const readingsById = useMemo(() => {
+    const m = new Map<string, ReadingRecord>();
+    for (const r of readings) m.set(readingKey(r.parsha, r.aliyah, r.date_read), r);
+    return m;
+  }, [readings]);
 
-  if (!canWrite) return (
-    <Text c="dimmed" ta="center" mt="xl">
-      Write access is only available on the local network.
-    </Text>
-  );
-
-  return (
-    <Box>
-      <AddReadingForm
-        form={add.form} setField={add.setField} editId={null} recreate={false} locked={false} msg={add.msg}
-        formTitle="Add Reading" submitLabel="Add Reading"
-        doRecreate={() => {}} submit={() => void add.submit()} resetForm={add.reset}
-        parshaOptions={addParshaOptions} aliyahOptions={addAliyahOptions}
-      />
-
-      <Modal
-        opened={edit.open}
-        onClose={edit.close}
-        title={edit.formTitle}
-        size="lg"
-        centered
-      >
-        <AddReadingForm
-          form={edit.form} setField={edit.setField} editId={edit.editId} recreate={edit.recreate} locked={edit.locked} msg={edit.msg}
-          formTitle={edit.formTitle} submitLabel={edit.submitLabel}
-          doRecreate={edit.doRecreate} submit={() => void edit.submit()} resetForm={edit.close}
-          parshaOptions={editParshaOptions} aliyahOptions={editAliyahOptions}
-          inModal
-        />
-      </Modal>
-
-      <ManageList
-        readings={readings} specialReadings={specialReadings}
-        weekdayAliyot={weekdayAliyot} hosafotReadings={hosafotReadings}
-        onEdit={edit.startEdit} onDelete={confirmDelete}
-        onDeleteSpecial={confirmDeleteSpecial} onEditSpecial={edit.startEditSpecial}
-        onEditWeekday={edit.startEditWeekday} onDeleteWeekday={confirmDeleteWeekday}
-        onEditHosafah={edit.startEditHosafah} onDeleteHosafah={confirmDeleteHosafah}
-      />
-    </Box>
-  );
+  return {
+    canWrite,
+    readingsById,
+    add, addOptions,
+    edit, editOptions,
+    confirmDelete, confirmDeleteSpecial, confirmDeleteWeekday, confirmDeleteHosafah,
+  };
 }

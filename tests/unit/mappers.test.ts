@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
-  mapOccasionAliyahRow, mapSpecialReadingRow, mapWeekdayAliyahRow, mapHosafahRow, mapWeekdayReadingRow,
+  mapOccasionAliyahRow, mapSpecialReadingRow, mapWeekdayAliyahRow, mapHosafahRow,
 } from '../../src/api.js';
 
 // ── mapOccasionAliyahRow ────────────────────────────────────────────────────
@@ -192,7 +192,7 @@ describe('mapHosafahRow — flags and projection', () => {
   });
 });
 
-// ── mapSpecialReadingRow / mapWeekdayReadingRow — projection only ────────────
+// ── mapSpecialReadingRow — projection only ──────────────────────────────────
 
 describe('mapSpecialReadingRow', () => {
   it('maps snake_case fields to camelCase', () => {
@@ -210,15 +210,3 @@ describe('mapSpecialReadingRow', () => {
   });
 });
 
-describe('mapWeekdayReadingRow', () => {
-  it('maps snake_case fields to camelCase', () => {
-    const r = mapWeekdayReadingRow({
-      id: 1, weekday_aliyah_id: 4, parsha_id: 5, parsha: 'נח', parsha_en: 'Noach',
-      sefer: 'בראשית', date_read: '2024-05-01', note: 'n', location: 'loc',
-    });
-    expect(r.weekdayAliyahId).toBe(4);
-    expect(r.parshaId).toBe(5);
-    expect(r.parshaEn).toBe('Noach');
-    expect(r.dateRead).toBe('2024-05-01');
-  });
-});

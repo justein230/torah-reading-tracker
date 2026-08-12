@@ -31,6 +31,19 @@ const EXPECTED_EXPORTS = [
   'postReading',
   'putReading',
   'deleteReading',
+  'fetchOccasions',
+  'fetchOccasionAliyot',
+  'fetchSpecialReadings',
+  'postSpecialReading',
+  'deleteSpecialReading',
+  'fetchWeekdayAliyot',
+  'postWeekdayReading',
+  'putWeekdayReading',
+  'deleteWeekdayReading',
+  'fetchHosafotReadings',
+  'postHosafah',
+  'putHosafah',
+  'deleteHosafah',
 ] as const;
 
 const web = webApi as Record<string, unknown>;

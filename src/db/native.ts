@@ -1,9 +1,9 @@
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import { and, eq } from 'drizzle-orm';
 import { createNativeDb } from './drizzle-native.js';
-import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, torahChapters } from './schema.js';
-import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL } from './queries.js';
-import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody } from '../types/index.js';
+import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, hosafotReadings as hosafotReadingsTable, torahChapters } from './schema.js';
+import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './queries.js';
+import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody } from '../types/index.js';
 import { scheduleFromEntries } from '../utils/sedra.js';
 import { SEDRA_CACHE } from '../data/sedraCache.js';
 
@@ -220,4 +220,59 @@ export async function deleteWeekdayReading(id: number): Promise<void> {
     .get();
   if (!exists) throw Object.assign(new Error('Weekday reading not found'), { detail: 'Weekday reading not found' });
   await db.delete(weekdayReadingsTable).where(eq(weekdayReadingsTable.id, id));
+}
+
+export async function fetchHosafotReadings(): Promise<RawHosafahRow[]> {
+  const conn = await getConn();
+  const res  = await conn.query(HOSAFOT_READINGS_SQL, []);
+  return (res.values ?? []) as RawHosafahRow[];
+}
+
+export async function postHosafah(body: PostHosafahBody): Promise<{ id: number }> {
+  const {
+    sefer, parsha_id_1 = null, parsha_id_2 = null, occasion_id = null,
+    is_double_parsha = 0, chapter_start, verse_start, chapter_end, verse_end,
+    pseukim, date_read, note = '', location = '',
+  } = body;
+
+  const values: typeof hosafotReadingsTable.$inferInsert = {
+    sefer,
+    parshaId1:      parsha_id_1,
+    parshaId2:      parsha_id_2,
+    occasionId:     occasion_id,
+    isDoubleParsha: is_double_parsha ? 1 : 0,
+    chapterStart:   chapter_start,
+    verseStart:     verse_start,
+    chapterEnd:     chapter_end,
+    verseEnd:       verse_end,
+    pseukim,
+    dateRead:       date_read,
+    note:           note     || null,
+    location:       location || null,
+  };
+  const [inserted] = await db.insert(hosafotReadingsTable).values(values).returning({ id: hosafotReadingsTable.id });
+  if (!inserted) throw new Error('Insert failed');
+  return { id: inserted.id };
+}
+
+export async function putHosafah(id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> {
+  const exists = await db
+    .select({ id: hosafotReadingsTable.id })
+    .from(hosafotReadingsTable)
+    .where(eq(hosafotReadingsTable.id, id))
+    .get();
+  if (!exists) throw Object.assign(new Error('Hosafah reading not found'), { detail: 'Hosafah reading not found' });
+  await db.update(hosafotReadingsTable)
+    .set({ dateRead: body.date_read, note: body.note ?? null, location: body.location ?? null })
+    .where(eq(hosafotReadingsTable.id, id));
+}
+
+export async function deleteHosafah(id: number): Promise<void> {
+  const exists = await db
+    .select({ id: hosafotReadingsTable.id })
+    .from(hosafotReadingsTable)
+    .where(eq(hosafotReadingsTable.id, id))
+    .get();
+  if (!exists) throw Object.assign(new Error('Hosafah reading not found'), { detail: 'Hosafah reading not found' });
+  await db.delete(hosafotReadingsTable).where(eq(hosafotReadingsTable.id, id));
 }

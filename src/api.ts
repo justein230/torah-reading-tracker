@@ -1,4 +1,4 @@
-import type { RawRow, MappedRow, RawOccasionAliyahRow, MappedOccasionAliyah, RawSpecialReadingRow, SpecialReadingRecord, RawWeekdayAliyahRow, MappedWeekdayAliyah, RawWeekdayReadingRow, WeekdayReadingRecord, RawHosafahRow, MappedHosafah } from './types/index.js';
+import type { RawRow, MappedRow, RawOccasionAliyahRow, MappedOccasionAliyah, RawSpecialReadingRow, SpecialReadingRecord, RawWeekdayAliyahRow, MappedWeekdayAliyah, RawHosafahRow, MappedHosafah } from './types/index.js';
 
 export const getTodayStr = (): string => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 // Static snapshot used by components; mapRow calls getTodayStr() for fresh evaluation.
@@ -156,19 +156,6 @@ export function mapHosafahRow(r: RawHosafahRow): MappedHosafah {
   };
 }
 
-export function mapWeekdayReadingRow(r: RawWeekdayReadingRow): WeekdayReadingRecord {
-  return {
-    id: r.id,
-    weekdayAliyahId: r.weekday_aliyah_id,
-    parshaId: r.parsha_id,
-    parsha: r.parsha,
-    parshaEn: r.parsha_en,
-    sefer: r.sefer,
-    dateRead: r.date_read,
-    note: r.note,
-    location: r.location,
-  };
-}
 
 export {
   fetchCanWrite,
@@ -189,4 +176,8 @@ export {
   postWeekdayReading,
   putWeekdayReading,
   deleteWeekdayReading,
+  fetchHosafotReadings,
+  postHosafah,
+  putHosafah,
+  deleteHosafah,
 } from './db/index.js';

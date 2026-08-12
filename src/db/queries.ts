@@ -277,6 +277,10 @@ export const LOCATION_STATS_SQL = `
     SELECT location, date_read FROM readings
     UNION ALL
     SELECT location, date_read FROM special_readings
+    UNION ALL
+    SELECT location, date_read FROM weekday_readings
+    UNION ALL
+    SELECT location, date_read FROM hosafot_readings
   )
   GROUP BY location
   ORDER BY count DESC, location

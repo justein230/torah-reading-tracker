@@ -272,6 +272,10 @@ export interface DbApi {
   postWeekdayReading: (body: PostWeekdayReadingBody) => Promise<{ id: number }>;
   putWeekdayReading: (id: number, body: { date_read: string; note?: string; location?: string }) => Promise<void>;
   deleteWeekdayReading: (id: number) => Promise<void>;
+  fetchHosafotReadings: () => Promise<RawHosafahRow[]>;
+  postHosafah: (body: PostHosafahBody) => Promise<{ id: number }>;
+  putHosafah: (id: number, body: { date_read: string; note?: string; location?: string }) => Promise<void>;
+  deleteHosafah: (id: number) => Promise<void>;
 }
 
 // ── Occasion catalog types ────────────────────────────────────────────────────
@@ -431,30 +435,6 @@ export interface MappedWeekdayAliyah {
   isCoveredPast: boolean;
   location: string;
   note: string;
-}
-
-export interface RawWeekdayReadingRow {
-  id: number;
-  weekday_aliyah_id: number;
-  parsha_id: number;
-  parsha: string;
-  parsha_en: string;
-  sefer: string;
-  date_read: string;
-  note: string;
-  location: string;
-}
-
-export interface WeekdayReadingRecord {
-  id: number;
-  weekdayAliyahId: number;
-  parshaId: number;
-  parsha: string;
-  parshaEn: string;
-  sefer: string;
-  dateRead: string;
-  note: string;
-  location: string;
 }
 
 export interface PostWeekdayReadingBody {

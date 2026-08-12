@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
         // 'src/utils.ts' is listed separately: 'src/utils/**/*.ts' matches the directory,
         // not the sibling module of the same name, which left a fully-tested file out of
         // the report (and scored as 0% by Sonar, which analyses it either way).
-        include: ['src/api.ts', 'src/compute.ts', 'src/utils.ts', 'src/utils/**/*.ts', 'server.ts', 'src/components/**/*.tsx', 'src/db/web.ts', 'src/context/AppContext.tsx'],
+        include: ['src/api.ts', 'src/compute.ts', 'src/utils.ts', 'src/utils/**/*.ts', 'server.ts', 'src/components/**/*.tsx', 'src/hooks/**/*.tsx', 'src/db/web.ts', 'src/context/AppContext.tsx'],
         reporter: ['text', 'lcov'],
       },
     },

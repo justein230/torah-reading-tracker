@@ -4,8 +4,16 @@ import type {
   SpecialReadingRecord, Filters, Stats, LogEntry,
 } from '../types/index.js';
 
-/** A LogEntry tagged with the year it should be grouped under in the reading log. */
-export type DisplayEntry = LogEntry & { displayYear: number | null };
+/** Which underlying table a display row came from — used to route edit/delete to the right handler. */
+export type ReadingKind = 'standard' | 'holiday' | 'weekday' | 'hosafah';
+
+/**
+ * A LogEntry tagged with the year it should be grouped under in the reading log, plus the source
+ * table (`kind`) and DB id (`recordId`) needed to edit/delete it. Standard rows leave `recordId`
+ * undefined — they come from the aliyah-centric `allRows` (no id) and are resolved at render time via
+ * a `parsha|aliyah|date` lookup; holiday/weekday/hosafah rows carry their id directly.
+ */
+export type DisplayEntry = LogEntry & { displayYear: number | null; kind: ReadingKind; recordId?: number };
 
 const yearOf = (dateStr: string): number => new Date(dateStr + 'T00:00:00').getFullYear();
 
@@ -20,7 +28,7 @@ export function addFutureReadings(readings: DisplayEntry[], r: MappedRow, filter
   for (const dateStr of r.futDates) {
     const rereadYear = yearOf(dateStr);
     if (yearAllowed(rereadYear, filters)) {
-      readings.push({ ...r, displayDate: dateStr, displayYear: rereadYear, reread: true });
+      readings.push({ ...r, displayDate: dateStr, displayYear: rereadYear, reread: true, kind: 'standard' });
     }
   }
 }
@@ -38,7 +46,7 @@ export function collectReadings(allRows: MappedRow[], filters: Filters): Display
     if (r.directOrig !== '') {
       const year = yearOf(r.directOrig);
       if (yearAllowed(year, filters)) {
-        readings.push({ ...r, readAsDouble: r.readAsDouble, displayDate: r.directOrig, displayYear: year, reread: false });
+        readings.push({ ...r, readAsDouble: r.readAsDouble, displayDate: r.directOrig, displayYear: year, reread: false, kind: 'standard' });
       }
     }
     if (filters.includeFutureDates && r.hasFuture) addFutureReadings(readings, r, filters);
@@ -46,7 +54,7 @@ export function collectReadings(allRows: MappedRow[], filters: Filters): Display
   return readings;
 }
 
-/** Holiday (special) readings — mirrors ManageList's holiday branch. */
+/** Holiday (special) readings. */
 export function collectSpecialEntries(
   specialReadings: SpecialReadingRecord[],
   occasionAliyot: MappedOccasionAliyah[],
@@ -73,6 +81,8 @@ export function collectSpecialEntries(
       reread:      false,
       displayDate: sr.dateRead,
       displayYear: year,
+      kind:        'holiday',
+      recordId:    sr.id,
       chapterStart: oa?.chapterStart, verseStart: oa?.verseStart,
       chapterEnd:   oa?.chapterEnd,   verseEnd:   oa?.verseEnd,
     });
@@ -80,7 +90,7 @@ export function collectSpecialEntries(
   return entries;
 }
 
-/** Weekday readings — mirrors ManageList's weekday branch. */
+/** Weekday readings. */
 export function collectWeekdayEntries(
   weekdayAliyot: MappedWeekdayAliyah[],
   stats: Stats | null,
@@ -104,6 +114,8 @@ export function collectWeekdayEntries(
       reread:      false,
       displayDate: wa.dateRead,
       displayYear: year,
+      kind:        'weekday',
+      recordId:    wa.readingId,
       chapterStart: wa.chapterStart, verseStart: wa.verseStart,
       chapterEnd:   wa.chapterEnd,   verseEnd:   wa.verseEnd,
     });
@@ -136,6 +148,8 @@ export function collectHosafotEntries(
       reread:      false,
       displayDate: hr.dateRead,
       displayYear: year,
+      kind:        'hosafah',
+      recordId:    hr.id,
     });
   }
   return entries;
@@ -188,6 +202,8 @@ export function groupDoubleParsha(day: DisplayEntry[]): { combined: CombinedAliy
       reread:         components.every(c => c.reread),
       displayDate:    first.displayDate,
       displayYear:    first.displayYear,
+      // Aggregate summary — no recordId; edit/delete happen on the component rows, not here.
+      kind:           first.kind,
     };
     return { summary, components };
   });

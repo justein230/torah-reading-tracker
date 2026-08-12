@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { isSeferAllowed } from '../compute.js';
 import './Grid.css';
 import { Box } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
-import { useAliyahTooltip, AliyahTooltip, TouchAwareCell } from './AliyahTooltip.js';
-import { aliyahCellStyle, fmtPct } from '../utils.js';
+import { useAliyahTooltip, AliyahTooltip, TouchAwareCell, type CellHandlers } from './AliyahTooltip.js';
+import { aliyahCellStyle, aliyahState, fmtPct } from '../utils.js';
 import { GridLegend } from './GridLegend.js';
 import { SeferSection } from './shared/SeferSection.js';
 import type { MappedRow, Filters, SeferMeta } from '../types/index.js';
@@ -14,17 +14,13 @@ function cellStyle(r: MappedRow, filters: Filters, SEFER_MAP: Record<string, Sef
   if (!isSeferAllowed(r.sefer, filters)) {
     return { bg: 'var(--surface)', border: 'var(--surface-mid)', op: 0.25, dashed: false };
   }
-  if (r.isReadPast) {
-    if (filters.years.length) {
-      const match = r.yearRead !== null && filters.years.includes(r.yearRead);
-      if (match) return { bg: color, border: color, op: 1, dashed: false };
-      return { bg: `repeating-linear-gradient(45deg,var(--surface),var(--surface) 4px,${color}88 4px,${color}88 8px)`, border: color + '88', op: 1, dashed: false };
-    }
-    return { ...aliyahCellStyle('read', color), op: 1 };
+  if (r.isReadPast && filters.years.length) {
+    const match = r.yearRead !== null && filters.years.includes(r.yearRead);
+    if (match) return { bg: color, border: color, op: 1, dashed: false };
+    return { bg: `repeating-linear-gradient(45deg,var(--surface),var(--surface) 4px,${color}88 4px,${color}88 8px)`, border: color + '88', op: 1, dashed: false };
   }
-  if (r.isReadFuture || r.hasFuture) return { ...aliyahCellStyle('future',  color), op: 1 };
-  if (r.partialOrig)                  return { ...aliyahCellStyle('partial', color), op: 1 };
-  return                                     { ...aliyahCellStyle('unread',  color), op: 1 };
+  const state = aliyahState({ isReadPast: r.isReadPast, isReadFuture: r.isReadFuture || r.hasFuture, partialOrig: r.partialOrig });
+  return { ...aliyahCellStyle(state, color), op: 1 };
 }
 
 interface AliyahCellProps {
@@ -32,18 +28,16 @@ interface AliyahCellProps {
   readonly filters: Filters;
   readonly SEFER_MAP: Record<string, SeferMeta>;
   readonly showTip: (e: React.MouseEvent | React.TouchEvent, r: MappedRow) => void;
-  readonly moveTipPos: (e: React.MouseEvent) => void;
-  readonly positionFromRect: (rect: DOMRect) => void;
-  readonly hideTip: () => void;
+  readonly handlers: CellHandlers;
 }
 
-function AliyahCell({ r, filters, SEFER_MAP, showTip, moveTipPos, positionFromRect, hideTip }: AliyahCellProps) {
+function AliyahCell({ r, filters, SEFER_MAP, showTip, handlers }: AliyahCellProps) {
   const { bg, border, op, dashed } = cellStyle(r, filters, SEFER_MAP);
   return (
     <TouchAwareCell
       bg={bg} border={border} op={op} dashed={dashed}
       onShowTip={e => showTip(e, r)}
-      moveTipPos={moveTipPos} positionFromRect={positionFromRect} hideTip={hideTip}
+      handlers={handlers}
     >
       {r.isRead && r.hasFuture && <span className="reread-dot" />}
     </TouchAwareCell>
@@ -52,12 +46,15 @@ function AliyahCell({ r, filters, SEFER_MAP, showTip, moveTipPos, positionFromRe
 
 export default function Grid() {
   const { allRows, SEFER_ORDER, SEFER_MAP, TLIT, parshaIndex, filters, stats } = useApp();
-  const { tip, tipPos, showTip, moveTipPos, positionFromRect, hideTip } = useAliyahTooltip();
+  const { tip, tipPos, showTip, handlers } = useAliyahTooltip();
+
+  const rowLookup = useMemo(() => {
+    const lookup: Record<string, MappedRow> = {};
+    for (const r of allRows) lookup[r.parsha + '|' + r.aliyah] = r;
+    return lookup;
+  }, [allRows]);
 
   if (!stats) return null;
-
-  const rowLookup: Record<string, MappedRow> = {};
-  for (const r of allRows) rowLookup[r.parsha + '|' + r.aliyah] = r;
 
   return (
     <Box>
@@ -94,8 +91,7 @@ export default function Grid() {
                       if (!r) return null;
                       return (
                         <AliyahCell key={a} r={r} filters={filters} SEFER_MAP={SEFER_MAP}
-                          showTip={showTip} moveTipPos={moveTipPos}
-                          positionFromRect={positionFromRect} hideTip={hideTip} />
+                          showTip={showTip} handlers={handlers} />
                       );
                     })}
                   </div>

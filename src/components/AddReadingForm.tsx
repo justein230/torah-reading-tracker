@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext.js';
 import { countPseukim } from '../compute.js';
 import { fmtDate, toDateStr } from '../utils.js';
 import { buildGroupedOptions } from '../utils/form-options.js';
+import { CATEGORY_LABELS_FORM } from '../constants.js';
 import { ParshaField } from './shared/ParshaField.js';
 import type { ManageForm, MappedRow } from '../types/index.js';
 
@@ -85,14 +86,6 @@ interface AddReadingFormProps {
   inModal?: boolean;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  yom_tov:        'Yom Tov',
-  chanukah:       'Chanukah',
-  rosh_chodesh:   'Rosh Chodesh',
-  maftir_special: 'Special Maftir Shabbatot',
-  other:          'Other',
-};
-
 function HosafahFormSection({ form, setField }: Readonly<{
   form: ManageForm;
   setField: (key: keyof ManageForm, value: ManageForm[keyof ManageForm]) => void;
@@ -145,7 +138,7 @@ function HosafahFormSection({ form, setField }: Readonly<{
       }))
     : [];
 
-  const occasionOptions = buildOccasionSelectOptions(occasions, CATEGORY_LABELS);
+  const occasionOptions = buildOccasionSelectOptions(occasions, CATEGORY_LABELS_FORM);
 
   return (
     <>
@@ -220,6 +213,8 @@ export function AddReadingForm({
   const isHoliday = form.readingType === 'holiday';
   const isWeekday = form.readingType === 'weekday';
   const isHosafah = form.readingType === 'hosafah';
+  const isStandard    = form.readingType === 'standard';
+  const isParshaBased = !isHoliday && !isWeekday && !isHosafah; /* standard or double_parsha */
 
 
   // Weekday aliyah options for selected parsha (always 1, 2, 3)
@@ -235,7 +230,7 @@ export function AddReadingForm({
 
   const pairOptions = pairs.map(p => ({ value: String(p.id), label: `${p.name}  —  ${p.name_en}` }));
 
-  const occasionSelectOptions = buildOccasionSelectOptions(occasions, CATEGORY_LABELS);
+  const occasionSelectOptions = buildOccasionSelectOptions(occasions, CATEGORY_LABELS_FORM);
 
   // Build aliyah options for selected occasion (filtered by Shabbat variant)
   const occasionAliyahOptions: SelectOption[] = form.occasionId
@@ -347,7 +342,7 @@ export function AddReadingForm({
         </>
       )}
 
-      {!isDouble && !isHoliday && !isWeekday && !isHosafah && (
+      {isStandard && (
         <ParshaField
           value={form.parsha}
           onSelect={v => handleParshaChange(v)}
@@ -384,7 +379,7 @@ export function AddReadingForm({
         />
       )}
 
-      {!isHoliday && !isWeekday && !isHosafah && (
+      {isParshaBased && (
         <>
           {doubleParshaMismatch && (
             <Text size="xs" mb={12} style={{ color: 'var(--warning, #f59e0b)' }}>{doubleParshaMismatch}</Text>
@@ -405,7 +400,7 @@ export function AddReadingForm({
 
       <Group justify="space-between" align="center" mb={4}>
         <Text size="sm" fw={500}>Date</Text>
-        {!isHoliday && !isWeekday && !isHosafah && (
+        {isParshaBased && (
           <Switch
             label="Auto-fill from schedule"
             size="xs"

@@ -10,7 +10,6 @@ import Overview   from './components/Overview.js';
 import GridsTab   from './components/GridsTab.js';
 import ReadingLog from './components/ReadingLog.js';
 import Details    from './components/Details.js';
-import Manage      from './components/Manage.js';
 import Calendar    from './components/Calendar.js';
 import type { Filters } from './types/index.js';
 
@@ -80,7 +79,6 @@ export default function App() {
       case 'log':       return <ReadingLog />;
       case 'details':   return <Details />;
       case 'calendar':  return <Calendar />;
-      case 'manage':    return <Manage />;
       default:          return null;
     }
   };
@@ -148,7 +146,6 @@ export default function App() {
       <SettingsDrawer
         opened={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        onManageReadings={() => { setActiveTab('manage'); setDrawerOpen(false); }}
       />
     </AppShell>
   );

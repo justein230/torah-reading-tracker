@@ -14,6 +14,7 @@ Environment=TORAH_HOST=${TORAH_HOST}
 Environment=TORAH_DB_PATH=${TORAH_DB_PATH}
 Environment=TORAH_ALLOWED_IPS=${TORAH_ALLOWED_IPS}
 Environment=SERVICE_MODE=prod
+Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target

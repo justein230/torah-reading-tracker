@@ -115,6 +115,22 @@ function requireFields(res: express.Response, body: Record<string, unknown>, fie
   return false;
 }
 
+// Coerces the given fields to positive integers, 400ing if any are missing or non-numeric.
+// Prevents non-numeric input from reaching the chapter/verse columns that drive the
+// chapter*1000+verse overlap arithmetic in queries.ts and compute.ts.
+function requireInts<F extends string>(res: express.Response, body: Record<string, unknown>, fields: F[]): Record<F, number> | null {
+  const out = {} as Record<F, number>;
+  for (const f of fields) {
+    const n = Number.parseInt(String(body[f]), 10);
+    if (!Number.isFinite(n) || n < 1) {
+      res.status(400).json({ detail: `${f} must be a positive integer` });
+      return null;
+    }
+    out[f] = n;
+  }
+  return out;
+}
+
 function existsOrNotFound(res: express.Response, query: { get(): unknown }, label: string): boolean {
   if (query.get()) return true;
   res.status(404).json({ detail: `${label} not found` });
@@ -361,28 +377,38 @@ app.get('/api/readings/hosafot', (_req, res) => {
 
 app.post('/api/readings/hosafot', (req, res) => {
   if (!requireFields(res, req.body, ['sefer', 'chapter_start', 'verse_start', 'chapter_end', 'verse_end', 'pseukim', 'date_read'])) return;
+  const ints = requireInts(res, req.body, ['chapter_start', 'verse_start', 'chapter_end', 'verse_end', 'pseukim']);
+  if (!ints) return;
   const {
     sefer, parsha_id_1 = null, parsha_id_2 = null, occasion_id = null,
-    is_double_parsha = 0, chapter_start, verse_start, chapter_end, verse_end,
-    pseukim, date_read, note = '', location: loc = '',
+    is_double_parsha = 0, date_read, note = '', location: loc = '',
   } = req.body;
-  const [inserted] = db.insert(hosafotReadings).values({
-    sefer,
-    parshaId1:      parsha_id_1,
-    parshaId2:      parsha_id_2,
-    occasionId:     occasion_id,
-    isDoubleParsha: is_double_parsha ? 1 : 0,
-    chapterStart:   chapter_start,
-    verseStart:     verse_start,
-    chapterEnd:     chapter_end,
-    verseEnd:       verse_end,
-    pseukim,
-    dateRead:       date_read,
-    note:           note  ? cleanText(note) || null : null,
-    location:       loc   ? cleanText(loc)  || null : null,
-  }).returning({ id: hosafotReadings.id }).all();
-  if (!inserted) throw new Error('Insert returned no row');
-  res.status(201).json({ id: inserted.id });
+  let id: number;
+  try {
+    const values: typeof hosafotReadings.$inferInsert = {
+      sefer,
+      parshaId1:      parsha_id_1,
+      parshaId2:      parsha_id_2,
+      occasionId:     occasion_id,
+      isDoubleParsha: is_double_parsha ? 1 : 0,
+      chapterStart:   ints['chapter_start'],
+      verseStart:     ints['verse_start'],
+      chapterEnd:     ints['chapter_end'],
+      verseEnd:       ints['verse_end'],
+      pseukim:        ints['pseukim'],
+      dateRead:       date_read,
+      note:           note  ? cleanText(note) || null : null,
+      location:       loc   ? cleanText(loc)  || null : null,
+    };
+    const [inserted] = db.insert(hosafotReadings).values(values).returning({ id: hosafotReadings.id }).all();
+    if (!inserted) throw new Error('Insert returned no row');
+    id = inserted.id;
+  } catch (e: unknown) {
+    if (isUniqueConstraint(e))
+      return res.status(409).json({ detail: 'This hosafah reading was already recorded on that date.' });
+    throw e;
+  }
+  res.status(201).json({ id });
 });
 
 app.put('/api/readings/hosafot/:id', (req, res) => {
@@ -418,6 +444,15 @@ app.get('/api/calendar.ics', async (_req, res) => {
     console.error('Calendar feed error:', errText(err));
     res.status(500).json({ detail: 'Failed to generate calendar feed.' });
   }
+});
+
+// ── error handler ─────────────────────────────────────────────────────────────
+
+// Terminal handler: without this, Express's default error handler responds with the
+// full stack trace (including absolute filesystem paths) whenever a route throws.
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled error:', errText(err));
+  res.status(500).json({ detail: 'Internal error' });
 });
 
 // ── start ─────────────────────────────────────────────────────────────────────
