@@ -55,7 +55,7 @@ describe('buildExportBuffer', () => {
 
   it('Portions sheet has one data row per input row', async () => {
     const [portions] = await readSheets();
-    expect(portions!.data.length).toBe(ROWS.length + 1); // header + data rows
+    expect(portions!.data).toHaveLength(ROWS.length + 1); // header + data rows
   });
 
   it('pct is divided by 100 for Excel percent format', async () => {

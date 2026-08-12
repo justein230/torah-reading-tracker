@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ParshaPickerModal } from '../../../src/components/shared/ParshaPickerModal.js';
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
@@ -119,6 +119,6 @@ describe('ParshaPickerModal — open', () => {
 
     rerender(<ParshaPickerModal {...DEFAULT_PROPS} opened={false} />);
     rerender(<ParshaPickerModal {...DEFAULT_PROPS} opened={true} />);
-    await waitFor(() => expect(screen.getByText('Bereishit')).toBeInTheDocument());
+    expect(await screen.findByText('Bereishit')).toBeInTheDocument();
   });
 });

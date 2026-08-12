@@ -30,9 +30,15 @@ beforeEach(() => {
 });
 
 describe('ManageList', () => {
-  it('renders the All Readings heading', () => {
+  // One render of a single standard reading covers the heading, the reading_type
+  // badge and the pseukim count enriched from allRows.
+  it.each([
+    ['the All Readings heading',        'All Readings'],
+    ['the reading_type badge',          'standard'],
+    ['pseukim enriched from allRows',   '45 pseukim'],
+  ])('renders %s', (_label, text) => {
     renderWithProviders(<ManageList readings={[baseReading]} onEdit={vi.fn()} onDelete={vi.fn()} specialReadings={[]} onDeleteSpecial={vi.fn()} onEditSpecial={vi.fn()} {...weekdayDefaults} />);
-    expect(screen.getByText('All Readings')).toBeInTheDocument();
+    expect(screen.getByText(text)).toBeInTheDocument();
   });
 
   it('renders empty state when no readings', () => {
@@ -79,16 +85,6 @@ describe('ManageList', () => {
   it('no Future badge for a past reading', () => {
     renderWithProviders(<ManageList readings={[baseReading]} onEdit={vi.fn()} onDelete={vi.fn()} specialReadings={[]} onDeleteSpecial={vi.fn()} onEditSpecial={vi.fn()} {...weekdayDefaults} />);
     expect(screen.queryByText('Future')).not.toBeInTheDocument();
-  });
-
-  it('displays the reading_type badge', () => {
-    renderWithProviders(<ManageList readings={[baseReading]} onEdit={vi.fn()} onDelete={vi.fn()} specialReadings={[]} onDeleteSpecial={vi.fn()} onEditSpecial={vi.fn()} {...weekdayDefaults} />);
-    expect(screen.getByText('standard')).toBeInTheDocument();
-  });
-
-  it('enriches pseukim from allRows', () => {
-    renderWithProviders(<ManageList readings={[baseReading]} onEdit={vi.fn()} onDelete={vi.fn()} specialReadings={[]} onDeleteSpecial={vi.fn()} onEditSpecial={vi.fn()} {...weekdayDefaults} />);
-    expect(screen.getByText('45 pseukim')).toBeInTheDocument();
   });
 
   it('shows 0 pseukim when allRows has no matching entry', () => {

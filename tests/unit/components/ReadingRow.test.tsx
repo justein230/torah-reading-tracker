@@ -42,19 +42,13 @@ describe('ReadingRow', () => {
     expect(screen.getByText(/Aliyah 1/)).toBeInTheDocument();
   });
 
-  it('renders pseukim count', () => {
+  it.each([
+    ['pseukim count',                     '45 pseukim'],
+    ['percentage',                        '2.31%'],
+    ['formatted date in non-compact mode', 'Mar 15, 2024'],
+  ])('renders %s', (_label, text) => {
     renderWithProviders(<ReadingRow r={baseEntry} />);
-    expect(screen.getByText('45 pseukim')).toBeInTheDocument();
-  });
-
-  it('renders percentage', () => {
-    renderWithProviders(<ReadingRow r={baseEntry} />);
-    expect(screen.getByText('2.31%')).toBeInTheDocument();
-  });
-
-  it('renders formatted date in non-compact mode', () => {
-    renderWithProviders(<ReadingRow r={baseEntry} />);
-    expect(screen.getByText('Mar 15, 2024')).toBeInTheDocument();
+    expect(screen.getByText(text)).toBeInTheDocument();
   });
 
   it('compact mode hides date', () => {

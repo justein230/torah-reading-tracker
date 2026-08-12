@@ -264,7 +264,7 @@ describe('saveDoubleParsha — recreate', () => {
 
     await saveDoubleParsha(DOUBLE_FORM, 42, true, ALL_ROWS, PAIRS);
     expect(order[0]).toBe('delete');
-    expect(order.filter(x => x === 'post').length).toBe(2);
+    expect(order.filter(x => x === 'post')).toHaveLength(2);
   });
 
   it('deletes the old id', async () => {
