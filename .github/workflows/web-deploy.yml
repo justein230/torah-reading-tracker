@@ -1,0 +1,76 @@
+name: web-deploy
+
+# Ported from .woodpecker/web-deploy.yml
+# Runs tests on every push, and on main also builds + pushes the Docker image to GHCR.
+on:
+  push:
+  # NOTE: no `pull_request` trigger — fork-PR workflows are disallowed for now
+  # (Option A: contributions are merged via Gitea). To CI contributor PRs later
+  # (Option B), add `pull_request:` here — use `pull_request`, never
+  # pull_request_target, so fork PRs stay on a read-only token with no secrets.
+  workflow_dispatch:      # replaces Woodpecker "event: manual"
+  schedule:               # replaces Woodpecker "event: cron" — set your own cadence
+    - cron: "0 6 * * 1"   # every Monday 06:00 UTC
+
+# Least privilege by default: every job gets a read-only token unless it explicitly
+# opts into more (only docker-build-push does, and only on a real push to main).
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm rebuild better-sqlite3
+      - run: npm run typecheck
+      - run: npm test
+
+  docker-build-push:
+    needs: test
+    # Publish on push / manual / cron to main (matches the Woodpecker
+    # "branch: main, event: [push, manual, cron]" guard). Excluding pull_request
+    # explicitly is defense in depth for if a `pull_request` trigger is added later.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write       # required to push to GHCR
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}   # built-in, no secret to create
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  # Uncomment to enable automatic deployment over SSH (mirrors the Woodpecker deploy step).
+  # deploy:
+  #   needs: docker-build-push
+  #   if: github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: appleboy/ssh-action@v1
+  #       with:
+  #         host: ${{ secrets.DEPLOY_HOST }}
+  #         username: ${{ secrets.DEPLOY_USER }}
+  #         key: ${{ secrets.DEPLOY_SSH_KEY }}
+  #         port: 22
+  #         script: |
+  #           docker compose -f /opt/torah/docker-compose.yml pull
+  #           docker compose -f /opt/torah/docker-compose.yml up -d --remove-orphans
+  #           docker image prune -f

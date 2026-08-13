@@ -1,0 +1,53 @@
+name: platform-builds
+
+# Ported from .woodpecker/platform-builds.yml
+# Builds the Electron desktop artifacts on version tags (v*) or manual dispatch.
+on:
+  push:
+    tags:
+      - "v*"               # replaces evaluate: CI_COMMIT_TAG matches "^v"
+  workflow_dispatch:       # replaces Woodpecker "event: manual"
+
+jobs:
+  electron-windows:
+    # GitHub's Windows runner builds natively — no wine container needed
+    # (the Woodpecker job used electronuserland/builder:wine on Linux).
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npx electron-builder --win --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: torah-windows
+          path: dist-electron/*.exe
+          if-no-files-found: warn
+
+  # Android build commented out — pending inline SDK install approach (as in Woodpecker).
+  # android-build:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: lts/*
+  #         cache: npm
+  #     - uses: actions/setup-java@v4
+  #       with:
+  #         distribution: temurin
+  #         java-version: "21"
+  #     - uses: android-actions/setup-android@v3
+  #     - run: npm ci --ignore-scripts
+  #     - run: mkdir -p public/assets/databases && cp seed.db public/assets/databases/torah.db
+  #     - run: npm run build && rm -rf public/assets && npx cap sync android
+  #     - run: cd android && ./gradlew assembleDebug
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: torah-android
+  #         path: android/app/build/outputs/apk/**/*.apk
