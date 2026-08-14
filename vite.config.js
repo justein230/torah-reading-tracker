@@ -16,7 +16,12 @@ export default defineConfig(({ mode }) => {
     test: {
       globals: true,
       environment: 'jsdom',
-      pool: 'vmForks',
+      // Use the standard forked-process pool, not the VM-based 'vmForks'. Under
+      // vmForks each file runs in a separate VM realm whose globals differ from the
+      // ones @testing-library/react binds auto-cleanup to, so the jsdom DOM is never
+      // cleared between tests (renders pile up → "Found multiple elements") and mock
+      // resets misfire. It's timing-sensitive: green locally, 140 failures in CI.
+      pool: 'forks',
       setupFiles: ['./tests/setup.js'],
       coverage: {
         provider: 'v8',
