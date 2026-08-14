@@ -27,7 +27,13 @@ jobs:
           node-version: lts/*
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npm rebuild better-sqlite3
+      # better-sqlite3's own install is `prebuild-install || node-gyp rebuild`: it
+      # downloads a prebuilt binary in seconds. `npm rebuild` bypasses that script
+      # (binding.gyp present) and always node-gyp-compiles from source (~90s), so call
+      # prebuild-install directly and fall back to a source build only if none exists.
+      - name: Build better-sqlite3 (prefer prebuilt binary)
+        working-directory: node_modules/better-sqlite3
+        run: ../.bin/prebuild-install || npm run build-release
       - run: npm run typecheck
       - run: npm test
 
