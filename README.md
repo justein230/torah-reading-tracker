@@ -13,7 +13,7 @@ A personal tracking app for Torah aliyah readings. Log every aliyah you read, vi
 - **Calendar view** — grid and agenda views showing readings by date; iCal subscription feed at `/api/calendar.ics`
 - **Overview** — summary stats, per-book progress bars, ring chart, year chart, location stats, and a completion forecast with configurable pace
 - **Hosafot** — log supplemental readings that span custom verse ranges outside the standard aliyah slots
-- **Manage** — add, edit, and delete readings (write access is IP-restricted)
+- **Manage** — add, edit, and delete readings (write access is IP-restricted and/or login-gated — see [Write-access auth](#write-access-auth))
 - **Filters** — filter by book, year, or include scheduled future readings
 
 ## Tech Stack
@@ -27,7 +27,7 @@ A personal tracking app for Torah aliyah readings. Log every aliyah you read, vi
 | Calendar data | Hebcal.com REST API (baked cache) |
 | Desktop | Electron |
 | Mobile | Capacitor (iOS / Android) |
-| Reverse proxy | Caddy |
+| Reverse proxy | Caddy (recommended, not bundled in this repo) |
 
 ## Project Structure
 
@@ -37,6 +37,7 @@ torah/
 │   ├── components/       # React components (Grid, ReadingLog, Calendar, etc.)
 │   │   └── shared/       # Reusable sub-components (ReadingRow, SeferDot, etc.)
 │   ├── context/          # AppContext — shared state and data fetching
+│   ├── hooks/            # useReadingCrud, useTabIndicator, etc.
 │   ├── db/
 │   │   ├── schema.ts     # Drizzle schema (tables, views, inferred types)
 │   │   ├── drizzle-server.ts  # better-sqlite3 Drizzle instance (server)
@@ -50,21 +51,14 @@ torah/
 │   ├── constants.ts      # Shared constants
 │   └── global.css        # App-wide styles
 ├── drizzle/
-│   ├── 0000_initial.sql          # Base schema migration
-│   ├── 0001_seed.sql             # Static Torah seed (sefarim, parshiot, 378 aliyot)
-│   ├── 0002_add_maftir_and_occasions.sql  # Maftir aliyah + occasions/special_readings tables
-│   ├── 0003_seed_occasions.sql   # Seed yom tov and special occasion data
-│   ├── 0004_weekday_tables.sql   # Weekday aliyot + readings tables
-│   ├── 0005_seed_weekday_aliyot.sql  # Seed Mon/Thu aliyot
-│   ├── 0006_chol_hamoed_shabbat_variant.sql  # Chol HaMoed Shabbat variant
-│   ├── 0007_hosafot_readings.sql # Hosafot (supplemental readings) table
-│   ├── 0008_chapter_verses.sql   # Chapter/verse range columns on aliyot + parshiot
-│   ├── 0009_torah_chapters.sql   # Torah chapters table (verse counts)
-│   ├── 0010_seed_torah_chapters.sql  # Seed verse counts per chapter
-│   ├── seed.sql                  # Static data seed (run once via db:init)
-│   └── meta/                     # Drizzle Kit snapshot state (do not edit manually)
+│   ├── 0000_baseline.sql  # Full schema (tables, views, checks) — squashed from the original migration history
+│   ├── 0001_seed.sql      # Static Torah seed (sefarim, parshiot, 378 aliyot, occasions, weekday aliyot, chapter verse counts)
+│   └── meta/              # Drizzle Kit snapshot state (do not edit manually)
 ├── scripts/
-│   └── db-init.ts        # Standalone script to initialize a fresh torah.db
+│   ├── db-init.ts             # Standalone script to initialize a fresh torah.db
+│   ├── db-migrate-user-data.ts  # One-off migration helper for existing reading data
+│   ├── gen-sedra-cache.ts     # Regenerates src/data/sedraCache.ts from Hebcal
+│   └── seed-verse-ranges.mts  # One-time seed of chapter/verse ranges from Hebcal
 ├── tests/
 │   ├── unit/             # Vitest unit tests
 │   └── integration/      # Integration tests
@@ -73,10 +67,11 @@ torah/
 ├── server.ts             # Express API server
 ├── drizzle.config.ts     # Drizzle Kit configuration
 ├── schema.sql            # Legacy schema reference (superseded by Drizzle)
-├── Caddyfile             # Reverse proxy config (two vhosts)
-├── torah-api.service     # systemd unit file
-├── build-all.sh          # Production build script
-└── deploy.sh             # Deployment script
+├── Dockerfile            # Multi-stage build for the Docker deployment
+├── docker-compose.yml    # Local/self-host Compose config (builds the image)
+├── torah-api.service     # systemd unit file (bare-Node deployment)
+├── build-all.sh          # Cross-platform Electron packaging script (Windows/Mac/Linux, uses prebuilt native binaries)
+└── deploy.sh             # Deployment script (Docker by default, or DEPLOY_MODE=systemd)
 ```
 
 ## Database
@@ -116,7 +111,7 @@ The server runs migrations automatically on startup via `src/db/init.ts`. For a 
 npm run db:init
 ```
 
-This applies all Drizzle migrations in `drizzle/` and then seeds the static Torah data (sefarim, parshiot, and all 378 aliyot) from `drizzle/seed.sql`. The `TORAH_DB_PATH` environment variable controls which file is created (default: `./torah.db`).
+This applies all Drizzle migrations in `drizzle/` — `0000_baseline.sql` creates the schema and `0001_seed.sql` seeds the static Torah data (sefarim, parshiot, and all 378 aliyot) as part of that same migration run. The `TORAH_DB_PATH` environment variable controls which file is created (default: `./torah.db`).
 
 ### Migrations
 
@@ -166,18 +161,19 @@ npm run build        # outputs to dist/
 npm start            # serves dist/ via Express on :3000
 ```
 
-Or use the build script:
-
-```bash
-bash build-all.sh
-```
-
 ## Electron (Desktop)
 
 ```bash
 npm run electron        # build + launch
 npm run electron:dev    # dev mode with hot reload
-npm run electron:build  # package as distributable
+npm run electron:build  # package as distributable (current platform)
+```
+
+To cross-build the Electron app for Windows/Mac/Linux from prebuilt native `better-sqlite3` binaries, use `build-all.sh` (run `bash build-all.sh` with no arguments to see usage):
+
+```bash
+bash build-all.sh --collect     # save this platform's compiled binary as a prebuild
+bash build-all.sh --build-all   # build all three platforms using the collected prebuilds
 ```
 
 ## Capacitor (Mobile)
@@ -194,14 +190,11 @@ Capacitor bundles it into the app and copies it onto the device on first launch
 (`copyFromAssets`). The seed DB is generated at build time — never committed —
 so it always matches the current schema and reference data.
 
-## Deployment (Docker + Caddy)
+## Deployment (Docker + reverse proxy)
 
-The recommended production setup runs the app in a Docker container with Caddy on the host as the reverse proxy.
+The recommended production setup runs the app in a Docker container behind a reverse proxy (e.g. Caddy) on the host.
 
 ```bash
-# First run — create the data directory
-sudo mkdir -p /opt/torah/data
-
 # Build image and start container
 ./deploy.sh
 
@@ -210,9 +203,7 @@ docker compose build
 docker compose up -d
 ```
 
-The container binds only to `127.0.0.1:3000` — it is not publicly accessible. Caddy forwards all requests to it and sets the `X-Real-IP` header so the write guard sees the real client IP.
-
-Place the `Caddyfile` in `/etc/caddy/` and reload Caddy after any changes.
+`docker-compose.yml` binds the container only to `127.0.0.1:3000` by default — it is not publicly accessible until a reverse proxy is put in front of it. Any IP-based access restriction (e.g. LAN-only) belongs in that reverse proxy (e.g. Traefik's `ipallowlist` middleware), not in the app. Deployment-specific values (private registry image, host bind-mount path) belong in `docker-compose.override.yml`, which Compose merges automatically — see `docker-compose.override.yml.example`.
 
 ## Deployment (bare Node + systemd)
 
@@ -222,7 +213,18 @@ Alternatively, deploy without Docker using the systemd service file:
 DEPLOY_MODE=systemd ./deploy.sh
 ```
 
-Write access to the API (`POST /PUT /DELETE /api/readings`) is restricted to local network CIDRs configured in the `Caddyfile` and via `TORAH_ALLOWED_IPS`.
+Write access to the API (`POST`/`PUT`/`DELETE` on `/api/readings`) is gated by the app's own auth — see [Write-access auth](#write-access-auth) below. Any IP-based restriction should be enforced by the reverse proxy in front of it.
+
+## Write-access auth
+
+Two mutually exclusive auth modes, picked via `TORAH_AUTH_MODE`:
+
+- **`password`** (default) — the app's own login, and nothing else. Write access is purely "is there a valid session", so there's no ambiguity about whether you're actually logged in. Set `TORAH_ADMIN_PASSWORD` (plaintext) and start the app; it hashes the password into the database on that first start, so the plaintext env var doesn't need to stay set — **remove it once the app is up**. If it's still set on a later start and a hash already exists, the app shows a persistent "insecure config" banner, since a leaked plaintext password is worse than a leaked hash. Log in from the Settings drawer.
+- **`header`** — trust a header your reverse proxy sets after doing its *own* auth (e.g. Traefik's `basicAuth` middleware sets `X-Forwarded-User` on success; Authelia, oauth2-proxy, Tailscale Serve, and Cloudflare Access all have equivalents). Set `TORAH_AUTH_MODE=header`, `TORAH_AUTH_HEADER` to the header name, and `TORAH_REQUIRE_PROXY_HEADER=true`.
+
+  This only works if **every** router in front of the app either sets that header (after authenticating) or blanks it — never just passes an unauthenticated client's own header through unchanged, or anyone can grant themselves write access by sending it directly.
+
+  Any IP-based restriction (e.g. LAN-only access to an internal hostname) is the reverse proxy's job, not the app's — e.g. Traefik's `ipallowlist` middleware on the router in front of this service. That keeps IP filtering correct regardless of whether the proxy also forwards a real client-IP header to the app.
 
 ## Environment Variables
 
@@ -231,11 +233,14 @@ Write access to the API (`POST /PUT /DELETE /api/readings`) is restricted to loc
 | `PORT` | `3000` | Port the Express server listens on |
 | `TORAH_HOST` | `127.0.0.1` | Interface the Express server binds to |
 | `TORAH_DB_PATH` | `./torah.db` | Path to the SQLite database |
-| `TORAH_ALLOWED_IPS` | `127.0.0.0/8` | Comma-separated CIDRs allowed to write via the API. Set in the systemd unit for production. |
-| `VITE_HOST` | `0.0.0.0` | Interface the Vite dev server binds to |
+| `TORAH_AUTH_MODE` | `password` | `password` (built-in login) or `header` (trust an upstream reverse-proxy auth header). See [Write-access auth](#write-access-auth). |
+| `TORAH_ADMIN_PASSWORD` | *(none)* | `password` mode, first start only: plaintext password to hash into the DB. Remove after the app has started once. |
+| `TORAH_AUTH_HEADER` | `X-Forwarded-User` | `header` mode: name of the header to trust as proof of auth. |
+| `TORAH_REQUIRE_PROXY_HEADER` | `false` in dev, `true` in production | `header` mode: only trust `TORAH_AUTH_HEADER` when set by a proxy, never from a direct client. Required for `header` mode. |
+| `VITE_HOST` | `127.0.0.1` | Interface the Vite dev server binds to |
 | `VITE_DEV_PORT` | `8000` | Port the Vite dev server listens on |
 | `VITE_API_PORT` | `3000` | Express port Vite proxies `/api` to in dev |
-| `VITE_ALLOWED_HOSTS` | *(none)* | Comma-separated extra hostnames the Vite dev server accepts. Put machine-specific values in `.env.local` — Vite gitignores it automatically. |
+| `VITE_ALLOWED_HOSTS` | *(none)* | Comma-separated extra hostnames the Vite dev server accepts. `.env.local` is not gitignored in this repo — use `.env` (which is) for machine-specific values, or export the variable in your shell. |
 
 ## Data & Attribution
 
