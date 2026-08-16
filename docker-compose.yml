@@ -1,7 +1,7 @@
 services:
   torah:
     # build: .
-    image: torah-tracker-local
+    image: ghcr.io/justein230/torah-reading-tracker:latest
     # Handle SIGTERM gracefully
     init: true
     environment:
