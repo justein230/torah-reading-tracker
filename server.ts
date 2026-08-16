@@ -71,26 +71,24 @@ function getStoredPasswordHash(): string | null {
   return db.select({ passwordHash: adminPassword.passwordHash }).from(adminPassword).where(eq(adminPassword.id, 1)).get()?.passwordHash ?? null;
 }
 
-// If TORAH_ADMIN_PASSWORD (plaintext) is set, hash it and persist the hash to
-// admin_password so the plaintext doesn't need to stay set across restarts. Doing
-// this at startup — rather than shipping a separate hashing script — means setting
-// up a password never requires anything beyond the app's own normal startup.
+// If TORAH_ADMIN_PASSWORD is set on first start (no stored hash yet), hash it into
+// admin_password so the plaintext doesn't need to stay set across restarts. First-start-
+// only: once a hash exists, the env var is never re-applied
 //
-// If it's *not* set and no password has ever been configured (no stored hash yet),
-// generate a random one-time bootstrap password, store its hash, and print the
-// plaintext to the logs once — the Rancher/NetBox pattern. Every later restart
-// finds a stored hash already, so this only ever fires on first run.
-let INSECURE_CONFIG = false;
-if (AUTH_MODE === 'password' && process.env.TORAH_ADMIN_PASSWORD) {
+// If it's not set and no password has ever been configured, generate a random one-time
+// bootstrap password, store its hash, and print the plaintext to the logs.
+const existingPasswordHash = getStoredPasswordHash();
+// Env var still set in password mode is always the "forgot to unset it" case the
+// insecureConfig banner warns about — true whether this is the first start (which
+// just hashed it) or a later one (which left the existing hash alone).
+const INSECURE_CONFIG = AUTH_MODE === 'password' && !!process.env.TORAH_ADMIN_PASSWORD;
+if (AUTH_MODE === 'password' && process.env.TORAH_ADMIN_PASSWORD && !existingPasswordHash) {
   const passwordHash = hashPassword(process.env.TORAH_ADMIN_PASSWORD);
   db.insert(adminPassword)
     .values({ id: 1, passwordHash })
     .onConflictDoUpdate({ target: adminPassword.id, set: { passwordHash, updatedAt: sql`(datetime('now'))` } })
     .run();
-  // A hash now exists in the DB, and the plaintext env var that produced it is still
-  // set — that's the "forgot to unset it" case the insecureConfig banner warns about.
-  INSECURE_CONFIG = true;
-} else if (AUTH_MODE === 'password' && !getStoredPasswordHash()) {
+} else if (AUTH_MODE === 'password' && !existingPasswordHash) {
   const bootstrapPassword = generateBootstrapPassword();
   db.insert(adminPassword).values({ id: 1, passwordHash: hashPassword(bootstrapPassword) }).run();
   console.log([
