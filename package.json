@@ -39,6 +39,7 @@
     "@mantine/dates": "^9.2.1",
     "@mantine/hooks": "^9.2.1",
     "@mantine/modals": "^9.2.1",
+    "@mantine/notifications": "^9.4.2",
     "@tabler/icons-react": "^3.44.0",
     "better-sqlite3": "^12.11.1",
     "chart.js": "^4.5.1",

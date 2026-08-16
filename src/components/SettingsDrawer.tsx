@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Drawer, Stack, MultiSelect, Switch, SegmentedControl, Text, Box, Button, Divider, PasswordInput } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { useApp } from '../context/AppContext.js';
 import { fetchAuthStatus, login, logout, changePassword } from '../api.js';
 import { exportExcel, exportDb } from '../utils/export.js';
@@ -21,7 +22,6 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword]         = useState('');
   const [changeError, setChangeError]         = useState('');
-  const [changeSuccess, setChangeSuccess]     = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
@@ -49,13 +49,12 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
   async function handleChangePassword() {
     setChangingPassword(true);
     setChangeError('');
-    setChangeSuccess(false);
     try {
       const result = await changePassword(currentPassword, newPassword);
       if (!result.ok) { setChangeError(result.error); return; }
       setCurrentPassword('');
       setNewPassword('');
-      setChangeSuccess(true);
+      notifications.show({ message: 'Password changed', color: 'green' });
     } finally {
       setChangingPassword(false);
     }
@@ -193,19 +192,19 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
                 <PasswordInput
                   label="Current password"
                   value={currentPassword}
-                  onChange={e => { setCurrentPassword(e.currentTarget.value); setChangeSuccess(false); }}
+                  onChange={e => setCurrentPassword(e.currentTarget.value)}
                   error={changeError || undefined}
                 />
                 <PasswordInput
                   label="New password"
                   description="At least 8 characters"
                   value={newPassword}
-                  onChange={e => { setNewPassword(e.currentTarget.value); setChangeSuccess(false); }}
+                  onChange={e => setNewPassword(e.currentTarget.value)}
                   onKeyDown={e => { if (e.key === 'Enter') void handleChangePassword(); }}
                 />
                 <Button variant="light" color="gray" fullWidth
                   loading={changingPassword} onClick={handleChangePassword}>
-                  {changeSuccess ? 'Password changed' : 'Change password'}
+                  Change password
                 </Button>
                 <Button variant="subtle" color="gray" fullWidth onClick={handleLogout}>
                   Log out
