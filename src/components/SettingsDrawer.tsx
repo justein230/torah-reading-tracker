@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Drawer, Stack, MultiSelect, Switch, SegmentedControl, Text, Box, Button, Divider } from '@mantine/core';
+import { Drawer, Stack, MultiSelect, Switch, SegmentedControl, Text, Box, Button, Divider, PasswordInput } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
-import { fetchCanWrite } from '../api.js';
+import { fetchAuthStatus, login, logout, changePassword } from '../api.js';
 import { exportExcel, exportDb } from '../utils/export.js';
+import type { AuthStatus } from '../types/index.js';
 
 interface SettingsDrawerProps {
   readonly opened: boolean;
@@ -10,13 +11,55 @@ interface SettingsDrawerProps {
 }
 
 export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps) {
-  const { SEFER_ORDER, SEFER_MAP, allYears, filters, setFilters } = useApp();
-  const [canWrite, setCanWrite]   = useState(false);
+  const { SEFER_ORDER, SEFER_MAP, allYears, filters, setFilters, canWrite, refreshCanWrite } = useApp();
   const [exporting, setExporting] = useState<'excel' | 'db' | null>(null);
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+  const [password, setPassword]     = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loggingIn, setLoggingIn]   = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword]         = useState('');
+  const [changeError, setChangeError]         = useState('');
+  const [changeSuccess, setChangeSuccess]     = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
-    void fetchCanWrite().then(setCanWrite);
+    void fetchAuthStatus().then(setAuthStatus);
   }, []);
+
+  async function handleLogin() {
+    setLoggingIn(true);
+    setLoginError('');
+    try {
+      const ok = await login(password);
+      if (!ok) { setLoginError('Incorrect password'); return; }
+      setPassword('');
+      await refreshCanWrite();
+    } finally {
+      setLoggingIn(false);
+    }
+  }
+
+  async function handleLogout() {
+    await logout();
+    await refreshCanWrite();
+  }
+
+  async function handleChangePassword() {
+    setChangingPassword(true);
+    setChangeError('');
+    setChangeSuccess(false);
+    try {
+      const result = await changePassword(currentPassword, newPassword);
+      if (!result.ok) { setChangeError(result.error); return; }
+      setCurrentPassword('');
+      setNewPassword('');
+      setChangeSuccess(true);
+    } finally {
+      setChangingPassword(false);
+    }
+  }
 
   function set<K extends keyof typeof filters>(key: K, value: (typeof filters)[K]) {
     setFilters(f => ({ ...f, [key]: value }));
@@ -116,6 +159,23 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
           Reset all filters
         </Button>
 
+        {authStatus?.authMode === 'password' && !canWrite && (
+          <>
+            <Divider />
+            <Text size="xs" tt="uppercase" fw={600} c="dimmed" lts={1}>Manage</Text>
+            <PasswordInput
+              label="Admin password"
+              value={password}
+              onChange={e => setPassword(e.currentTarget.value)}
+              onKeyDown={e => { if (e.key === 'Enter') void handleLogin(); }}
+              error={loginError || undefined}
+            />
+            <Button fullWidth loading={loggingIn} onClick={handleLogin}>
+              Log in
+            </Button>
+          </>
+        )}
+
         {canWrite && (
           <>
             <Divider />
@@ -128,6 +188,30 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
               loading={exporting === 'db'} onClick={handleDbExport}>
               Export DB (.sqlite)
             </Button>
+            {authStatus?.authMode === 'password' && (
+              <>
+                <PasswordInput
+                  label="Current password"
+                  value={currentPassword}
+                  onChange={e => { setCurrentPassword(e.currentTarget.value); setChangeSuccess(false); }}
+                  error={changeError || undefined}
+                />
+                <PasswordInput
+                  label="New password"
+                  description="At least 8 characters"
+                  value={newPassword}
+                  onChange={e => { setNewPassword(e.currentTarget.value); setChangeSuccess(false); }}
+                  onKeyDown={e => { if (e.key === 'Enter') void handleChangePassword(); }}
+                />
+                <Button variant="light" color="gray" fullWidth
+                  loading={changingPassword} onClick={handleChangePassword}>
+                  {changeSuccess ? 'Password changed' : 'Change password'}
+                </Button>
+                <Button variant="subtle" color="gray" fullWidth onClick={handleLogout}>
+                  Log out
+                </Button>
+              </>
+            )}
           </>
         )}
       </Stack>

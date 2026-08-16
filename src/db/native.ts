@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { createNativeDb } from './drizzle-native.js';
 import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, hosafotReadings as hosafotReadingsTable, torahChapters } from './schema.js';
 import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './queries.js';
-import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody } from '../types/index.js';
+import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
 import { scheduleFromEntries } from '../utils/sedra.js';
 import { SEDRA_CACHE } from '../data/sedraCache.js';
 
@@ -24,6 +24,22 @@ const db = createNativeDb(getConn);
 
 export async function fetchCanWrite(): Promise<boolean> {
   return true;
+}
+
+// Native has direct on-device DB access — there's no server to authenticate against,
+// so writes are always allowed and login/logout are no-ops.
+export async function fetchAuthStatus(): Promise<AuthStatus> {
+  return { authMode: 'password', insecureConfig: false };
+}
+
+export async function login(_password: string): Promise<boolean> {
+  return true;
+}
+
+export async function logout(): Promise<void> {}
+
+export async function changePassword(_currentPassword: string, _newPassword: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  return { ok: true };
 }
 
 export async function fetchMeta(): Promise<MetaResult> {

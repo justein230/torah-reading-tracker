@@ -1,4 +1,4 @@
-import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody } from '../types/index.js';
+import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
 
 // ── fetch helpers ────────────────────────────────────────────────────────────
 // Every function below is a thin wrapper around one of these four shapes:
@@ -27,6 +27,32 @@ async function del(path: string, fallback: string): Promise<void> {
 
 export async function fetchCanWrite(): Promise<boolean> {
   return fetch('/api/can-write').then(r => r.json()).then(r => r.canWrite).catch(() => false);
+}
+
+export async function fetchAuthStatus(): Promise<AuthStatus> {
+  return fetch('/api/can-write').then(r => r.json())
+    .then(r => ({ authMode: r.authMode, insecureConfig: r.insecureConfig }))
+    .catch(() => ({ authMode: 'password' as const, insecureConfig: false }));
+}
+
+export async function login(password: string): Promise<boolean> {
+  const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+  return res.ok;
+}
+
+export async function logout(): Promise<void> {
+  await fetch('/api/auth/logout', { method: 'POST' });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch('/api/auth/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (res.ok) return { ok: true };
+  const body = await res.json().catch(() => null);
+  return { ok: false, error: body?.detail ?? 'Could not change password' };
 }
 
 export const fetchMeta          = (): Promise<MetaResult>              => getJson('/api/meta');

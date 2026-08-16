@@ -4,14 +4,14 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import { createDb } from './src/db/drizzle-server.js';
 import { initDb } from './src/db/init.js';
-import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot, specialReadings, weekdayAliyot, weekdayReadings, hosafotReadings, torahChapters } from './src/db/schema.js';
+import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot, specialReadings, weekdayAliyot, weekdayReadings, hosafotReadings, torahChapters, adminPassword, authSessions } from './src/db/schema.js';
 import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './src/db/queries.js';
 import { buildSchedule, fetchLiveHebcalItems } from './src/utils/sedra.js';
 import { SEDRA_CACHE, SEDRA_YEARS } from './src/data/sedraCache.js';
-import { compileCidrs, isAllowed, getClientIp } from './src/utils/ip.js';
+import { hashPassword, verifyPassword, generateSessionToken, hashSessionToken, parseSessionCookie, serializeSessionCookie, clearSessionCookie, isHeaderAuthenticated, generateBootstrapPassword } from './src/utils/auth.js';
 import { buildExportBuffer } from './src/utils/export-server.js';
 import { buildCalendarFeed } from './src/utils/calendar-feed.js';
 import { errText } from './src/utils/errText.js';
@@ -47,14 +47,88 @@ app.disable('x-powered-by');
 
 // ── write guard ───────────────────────────────────────────────────────────────
 
-const ALLOWED_CIDRS = process.env.TORAH_ALLOWED_IPS
-  ? process.env.TORAH_ALLOWED_IPS.split(',').map((s: string) => s.trim()).filter(Boolean)
-  : ['127.0.0.0/8'];
+// Same NODE_ENV-based default as before, overridable via TORAH_REQUIRE_PROXY_HEADER.
+const REQUIRE_PROXY_HEADER = process.env.TORAH_REQUIRE_PROXY_HEADER
+  ? process.env.TORAH_REQUIRE_PROXY_HEADER === 'true'
+  : process.env.NODE_ENV === 'production';
 
-const COMPILED = compileCidrs(ALLOWED_CIDRS);
+// ── auth ──────────────────────────────────────────────────────────────────────
+// Two mutually exclusive modes, picked via TORAH_AUTH_MODE:
+//  'password' (default) — the app's own login, for deployments with no auth in front.
+//  'header'              — trust a header an upstream reverse proxy sets after doing
+//                           its own auth (e.g. Traefik/Caddy basicAuth). Only trusted
+//                           when TORAH_REQUIRE_PROXY_HEADER is also on — see
+//                           isHeaderAuthenticated for why.
+//                           Any IP-based restriction (e.g. LAN-only access) is the
+//                           reverse proxy's job now, not the app's.
+
+const AUTH_MODE   = process.env.TORAH_AUTH_MODE === 'header' ? 'header' : 'password';
+const AUTH_HEADER = (process.env.TORAH_AUTH_HEADER || 'x-forwarded-user').toLowerCase();
+const COOKIE_SECURE = process.env.NODE_ENV === 'production';
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
+
+function getStoredPasswordHash(): string | null {
+  return db.select({ passwordHash: adminPassword.passwordHash }).from(adminPassword).where(eq(adminPassword.id, 1)).get()?.passwordHash ?? null;
+}
+
+// If TORAH_ADMIN_PASSWORD (plaintext) is set, hash it and persist the hash to
+// admin_password so the plaintext doesn't need to stay set across restarts. Doing
+// this at startup — rather than shipping a separate hashing script — means setting
+// up a password never requires anything beyond the app's own normal startup.
+//
+// If it's *not* set and no password has ever been configured (no stored hash yet),
+// generate a random one-time bootstrap password, store its hash, and print the
+// plaintext to the logs once — the Rancher/NetBox pattern. Every later restart
+// finds a stored hash already, so this only ever fires on first run.
+let INSECURE_CONFIG = false;
+if (AUTH_MODE === 'password' && process.env.TORAH_ADMIN_PASSWORD) {
+  const passwordHash = hashPassword(process.env.TORAH_ADMIN_PASSWORD);
+  db.insert(adminPassword)
+    .values({ id: 1, passwordHash })
+    .onConflictDoUpdate({ target: adminPassword.id, set: { passwordHash, updatedAt: sql`(datetime('now'))` } })
+    .run();
+  // A hash now exists in the DB, and the plaintext env var that produced it is still
+  // set — that's the "forgot to unset it" case the insecureConfig banner warns about.
+  INSECURE_CONFIG = true;
+} else if (AUTH_MODE === 'password' && !getStoredPasswordHash()) {
+  const bootstrapPassword = generateBootstrapPassword();
+  db.insert(adminPassword).values({ id: 1, passwordHash: hashPassword(bootstrapPassword) }).run();
+  console.log([
+    '',
+    '='.repeat(72),
+    'No admin password configured — generated a one-time bootstrap password:',
+    '',
+    `    ${bootstrapPassword}`,
+    '',
+    'Log in with it and change it from Settings, or set TORAH_ADMIN_PASSWORD',
+    'and restart to use your own password instead.',
+    '='.repeat(72),
+    '',
+  ].join('\n'));
+}
+
+function hasValidSession(req: express.Request): boolean {
+  const token = parseSessionCookie(req.headers.cookie);
+  if (!token) return false;
+  const row = db.select({ id: authSessions.id })
+    .from(authSessions)
+    .where(and(eq(authSessions.tokenHash, hashSessionToken(token)), sql`${authSessions.expiresAt} > datetime('now')`))
+    .get();
+  return !!row;
+}
+
+function isAuthenticated(req: express.Request): boolean {
+  return AUTH_MODE === 'header'
+    ? isHeaderAuthenticated(req.headers[AUTH_HEADER], REQUIRE_PROXY_HEADER)
+    : hasValidSession(req);
+}
+
+function canWriteFor(req: express.Request): boolean {
+  return isAuthenticated(req);
+}
 
 function privateOnly(req: express.Request, res: express.Response, next: express.NextFunction) {
-  if (isAllowed(getClientIp(req), COMPILED)) return next();
+  if (canWriteFor(req)) return next();
   res.status(403).json({ detail: 'Forbidden' });
 }
 
@@ -72,6 +146,61 @@ const writeLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: 
 app.use('/api/readings', (req, res, next) => {
   if (req.method === 'GET') return next();
   writeLimiter(req, res, next);
+});
+
+// Tight cap on login attempts — this is the brute-force defense for password mode,
+// since a long random password plus a slow request budget makes guessing infeasible.
+// change-password gets its own instance of the same cap rather than sharing this one,
+// so guessing at the login page and mistyping a current password don't drain the same
+// budget and lock each other out.
+const loginLimiter          = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
+const changePasswordLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
+
+app.post('/api/auth/login', loginLimiter, (req, res) => {
+  if (AUTH_MODE !== 'password') return res.status(404).json({ detail: 'Not found' });
+  const storedHash = getStoredPasswordHash();
+  const { password } = req.body;
+  if (!storedHash || typeof password !== 'string' || !verifyPassword(password, storedHash)) {
+    return res.status(401).json({ detail: 'Incorrect password' });
+  }
+  const token = generateSessionToken();
+  const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000).toISOString();
+  db.insert(authSessions).values({ tokenHash: hashSessionToken(token), expiresAt }).run();
+  res.setHeader('Set-Cookie', serializeSessionCookie(token, SESSION_MAX_AGE_SECONDS, COOKIE_SECURE));
+  res.json({ success: true });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const token = parseSessionCookie(req.headers.cookie);
+  if (token) db.delete(authSessions).where(eq(authSessions.tokenHash, hashSessionToken(token))).run();
+  res.setHeader('Set-Cookie', clearSessionCookie(COOKIE_SECURE));
+  res.json({ success: true });
+});
+
+// Requires the current password (defense in depth beyond just having a valid session —
+// e.g. a left-open browser tab shouldn't be enough on its own) and rate-limits like
+// login, since it's also a password-guessing surface. On success, every *other* session
+// is invalidated (a changed password should kick out anyone else logged in) but the
+// caller's own session stays valid so they aren't logged out by changing their password.
+app.post('/api/auth/change-password', changePasswordLimiter, privateOnly, (req, res) => {
+  if (AUTH_MODE !== 'password') return res.status(404).json({ detail: 'Not found' });
+  const { currentPassword, newPassword } = req.body;
+  const storedHash = getStoredPasswordHash();
+  if (!storedHash || typeof currentPassword !== 'string' || !verifyPassword(currentPassword, storedHash)) {
+    return res.status(401).json({ detail: 'Incorrect current password' });
+  }
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    return res.status(400).json({ detail: 'New password must be at least 8 characters' });
+  }
+  db.update(adminPassword)
+    .set({ passwordHash: hashPassword(newPassword), updatedAt: sql`(datetime('now'))` })
+    .where(eq(adminPassword.id, 1))
+    .run();
+  const currentToken = parseSessionCookie(req.headers.cookie);
+  const currentTokenHash = currentToken ? hashSessionToken(currentToken) : null;
+  if (currentTokenHash) db.delete(authSessions).where(ne(authSessions.tokenHash, currentTokenHash)).run();
+  else db.delete(authSessions).run();
+  res.json({ success: true });
 });
 
 // ── parsha schedule ─────────────────────────────────────────────────────────────
@@ -166,7 +295,11 @@ app.get('/', (_req, res) => {
 });
 
 app.get('/api/can-write', (req, res) => {
-  res.json({ canWrite: isAllowed(getClientIp(req), COMPILED) });
+  res.json({
+    canWrite: canWriteFor(req),
+    authMode: AUTH_MODE,
+    insecureConfig: INSECURE_CONFIG,
+  });
 });
 
 app.get('/api/export/excel', privateOnly, async (_req, res) => {
@@ -185,7 +318,7 @@ app.get('/api/export/excel', privateOnly, async (_req, res) => {
   }
 });
 
-app.get('/api/export/db', (_req, res) => {
+app.get('/api/export/db', privateOnly, (_req, res) => {
   const data = fs.readFileSync(DB_PATH);
   res.setHeader('Content-Type', 'application/vnd.sqlite3');
   res.setHeader('Content-Disposition', 'attachment; filename="torah.db"');

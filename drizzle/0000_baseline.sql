@@ -1,3 +1,9 @@
+CREATE TABLE `admin_password` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`password_hash` text NOT NULL,
+	`updated_at` text DEFAULT (datetime('now')) NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `aliyot` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`parsha_id` integer NOT NULL,
@@ -16,6 +22,14 @@ CREATE TABLE `aliyot` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `aliyot_parsha_id_aliyah_unique` ON `aliyot` (`parsha_id`,`aliyah`);--> statement-breakpoint
+CREATE TABLE `auth_sessions` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`token_hash` text NOT NULL,
+	`created_at` text DEFAULT (datetime('now')) NOT NULL,
+	`expires_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `auth_sessions_token_hash_unique` ON `auth_sessions` (`token_hash`);--> statement-breakpoint
 CREATE TABLE `hosafot_readings` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`sefer` text NOT NULL,

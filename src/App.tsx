@@ -3,6 +3,7 @@ import { AppShell, Tabs, Box, ActionIcon, Text, Indicator } from '@mantine/core'
 import { useApp } from './context/AppContext.js';
 import { useTabIndicator } from './hooks/useTabIndicator.js';
 import { TABS, TAB_LABELS } from './constants.js';
+import { fetchAuthStatus } from './api.js';
 import SettingsDrawer from './components/SettingsDrawer.js';
 import BottomNav from './components/BottomNav.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
@@ -25,6 +26,7 @@ function filterCount(filters: Filters): number {
 export default function App() {
   const { activeTab, setActiveTab, filters, setFilters, setSortMode, ready } = useApp();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [insecureConfig, setInsecureConfig] = useState(false);
   const { tabListRef, indicatorRef } = useTabIndicator(activeTab);
   const headerRef     = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(106);
@@ -39,6 +41,10 @@ export default function App() {
     });
     observer.observe(el);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    void fetchAuthStatus().then(s => setInsecureConfig(s.insecureConfig));
   }, []);
 
   useEffect(() => {
@@ -90,7 +96,24 @@ export default function App() {
       padding={0}
     >
       <AppShell.Header withBorder={false} className="app-header">
-        <div ref={headerRef}>
+        {/* user-select: none elements (title, tabs) don't reliably clear a selection made
+            elsewhere on click — a known browser quirk, since they never get a caret of
+            their own — so clear it manually for any click landing outside the banner. */}
+        <div
+          ref={headerRef}
+          onMouseDown={e => {
+            if (!(e.target as HTMLElement).closest('.insecure-config-banner')) {
+              window.getSelection()?.removeAllRanges();
+            }
+          }}
+        >
+          {insecureConfig && (
+            <Box className="insecure-config-banner">
+              <Text size="xs" fw={600} ta="center">
+                Insecure config: TORAH_ADMIN_PASSWORD is still set as a plaintext env var. Unset it now that the password is stored — see README.
+              </Text>
+            </Box>
+          )}
           <div className="app-header-inner">
             <Box>
               <Text fw={700} size="lg" className="app-title">מעקב תורה</Text>

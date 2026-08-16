@@ -253,8 +253,17 @@ export interface PutReadingBody {
   location?: string;
 }
 
+export interface AuthStatus {
+  authMode: 'password' | 'header';
+  insecureConfig: boolean;
+}
+
 export interface DbApi {
   fetchCanWrite: () => Promise<boolean>;
+  fetchAuthStatus: () => Promise<AuthStatus>;
+  login: (password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   fetchMeta: () => Promise<MetaResult>;
   fetchAliyot: () => Promise<RawRow[]>;
   fetchReadings: () => Promise<ReadingRecord[]>;
@@ -534,6 +543,8 @@ export interface AppContextValue {
   stats: Stats | null;
   refresh: () => Promise<void>;
   ready: boolean;
+  canWrite: boolean;
+  refreshCanWrite: () => Promise<void>;
   occasions: OccasionRecord[];
   occasionAliyot: MappedOccasionAliyah[];
   specialReadings: SpecialReadingRecord[];

@@ -1,6 +1,6 @@
 .collapsible-row { margin-bottom: 8px; }
 .collapsible-summary { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; border-left: 4px solid transparent; padding: 14px 16px; cursor: pointer; user-select: none; transition: border-radius 0.06s ease 0.22s; }
-.collapsible-summary::after { content: '▶'; font-size: 10px; color: var(--muted); margin-left: auto; flex-shrink: 0; transition: transform .22s ease; }
+.collapsible-summary::after { content: '\25B6\FE0E'; font-size: 10px; color: var(--muted); margin-left: auto; flex-shrink: 0; transition: transform .22s ease; }
 .collapsible-row.open .collapsible-summary { border-radius: 10px 10px 0 0; transition: border-radius 0.22s ease; }
 .collapsible-row.open .collapsible-summary::after { transform: rotate(90deg); }
 .collapsible-slider { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }

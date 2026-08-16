@@ -16,7 +16,6 @@ import request from 'supertest';
 const TEMP_DB = path.join(os.tmpdir(), `torah-hebcal-test-${process.pid}.db`);
 
 process.env.TORAH_DB_PATH     = TEMP_DB;
-process.env.TORAH_ALLOWED_IPS = '127.0.0.0/8';
 
 const { app, rawDb: db } = await import('../../server.ts');
 

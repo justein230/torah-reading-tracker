@@ -159,6 +159,10 @@ export function mapHosafahRow(r: RawHosafahRow): MappedHosafah {
 
 export {
   fetchCanWrite,
+  fetchAuthStatus,
+  login,
+  logout,
+  changePassword,
   fetchMeta,
   fetchAliyot,
   fetchReadings,

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { useApp } from '../context/AppContext.js';
-import { fetchReadings, fetchCanWrite, deleteReading, deleteSpecialReading, deleteWeekdayReading, postWeekdayReading, putWeekdayReading, postHosafah, deleteHosafah, putHosafah } from '../api.js';
+import { fetchReadings, deleteReading, deleteSpecialReading, deleteWeekdayReading, postWeekdayReading, putWeekdayReading, postHosafah, deleteHosafah, putHosafah } from '../api.js';
 import { validateForm, submitReading, applyFieldChange } from '../utils/manage-utils.js';
 import { fmtAliyah, fmtLongDate, toDateStr } from '../utils.js';
 import { buildGroupedOptions } from '../utils/form-options.js';
@@ -119,11 +119,9 @@ function buildFormOptions(
 }
 
 function useManageData(refresh: () => Promise<void>, refreshSpecial: () => Promise<void>, refreshWeekday: () => Promise<void>, refreshHosafot: () => Promise<void>) {
-  const [canWrite, setCanWrite] = useState<boolean | null>(null);
   const [readings, setReadings] = useState<ReadingRecord[]>([]);
 
   useEffect(() => {
-    void fetchCanWrite().then(setCanWrite);
     void loadReadings();
   }, []);
 
@@ -209,7 +207,7 @@ function useManageData(refresh: () => Promise<void>, refreshSpecial: () => Promi
     });
   }
 
-  return { canWrite, readings, loadReadings, confirmDelete, confirmDeleteSpecial, confirmDeleteWeekday, confirmDeleteHosafah };
+  return { readings, loadReadings, confirmDelete, confirmDeleteSpecial, confirmDeleteWeekday, confirmDeleteHosafah };
 }
 
 async function submitWeekdayReading(
@@ -466,9 +464,9 @@ function useEditModal(refresh: () => Promise<void>, refreshSpecial: () => Promis
  */
 export function useReadingCrud() {
   const { allRows, SEFER_ORDER, SEFER_MAP, TLIT, parshaIndex, pairs, parshaById, refresh,
-          refreshSpecial, weekdayAliyot, refreshWeekday, refreshHosafot } = useApp();
+          refreshSpecial, weekdayAliyot, refreshWeekday, refreshHosafot, canWrite } = useApp();
 
-  const { canWrite, readings, loadReadings, confirmDelete, confirmDeleteSpecial, confirmDeleteWeekday, confirmDeleteHosafah }
+  const { readings, loadReadings, confirmDelete, confirmDeleteSpecial, confirmDeleteWeekday, confirmDeleteHosafah }
     = useManageData(refresh, refreshSpecial, refreshWeekday, refreshHosafot);
 
   const add  = useAddForm({ refresh, refreshSpecial, refreshWeekday, refreshHosafot, loadReadings }, allRows, pairs, weekdayAliyot);

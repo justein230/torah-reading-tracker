@@ -236,6 +236,21 @@ export const hosafotReadings = sqliteTable('hosafot_readings', {
   createdAt:      text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 
+export const authSessions = sqliteTable('auth_sessions', {
+  id:        integer('id').primaryKey(),
+  tokenHash: text('token_hash').notNull().unique(),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  expiresAt: text('expires_at').notNull(),
+});
+
+// Single row (id always 1): the admin password hash, derived from TORAH_ADMIN_PASSWORD
+// at startup and persisted here so the plaintext env var doesn't need to stay set.
+export const adminPassword = sqliteTable('admin_password', {
+  id:           integer('id').primaryKey(),
+  passwordHash: text('password_hash').notNull(),
+  updatedAt:    text('updated_at').notNull().default(sql`(datetime('now'))`),
+});
+
 // Inferred row types
 export type Sefer           = typeof sefarim.$inferSelect;
 export type TorahChapter    = typeof torahChapters.$inferSelect;
@@ -251,3 +266,5 @@ export type SpecialReading  = typeof specialReadings.$inferSelect;
 export type WeekdayAliyah   = typeof weekdayAliyot.$inferSelect;
 export type WeekdayReading  = typeof weekdayReadings.$inferSelect;
 export type HosafahReading  = typeof hosafotReadings.$inferSelect;
+export type AuthSession     = typeof authSessions.$inferSelect;
+export type AdminPassword   = typeof adminPassword.$inferSelect;

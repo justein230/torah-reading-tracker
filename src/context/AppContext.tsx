@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchMeta, fetchAliyot, fetchHebcal, mapRow, enrichRows, mapOccasionAliyahRow, mapSpecialReadingRow,
          mapWeekdayAliyahRow, mapHosafahRow, fetchOccasions, fetchOccasionAliyot, fetchSpecialReadings,
-         fetchWeekdayAliyot, fetchHosafotReadings } from '../api.js';
+         fetchWeekdayAliyot, fetchHosafotReadings, fetchCanWrite } from '../api.js';
 import { computeStats, enrichPartialOrig, enrichOccasionPartialOrig, enrichWeekdayPartialOrig, enrichHosafotPartialOrig } from '../compute.js';
 import { TABS } from '../constants.js';
 import type { AppContextValue, MappedRow, MappedOccasionAliyah, MappedHosafah, OccasionRecord, SpecialReadingRecord,
@@ -20,6 +20,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
   const [allYears,    setAllYears]    = useState<number[]>([]);
   const [schedule,    setSchedule]    = useState<Record<string, string>>({});
   const [ready,       setReady]       = useState(false);
+  const [canWrite,    setCanWrite]    = useState(false);
 
   const [occasions,       setOccasions]       = useState<OccasionRecord[]>([]);
   const [occasionAliyot,  setOccasionAliyot]  = useState<MappedOccasionAliyah[]>([]);
@@ -93,6 +94,11 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
       setHosafotReadings(hr.map(mapHosafahRow));
       setReady(true);
     })();
+    void fetchCanWrite().then(setCanWrite);
+  }, []);
+
+  const refreshCanWrite = useCallback(async () => {
+    setCanWrite(await fetchCanWrite());
   }, []);
 
   const allRows = useMemo(
@@ -149,11 +155,13 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
     activeTab, setActiveTab,
     forecastConfig, setForecastConfig,
     stats, refresh, ready,
+    canWrite, refreshCanWrite,
     occasions, occasionAliyot: enrichedOccasionAliyot, specialReadings, refreshSpecial,
     weekdayAliyot: enrichedWeekdayAliyot, refreshWeekday,
     hosafotReadings: enrichedHosafotReadings, refreshHosafot,
   }), [SEFER_ORDER, SEFER_MAP, TLIT, pairs, parshaById, allRows, parshaIndex, allYears, schedule,
        filters, sortMode, activeTab, forecastConfig, stats, refresh, ready,
+       canWrite, refreshCanWrite,
        occasions, enrichedOccasionAliyot, specialReadings, refreshSpecial,
        enrichedWeekdayAliyot, refreshWeekday,
        enrichedHosafotReadings, refreshHosafot]);

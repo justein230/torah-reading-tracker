@@ -96,7 +96,6 @@ function Harness({ special, weekday, hosafah }: {
   hosafah?: MappedHosafah;
 } = {}) {
   const crud = useReadingCrud();
-  if (crud.canWrite === null) return null;
   const records = [...crud.readingsById.values()];
   return (
     <div>
@@ -193,28 +192,17 @@ beforeEach(() => {
 });
 
 describe('useReadingCrud — canWrite gating', () => {
-  it('exposes no add form while canWrite is null', async () => {
-    (api.fetchCanWrite as Mock).mockResolvedValue(null);
-    (api.fetchReadings as Mock).mockResolvedValue([]);
-    (useApp as Mock).mockReturnValue(makeCtx());
-    renderWithProviders(<Harness />);
-    await vi.waitFor(() => expect(api.fetchCanWrite).toHaveBeenCalled());
-    expect(screen.queryByTestId('form-Add Reading')).not.toBeInTheDocument();
-  });
-
   it('exposes no add form when canWrite is false', async () => {
-    (api.fetchCanWrite as Mock).mockResolvedValue(false);
     (api.fetchReadings as Mock).mockResolvedValue([READING]);
-    (useApp as Mock).mockReturnValue(makeCtx());
+    (useApp as Mock).mockReturnValue(makeCtx({ canWrite: false }));
     renderWithProviders(<Harness />);
     await vi.waitFor(() => expect(api.fetchReadings).toHaveBeenCalled());
     expect(screen.queryByTestId('form-Add Reading')).not.toBeInTheDocument();
   });
 
   it('exposes the add form and the readings list when canWrite is true', async () => {
-    (api.fetchCanWrite as Mock).mockResolvedValue(true);
     (api.fetchReadings as Mock).mockResolvedValue([READING]);
-    (useApp as Mock).mockReturnValue(makeCtx());
+    (useApp as Mock).mockReturnValue(makeCtx({ canWrite: true }));
     renderWithProviders(<Harness />);
     expect(await screen.findByTestId('form-Add Reading')).toBeInTheDocument();
     expect(await screen.findByText(`${MOCK_PARSHA}-1`)).toBeInTheDocument();

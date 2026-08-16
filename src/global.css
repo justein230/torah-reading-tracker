@@ -155,8 +155,14 @@ input[type="date"]::-webkit-date-and-time-value {
 .window-btn[data-active] { color: var(--text) !important; border-color: var(--accent) !important; }
 
 /* ── App shell layout ────────────────────────────────────────────────────────*/
-.app-header { background: var(--bg); user-select: none; -webkit-user-select: none; padding-top: env(safe-area-inset-top); }
-.app-header-inner { max-width: 1200px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+.app-header { background: var(--bg); padding-top: env(safe-area-inset-top); }
+.insecure-config-banner { background: var(--accent2); color: #1a1200; padding: 6px 12px; }
+/* user-select: none lives here (not on .app-header) so it only covers the
+   title/icon row — not the whole header — otherwise a user-select: none ancestor
+   next to .insecure-config-banner blocks clicks there from collapsing a selection
+   made inside the banner (a sibling), since the browser won't place a caret in an
+   unselectable element. */
+.app-header-inner { max-width: 1200px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; user-select: none; -webkit-user-select: none; }
 .app-title { color: var(--text); font-family: 'Noto Sans Hebrew', sans-serif; }
 .app-tabs-bar { border-top: 1px solid var(--surface2); border-bottom: 1px solid var(--surface2); overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; --tabs-list-border-width: 0px; }
 .app-tabs-bar::-webkit-scrollbar { display: none; }

@@ -11,6 +11,10 @@ const impl: DbApi = Capacitor.isNativePlatform()
 
 export const {
   fetchCanWrite,
+  fetchAuthStatus,
+  login,
+  logout,
+  changePassword,
   fetchMeta,
   fetchAliyot,
   fetchReadings,
