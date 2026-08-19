@@ -1,0 +1,15 @@
+# Local-only fixture for testing TORAH_AUTH_MODE=header. Not used in production —
+# see torah-infra's Traefik config for the real deployment.
+#
+# Started via: docker compose --profile header-auth up
+# Override TORAH_AUTH_HEADER / TORAH_HEADER_AUTH_USER / TORAH_HEADER_AUTH_HASH via
+# docker-compose.override.yml. Keep TORAH_AUTH_HEADER in sync with the torah service.
+:8080 {
+	basicauth /* {
+		{$TORAH_HEADER_AUTH_USER:tester} {$TORAH_HEADER_AUTH_HASH:$2a$14$4FlnzKVgH34xHZeINhyga.3qnZhI3uaSdVykLnJge9HwXXWZO0076}
+	}
+
+	reverse_proxy torah:3000 {
+		header_up {$TORAH_AUTH_HEADER:X-Forwarded-User} {http.auth.user.id}
+	}
+}

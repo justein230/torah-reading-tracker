@@ -5,11 +5,29 @@ services:
     # Handle SIGTERM gracefully
     init: true
     environment:
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: "3000"
       TORAH_HOST: "0.0.0.0"
       TORAH_DB_PATH: /data/torah.db
+      TORAH_AUTH_MODE: ${TORAH_AUTH_MODE:-password}
+      TORAH_REQUIRE_PROXY_HEADER: ${TORAH_REQUIRE_PROXY_HEADER:-}
     volumes:
       - torah-data:/data
+    restart: unless-stopped
+
+  # Optional: reverse proxy for testing TORAH_AUTH_MODE=header locally. Does its own
+  # basic auth, then sets X-Forwarded-User so the app trusts the request — the same
+  # shape as the real Traefik/Caddy deployment. Not part of a normal `docker compose
+  # up`; only starts with `--profile header-auth` (or COMPOSE_PROFILES=header-auth),
+  # and is only useful once TORAH_AUTH_MODE=header and TORAH_REQUIRE_PROXY_HEADER=true
+  # are set for the torah service above (e.g. in .env).
+  header-auth-proxy:
+    image: caddy:2-alpine
+    profiles: ["header-auth"]
+    depends_on:
+      - torah
+    volumes:
+      - ./Caddyfile.header-auth-test:/etc/caddy/Caddyfile:ro
     restart: unless-stopped
 
 volumes:

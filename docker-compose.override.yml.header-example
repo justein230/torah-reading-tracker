@@ -1,0 +1,30 @@
+# Copy to docker-compose.override.yml and fill in your deployment values.
+# This file is merged automatically over docker-compose.yml on `docker compose up`.
+# docker-compose.override.yml is gitignored — keep real infra values there only.
+#
+# This variant is for deploying behind a reverse proxy (e.g. Traefik, Caddy) that
+# authenticates every request itself and forwards an auth header. The app trusts
+# that header instead of doing its own password login, and doesn't need its port
+# published on the host — only the proxy needs to reach it, over the Docker network.
+# If you're deploying directly with no such proxy, copy docker-compose.override.yml.example
+# instead.
+#
+# See .env.example for TORAH_AUTH_HEADER details. Your reverse proxy config must
+# authenticate every route and only then set this header — see Caddyfile.header-auth-test
+# for a worked example (also usable locally via `docker compose --profile header-auth up`).
+services:
+  torah:
+    # Pull a prebuilt image from your registry instead of building locally:
+    # image: registry.example.com/you/torah:latest
+
+    # Bind-mount a host directory for the SQLite data instead of a named volume.
+    # The container path (right of the colon) must stay /data.
+    # volumes:
+    #   - /var/lib/torah:/data
+
+    # No ports: — the reverse proxy reaches this service over the Docker network,
+    # so nothing needs to be published on the host.
+    environment:
+      TORAH_AUTH_MODE: header
+      TORAH_REQUIRE_PROXY_HEADER: "true"
+      TORAH_AUTH_HEADER: X-Torah-Authenticated

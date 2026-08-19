@@ -1,6 +1,11 @@
 # Copy to docker-compose.override.yml and fill in your deployment values.
 # This file is merged automatically over docker-compose.yml on `docker compose up`.
 # docker-compose.override.yml is gitignored — keep real infra values there only.
+#
+# This variant is for a direct deployment (no reverse proxy in front): the app's
+# own password login handles auth, and its port is exposed on the host. If you're
+# putting a reverse proxy in front that will authenticate every request, copy
+# docker-compose.override.yml.header-example instead.
 services:
   torah:
     # Pull a prebuilt image from your registry instead of building locally:
