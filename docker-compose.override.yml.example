@@ -14,9 +14,9 @@ services:
     # IP-based access restriction (if you want it) belongs in your reverse proxy
     # (e.g. Traefik's ipallowlist middleware) in front of this service, not here.
 
-    # Expose the port for the Torah app
+    # Expose the port for the Torah app. Both sides come from .env.
     # ports:
-    #   - "127.0.0.1:3000:3000"
+    #   - "127.0.0.1:${TORAH_HOST_PORT:-3000}:${PORT:-3000}"
 
     # Bind-mount a host directory for the SQLite data instead of a named volume.
     # The container path (right of the colon) must stay /data.

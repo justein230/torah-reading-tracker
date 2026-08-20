@@ -4,12 +4,17 @@ services:
     image: ghcr.io/justein230/torah-reading-tracker:latest
     # Handle SIGTERM gracefully
     init: true
+    # Values come from .env (see .env.example); the defaults apply without one.
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      PORT: "3000"
-      TORAH_HOST: "0.0.0.0"
+      PORT: ${PORT:-3000}
+      TORAH_HOST: ${TORAH_HOST:-0.0.0.0}
+      # Not from .env — the DB must live on the /data volume, not .env's host path.
       TORAH_DB_PATH: /data/torah.db
       TORAH_AUTH_MODE: ${TORAH_AUTH_MODE:-password}
+      TORAH_AUTH_HEADER: ${TORAH_AUTH_HEADER:-}
+      # First start only; the app hashes it into the DB. Remove from .env after.
+      TORAH_ADMIN_PASSWORD: ${TORAH_ADMIN_PASSWORD:-}
       TORAH_REQUIRE_PROXY_HEADER: ${TORAH_REQUIRE_PROXY_HEADER:-}
     volumes:
       - torah-data:/data

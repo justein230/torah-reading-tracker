@@ -203,7 +203,7 @@ docker compose build
 docker compose up -d
 ```
 
-`docker-compose.yml` binds the container only to `127.0.0.1:3000` by default — it is not publicly accessible until a reverse proxy is put in front of it. Any IP-based access restriction (e.g. LAN-only) belongs in that reverse proxy (e.g. Traefik's `ipallowlist` middleware), not in the app. Deployment-specific values (private registry image, host bind-mount path) belong in `docker-compose.override.yml`, which Compose merges automatically — see `docker-compose.override.yml.example`.
+`docker-compose.yml` publishes no port by default — the container is not reachable from outside the Docker network until you either add a `ports:` mapping in the override file or put a reverse proxy in front of it. It reads its environment values from `.env` (see `.env.example`), except `TORAH_DB_PATH`, which is pinned to the `/data` volume. Any IP-based access restriction (e.g. LAN-only) belongs in that reverse proxy (e.g. Traefik's `ipallowlist` middleware), not in the app. Deployment-specific values (private registry image, host bind-mount path) belong in `docker-compose.override.yml`, which Compose merges automatically — see `docker-compose.override.yml.example`.
 
 ## Deployment (bare Node + systemd)
 
@@ -230,9 +230,11 @@ Two mutually exclusive auth modes, picked via `TORAH_AUTH_MODE`:
 
 | Variable | Default | Description |
 |---|---|---|
+| `NODE_ENV` | *(none)*; `production` in the Docker image | `production` marks the session cookie `Secure`, so login requires HTTPS |
 | `PORT` | `3000` | Port the Express server listens on |
 | `TORAH_HOST` | `127.0.0.1` | Interface the Express server binds to |
-| `TORAH_DB_PATH` | `./torah.db` | Path to the SQLite database |
+| `TORAH_HOST_PORT` | `3000` | Docker only: host-side port published for the container (container side uses `PORT`) |
+| `TORAH_DB_PATH` | `./torah.db` | Path to the SQLite database. Under Docker this is pinned to `/data/torah.db` in `docker-compose.yml`, not read from `.env` |
 | `TORAH_AUTH_MODE` | `password` | `password` (built-in login) or `header` (trust an upstream reverse-proxy auth header). See [Write-access auth](#write-access-auth). |
 | `TORAH_ADMIN_PASSWORD` | *(none)* | `password` mode, first start only: plaintext password to hash into the DB. Remove after the app has started once. |
 | `TORAH_AUTH_HEADER` | `X-Forwarded-User` | `header` mode: name of the header to trust as proof of auth. |
