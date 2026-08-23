@@ -36,7 +36,9 @@ export async function login(_password: string): Promise<boolean> {
   return true;
 }
 
-export async function logout(): Promise<void> {}
+export async function logout(): Promise<void> {
+  // Intentional no-op — see comment above.
+}
 
 export async function changePassword(_currentPassword: string, _newPassword: string): Promise<{ ok: true } | { ok: false; error: string }> {
   return { ok: true };

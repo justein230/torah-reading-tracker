@@ -47,6 +47,21 @@ export default function App() {
     void fetchAuthStatus().then(s => setInsecureConfig(s.insecureConfig));
   }, []);
 
+  // Attached imperatively (not via JSX onMouseDown) since this is cleanup for a browser
+  // text-selection quirk, not a real interactive control — it has no keyboard/touch
+  // equivalent to support.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const handler = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.insecure-config-banner')) {
+        window.getSelection()?.removeAllRanges();
+      }
+    };
+    el.addEventListener('mousedown', handler);
+    return () => el.removeEventListener('mousedown', handler);
+  }, []);
+
   useEffect(() => {
     const p = new URLSearchParams(location.search);
     setFilters(f => ({
@@ -98,15 +113,9 @@ export default function App() {
       <AppShell.Header withBorder={false} className="app-header">
         {/* user-select: none elements (title, tabs) don't reliably clear a selection made
             elsewhere on click — a known browser quirk, since they never get a caret of
-            their own — so clear it manually for any click landing outside the banner. */}
-        <div
-          ref={headerRef}
-          onMouseDown={e => {
-            if (!(e.target as HTMLElement).closest('.insecure-config-banner')) {
-              window.getSelection()?.removeAllRanges();
-            }
-          }}
-        >
+            their own — so clear it manually for any click landing outside the banner
+            (see the mousedown listener attached above). */}
+        <div ref={headerRef}>
           {insecureConfig && (
             <Box className="insecure-config-banner">
               <Text size="xs" fw={600} ta="center">
