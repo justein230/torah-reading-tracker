@@ -33,7 +33,7 @@ describe('GET /api/hebcal — failure fallback', () => {
     try {
       const res = await request(app).get('/api/hebcal');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ schedule: {} });
+      expect(res.body).toEqual({ schedule: {}, datesByParsha: {}, cacheYears: [1990, 2050] });
       expect(error).toHaveBeenCalledWith('Hebcal error:', expect.any(String));
     } finally {
       db.prepare('ALTER TABLE parshiot_hidden RENAME TO parshiot').run();
@@ -45,5 +45,50 @@ describe('GET /api/hebcal — failure fallback', () => {
     const res = await request(app).get('/api/hebcal');
     expect(res.status).toBe(200);
     expect(Object.keys(res.body.schedule).length).toBeGreaterThan(0);
+  });
+});
+
+describe('GET /api/hebcal/lookup', () => {
+  it('returns the parshiot found for a date, from a live fetch', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        items: [{ title: 'Parashat Ki Teitzei', date: '2026-08-22T00:00:00', category: 'parashat' }],
+      }),
+    });
+
+    try {
+      const res = await request(app).get('/api/hebcal/lookup?date=2026-08-22');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ parshiot: ['Ki Teitzei'] });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('400s on a malformed date', async () => {
+    const res = await request(app).get('/api/hebcal/lookup?date=not-a-date');
+    expect(res.status).toBe(400);
+  });
+
+  it('400s when the date param is missing', async () => {
+    const res = await request(app).get('/api/hebcal/lookup');
+    expect(res.status).toBe(400);
+  });
+
+  it('never 500s when the live fetch fails — degrades to an empty result', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('network down'));
+
+    try {
+      const res = await request(app).get('/api/hebcal/lookup?date=2026-08-22');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ parshiot: [] });
+    } finally {
+      globalThis.fetch = originalFetch;
+      error.mockRestore();
+    }
   });
 });

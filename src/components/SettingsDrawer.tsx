@@ -12,7 +12,8 @@ interface SettingsDrawerProps {
 }
 
 export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps) {
-  const { SEFER_ORDER, SEFER_MAP, allYears, filters, setFilters, canWrite, refreshCanWrite } = useApp();
+  const { SEFER_ORDER, SEFER_MAP, allYears, filters, setFilters, canWrite, refreshCanWrite,
+          settings, setSettings, cacheYears } = useApp();
   const [exporting, setExporting] = useState<'excel' | 'db' | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [password, setPassword]     = useState('');
@@ -157,6 +158,16 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
         <Button variant="subtle" color="gray" onClick={reset}>
           Reset all filters
         </Button>
+
+        <Divider />
+        <Text size="xs" tt="uppercase" fw={600} c="dimmed" lts={1}>Advanced</Text>
+
+        <Switch
+          label="Live Hebcal.com lookups"
+          description={`Verify reading dates outside ${cacheYears[0]}–${cacheYears[1]} by calling Hebcal.com`}
+          checked={settings.liveHebcalLookups}
+          onChange={e => setSettings(s => ({ ...s, liveHebcalLookups: e.currentTarget.checked }))}
+        />
 
         {authStatus?.authMode === 'password' && !canWrite && (
           <>

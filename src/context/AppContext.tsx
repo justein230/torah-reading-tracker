@@ -5,7 +5,23 @@ import { fetchMeta, fetchAliyot, fetchHebcal, mapRow, enrichRows, mapOccasionAli
 import { computeStats, enrichPartialOrig, enrichOccasionPartialOrig, enrichWeekdayPartialOrig, enrichHosafotPartialOrig } from '../compute.js';
 import { TABS } from '../constants.js';
 import type { AppContextValue, MappedRow, MappedOccasionAliyah, MappedHosafah, OccasionRecord, SpecialReadingRecord,
-              Filters, ForecastConfig, ParshaPair, SeferMeta } from '../types/index.js';
+              Filters, ForecastConfig, ParshaPair, SeferMeta, AppSettings } from '../types/index.js';
+
+const SETTINGS_KEY = 'torah-tracker:settings';
+const DEFAULT_SETTINGS: AppSettings = { liveHebcalLookups: false };
+
+// Persisted across reloads (unlike filters/sortMode/etc., which are plain in-memory
+// state) since it's an opt-in "make a live third-party call" preference — resetting it
+// on every reload would defeat the point of it being a toggle at all.
+function loadSettings(): AppSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return DEFAULT_SETTINGS;
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) as Partial<AppSettings> };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
 
 const AppContext = createContext<AppContextValue | null>(null);
 
@@ -19,6 +35,11 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
   const [parshaIndex, setParshaIndex] = useState<Record<string, string[]>>({});
   const [allYears,    setAllYears]    = useState<number[]>([]);
   const [schedule,    setSchedule]    = useState<Record<string, string>>({});
+  const [datesByParsha, setDatesByParsha] = useState<Record<string, string[]>>({});
+  // [0, 9999] until the initial /api/hebcal load resolves, so no date is misreported
+  // as "outside the cache" before we actually know its real coverage.
+  const [cacheYears,  setCacheYears]  = useState<[number, number]>([0, 9999]);
+  const [settings,    setSettings]    = useState<AppSettings>(loadSettings);
   const [ready,       setReady]       = useState(false);
   const [canWrite,    setCanWrite]    = useState(false);
 
@@ -42,11 +63,19 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
   const [forecastConfig, setForecastConfig] = useState<ForecastConfig>({ lookbackYears: 1, paceOverride: null });
 
   useEffect(() => {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      // private browsing / storage full — the toggle just won't survive a reload
+    }
+  }, [settings]);
+
+  useEffect(() => {
     (async () => {
       const [meta, raw, hebcal, occ, oa, sr, wa, hr] = await Promise.all([
         fetchMeta(),
         fetchAliyot(),
-        fetchHebcal().catch(() => ({ schedule: {} })),
+        fetchHebcal().catch(() => ({ schedule: {}, datesByParsha: {}, cacheYears: [0, 9999] as [number, number] })),
         fetchOccasions().catch(() => []),
         fetchOccasionAliyot().catch(() => []),
         fetchSpecialReadings().catch(() => []),
@@ -87,6 +116,8 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
       setParshaIndex(idx);
       setAllYears([...yearSet].sort((a, b) => a - b));
       setSchedule(hebcal.schedule);
+      setDatesByParsha(hebcal.datesByParsha);
+      setCacheYears(hebcal.cacheYears);
       setOccasions(occ);
       setOccasionAliyot(oa.map(mapOccasionAliyahRow));
       setSpecialReadings(sr.map(mapSpecialReadingRow));
@@ -149,7 +180,8 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
 
   const value = useMemo<AppContextValue>(() => ({
     SEFER_ORDER, SEFER_MAP, TLIT, pairs, parshaById,
-    allRows, parshaIndex, allYears, schedule,
+    allRows, parshaIndex, allYears, schedule, datesByParsha, cacheYears,
+    settings, setSettings,
     filters, setFilters,
     sortMode, setSortMode,
     activeTab, setActiveTab,
@@ -160,6 +192,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
     weekdayAliyot: enrichedWeekdayAliyot, refreshWeekday,
     hosafotReadings: enrichedHosafotReadings, refreshHosafot,
   }), [SEFER_ORDER, SEFER_MAP, TLIT, pairs, parshaById, allRows, parshaIndex, allYears, schedule,
+       datesByParsha, cacheYears, settings,
        filters, sortMode, activeTab, forecastConfig, stats, refresh, ready,
        canWrite, refreshCanWrite,
        occasions, enrichedOccasionAliyot, specialReadings, refreshSpecial,

@@ -4,8 +4,8 @@ import { createNativeDb } from './drizzle-native.js';
 import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, hosafotReadings as hosafotReadingsTable, torahChapters } from './schema.js';
 import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './queries.js';
 import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
-import { scheduleFromEntries } from '../utils/sedra.js';
-import { SEDRA_CACHE } from '../data/sedraCache.js';
+import { scheduleFromEntries, datesByParshaFromEntries, fetchLiveHebcalItemsForDate, entriesFromHebcalItems } from '../utils/sedra.js';
+import { SEDRA_CACHE, SEDRA_YEARS } from '../data/sedraCache.js';
 
 const sqlite = new SQLiteConnection(CapacitorSQLite);
 let dbPromise: Promise<Awaited<ReturnType<typeof sqlite.createConnection>>> | null = null;
@@ -144,13 +144,30 @@ export async function deleteReading(id: number): Promise<void> {
 }
 
 // The upcoming-parsha dates come from the baked cache (src/data/sedraCache.ts, generated
-// from the Hebcal.com REST API — CC BY 4.0). Native builds are cache-only and offline:
-// no library, no network. The cache runs through SEDRA_YEARS[1].
-export async function fetchHebcal(): Promise<{ schedule: Record<string, string> }> {
+// from the Hebcal.com REST API — CC BY 4.0). Native builds are cache-only and offline by
+// default: no library, no network. The cache runs through SEDRA_YEARS[1].
+export async function fetchHebcal(): Promise<{ schedule: Record<string, string>; datesByParsha: Record<string, string[]>; cacheYears: [number, number] }> {
   const parshaRows = await db.select({ name_en: parshiot.nameEn }).from(parshiot).all();
   const known = new Set(parshaRows.map(r => r.name_en));
   const today = new Date().toISOString().slice(0, 10);
-  return { schedule: scheduleFromEntries(SEDRA_CACHE, known, today) };
+  return {
+    schedule:      scheduleFromEntries(SEDRA_CACHE, known, today),
+    datesByParsha: datesByParshaFromEntries(SEDRA_CACHE, known),
+    cacheYears:    [SEDRA_YEARS[0], SEDRA_YEARS[1]],
+  };
+}
+
+// On-demand, single-day live lookup for dates outside SEDRA_YEARS. Opt-in via the
+// Settings toggle (off by default, same as web) — only attempted when the device
+// reports it's online, and any failure degrades to "no data" rather than throwing.
+export async function fetchHebcalOnDate(date: string): Promise<{ parshiot: string[] }> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return { parshiot: [] };
+  try {
+    const items = await fetchLiveHebcalItemsForDate(date);
+    return { parshiot: entriesFromHebcalItems(items).map(([, name]) => name) };
+  } catch {
+    return { parshiot: [] };
+  }
 }
 
 export async function fetchOccasions(): Promise<OccasionRecord[]> {

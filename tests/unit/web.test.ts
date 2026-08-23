@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
-  fetchCanWrite, fetchMeta, fetchHebcal,
+  fetchCanWrite, fetchMeta, fetchHebcal, fetchHebcalOnDate,
   fetchAliyot, fetchReadings, fetchLocationStats,
   postReading, putReading, deleteReading,
   fetchOccasions, fetchOccasionAliyot, fetchSpecialReadings,
@@ -67,7 +67,19 @@ describe('fetchHebcal', () => {
 
   it('returns an empty schedule when the response is not ok', async () => {
     mockFetchOnce(() => Promise.resolve(jsonResponse({}, false)));
-    expect(await fetchHebcal()).toEqual({ schedule: {} });
+    expect(await fetchHebcal()).toEqual({ schedule: {}, datesByParsha: {}, cacheYears: [0, 0] });
+  });
+});
+
+describe('fetchHebcalOnDate', () => {
+  it('returns the parshiot found for the date on success', async () => {
+    mockFetchOnce(() => Promise.resolve(jsonResponse({ parshiot: ['Bo'] })));
+    expect(await fetchHebcalOnDate('2024-01-01')).toEqual({ parshiot: ['Bo'] });
+  });
+
+  it('returns an empty result when the response is not ok', async () => {
+    mockFetchOnce(() => Promise.resolve(jsonResponse({}, false)));
+    expect(await fetchHebcalOnDate('2024-01-01')).toEqual({ parshiot: [] });
   });
 });
 

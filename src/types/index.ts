@@ -100,6 +100,13 @@ export interface Filters {
   showWeekdayRing: boolean;
 }
 
+// ── App settings (persisted client-side) ────────────────────────────────────────
+
+export interface AppSettings {
+  /** Verify reading dates outside the baked cache's range (SEDRA_YEARS) via a live Hebcal.com call. Off by default. */
+  liveHebcalLookups: boolean;
+}
+
 // ── Forecast configuration ────────────────────────────────────────────────────
 
 export interface ForecastConfig {
@@ -268,7 +275,8 @@ export interface DbApi {
   fetchAliyot: () => Promise<RawRow[]>;
   fetchReadings: () => Promise<ReadingRecord[]>;
   fetchLocationStats: () => Promise<LocationStat[]>;
-  fetchHebcal: () => Promise<{ schedule: Record<string, string> }>;
+  fetchHebcal: () => Promise<{ schedule: Record<string, string>; datesByParsha: Record<string, string[]>; cacheYears: [number, number] }>;
+  fetchHebcalOnDate: (date: string) => Promise<{ parshiot: string[] }>;
   postReading: (body: PostReadingBody) => Promise<{ id: number; reading_type: string }>;
   putReading: (id: number, body: PutReadingBody) => Promise<{ id: number }>;
   deleteReading: (id: number) => Promise<void>;
@@ -532,6 +540,10 @@ export interface AppContextValue {
   parshaIndex: Record<string, string[]>;
   allYears: number[];
   schedule: Record<string, string>;
+  datesByParsha: Record<string, string[]>;
+  cacheYears: [number, number];
+  settings: AppSettings;
+  setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   filters: Filters;
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
   sortMode: string;

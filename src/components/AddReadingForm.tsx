@@ -7,6 +7,7 @@ import { fmtDate, toDateStr } from '../utils.js';
 import { buildGroupedOptions } from '../utils/form-options.js';
 import { CATEGORY_LABELS_FORM } from '../constants.js';
 import { ParshaField } from './shared/ParshaField.js';
+import { useParshaForDate, type ParshaForDate } from '../hooks/useParshaForDate.js';
 import type { ManageForm, MappedRow } from '../types/index.js';
 
 function autoFillFromSchedule(
@@ -36,13 +37,29 @@ function getDoubleParshaMismatch(
   return `${TLIT[form.parsha] ?? form.parsha} is typically read as part of ${pairNameEn} on this date. Consider using Double-Parsha Shabbat instead.`;
 }
 
-function getScheduleWarning(form: ManageForm, schedule: Record<string, string>, TLIT: Record<string, string>, locked: boolean): string | null {
+function getScheduleWarning(
+  form: ManageForm,
+  schedule: Record<string, string>,
+  resolved: ParshaForDate,
+  TLIT: Record<string, string>,
+  locked: boolean,
+): string | null {
   if (!form.parsha || !form.date || locked) return null;
-  const expected = schedule[TLIT[form.parsha] ?? ''];
-  if (!expected) return null;
   const entered = toDateStr(form.date);
-  if (entered === expected) return null;
-  return `This parsha is typically read on ${fmtDate(expected)}. This may be a special or non-standard reading.`;
+  const key = TLIT[form.parsha] ?? form.parsha;
+
+  if (resolved.status === 'in-range') {
+    if (resolved.parshiot.includes(key)) return null;
+    const expected = schedule[key];
+    if (!expected || entered === expected) return null;
+    return `This parsha is typically read on ${fmtDate(expected)}. This may be a special or non-standard reading.`;
+  }
+  if (resolved.status === 'live-disabled')
+    return `${fmtDate(entered)} is outside the built-in schedule. Enable live Hebcal.com lookups in Settings to verify this date.`;
+  if (resolved.status === 'live-pending') return null; // don't flash a wrong message mid-lookup
+  // status === 'live'
+  if (resolved.parshiot.length === 0 || resolved.parshiot.includes(key)) return null;
+  return `Hebcal.com shows ${resolved.parshiot.join(' / ')} was read on ${fmtDate(entered)}, not ${key}. This may be a special or non-standard reading.`;
 }
 
 interface SelectOption {
@@ -255,7 +272,8 @@ export function AddReadingForm({
     if (autoFillDate) autoFillFromSchedule(parsha, schedule, TLIT, setField);
   };
 
-  const scheduleWarning = getScheduleWarning(form, schedule, TLIT, locked);
+  const resolvedForDate = useParshaForDate(form.date);
+  const scheduleWarning = getScheduleWarning(form, schedule, resolvedForDate, TLIT, locked);
   const doubleParshaMismatch = getDoubleParshaMismatch(form, allRows, schedule, TLIT);
 
   const inner = (

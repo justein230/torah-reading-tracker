@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
-  scheduleFromEntries, normalizeParshaName, entriesFromHebcalItems,
-  fetchLiveHebcalItems, buildSchedule, type HebcalItem, type SedraEntry,
+  scheduleFromEntries, datesByParshaFromEntries, normalizeParshaName, entriesFromHebcalItems,
+  fetchLiveHebcalItems, fetchLiveHebcalItemsForDate, buildSchedule, type HebcalItem, type SedraEntry,
 } from '../../src/utils/sedra.ts';
 
 const KNOWN = new Set(['Bereshit', 'Noach', 'Lech-Lecha', 'Vayakhel', 'Pekudei', "Sh'lach", "Re'eh"]);
@@ -65,6 +65,33 @@ describe('scheduleFromEntries', () => {
   });
 });
 
+describe('datesByParshaFromEntries', () => {
+  const entries = [
+    ['2026-01-03', 'Bereshit'],
+    ['2011-01-01', 'Bereshit'],          // past date — unlike scheduleFromEntries, NOT filtered out
+    ['2026-02-14', 'Vayakhel-Pekudei'],
+  ] as const;
+
+  it('maps each parsha to every date it was read, with no today filtering', () => {
+    const out = datesByParshaFromEntries(entries, KNOWN);
+    expect(out['Bereshit']).toEqual(['2026-01-03', '2011-01-01']);
+  });
+
+  it('credits both halves of a combined parsha when both are known', () => {
+    const out = datesByParshaFromEntries(entries, KNOWN);
+    expect(out['Vayakhel-Pekudei']).toEqual(['2026-02-14']);
+    expect(out['Vayakhel']).toEqual(['2026-02-14']);
+    expect(out['Pekudei']).toEqual(['2026-02-14']);
+  });
+
+  it('does not split a hyphenated name whose halves are not known parshiot', () => {
+    const out = datesByParshaFromEntries([['2026-05-02', 'Lech-Lecha']] as const, KNOWN);
+    expect(out['Lech-Lecha']).toEqual(['2026-05-02']);
+    expect(out).not.toHaveProperty('Lech');
+    expect(out).not.toHaveProperty('Lecha');
+  });
+});
+
 // ── fetchLiveHebcalItems ──────────────────────────────────────────────────────
 
 /** Builds a fetch stub that returns `body` as JSON, plus a handle on the call args. */
@@ -103,6 +130,32 @@ describe('fetchLiveHebcalItems', () => {
   });
 });
 
+describe('fetchLiveHebcalItemsForDate', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('requests a single-day window, identifying the client', async () => {
+    const fetchFn = fetchStub({ items: [] });
+    await fetchLiveHebcalItemsForDate('1950-06-01', fetchFn as unknown as typeof fetch);
+
+    const [url, init] = fetchFn.mock.calls[0]!;
+    expect(url).toContain('start=1950-06-01');
+    expect(url).toContain('end=1950-06-01');
+    expect(init.headers['User-Agent']).toMatch(/^torah-tracker\//);
+  });
+
+  it('returns the items array verbatim', async () => {
+    const items: HebcalItem[] = [{ title: 'Parashat Noach', date: '1950-06-01', category: 'parashat' }];
+    const got = await fetchLiveHebcalItemsForDate('1950-06-01', fetchStub({ items }) as unknown as typeof fetch);
+    expect(got).toEqual(items);
+  });
+
+  it('throws with the status code when the response is not ok', async () => {
+    const fetchFn = fetchStub({}, false, 503);
+    await expect(fetchLiveHebcalItemsForDate('1950-06-01', fetchFn as unknown as typeof fetch))
+      .rejects.toThrow('Hebcal API returned HTTP 503');
+  });
+});
+
 // ── buildSchedule ─────────────────────────────────────────────────────────────
 
 describe('buildSchedule', () => {
@@ -125,10 +178,18 @@ describe('buildSchedule', () => {
 
   it('never touches the network while today is before the cache end year', async () => {
     const fetchLive = vi.fn();
-    const schedule  = await buildSchedule(opts({ fetchLive }));
+    const result    = await buildSchedule(opts({ fetchLive }));
 
     expect(fetchLive).not.toHaveBeenCalled();
-    expect(schedule['Bereshit']).toBe('2049-10-16');
+    expect(result.schedule['Bereshit']).toBe('2049-10-16');
+  });
+
+  it('also returns every historical date for each parsha, unfiltered by today', async () => {
+    const result = await buildSchedule(opts({ fetchLive: vi.fn() }));
+
+    expect(result.datesByParsha['Bereshit']).toEqual(['2049-10-16']);
+    expect(result.datesByParsha['Vayakhel-Pekudei']).toEqual(['2050-01-08']);
+    expect(result.datesByParsha['Vayakhel']).toEqual(['2050-01-08']);
   });
 
   it('extends the cache with live entries once today reaches the cache end year', async () => {
@@ -137,22 +198,23 @@ describe('buildSchedule', () => {
       { title: 'Chanukah',       date: '2051-12-14T00:00:00', category: 'holiday'  },
     ]);
 
-    const schedule = await buildSchedule(opts({ today: '2050-06-01', fetchLive }));
+    const result = await buildSchedule(opts({ today: '2050-06-01', fetchLive }));
 
     expect(fetchLive).toHaveBeenCalledWith('2050-06-01');
     // Beyond the cache's last entry — only reachable via the live extend.
-    expect(schedule['Noach']).toBe('2051-10-21');
+    expect(result.schedule['Noach']).toBe('2051-10-21');
+    expect(result.datesByParsha['Noach']).toEqual(['2051-10-21']);
     // Non-parashat items from the same response are dropped.
-    expect(schedule).not.toHaveProperty('Chanukah');
+    expect(result.schedule).not.toHaveProperty('Chanukah');
   });
 
   it('falls back to a cache-only schedule when the live fetch fails, and logs why', async () => {
     const warn      = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const fetchLive = vi.fn().mockRejectedValue(new Error('Hebcal API returned HTTP 503'));
 
-    const schedule = await buildSchedule(opts({ today: '2050-01-01', fetchLive }));
+    const result = await buildSchedule(opts({ today: '2050-01-01', fetchLive }));
 
-    expect(schedule['Vayakhel-Pekudei']).toBe('2050-01-08');
+    expect(result.schedule['Vayakhel-Pekudei']).toBe('2050-01-08');
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('using cache only'), 'Hebcal API returned HTTP 503');
   });
 
@@ -160,9 +222,9 @@ describe('buildSchedule', () => {
     const warn      = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const fetchLive = vi.fn().mockRejectedValue('socket hang up');
 
-    const schedule = await buildSchedule(opts({ today: '2050-01-01', fetchLive }));
+    const result = await buildSchedule(opts({ today: '2050-01-01', fetchLive }));
 
-    expect(schedule['Vayakhel-Pekudei']).toBe('2050-01-08');
+    expect(result.schedule['Vayakhel-Pekudei']).toBe('2050-01-08');
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('using cache only'), 'socket hang up');
   });
 
@@ -171,9 +233,9 @@ describe('buildSchedule', () => {
       { title: 'Parashat Vayakhel-Pekudei', date: '2051-03-04T00:00:00', category: 'parashat' },
     ]);
 
-    const schedule = await buildSchedule(opts({ today: '2050-01-01', fetchLive }));
+    const result = await buildSchedule(opts({ today: '2050-01-01', fetchLive }));
 
-    expect(schedule['Vayakhel-Pekudei']).toBe('2050-01-08');
-    expect(schedule['Pekudei']).toBe('2050-01-08');
+    expect(result.schedule['Vayakhel-Pekudei']).toBe('2050-01-08');
+    expect(result.schedule['Pekudei']).toBe('2050-01-08');
   });
 });

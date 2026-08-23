@@ -20,6 +20,7 @@ export const {
   fetchReadings,
   fetchLocationStats,
   fetchHebcal,
+  fetchHebcalOnDate,
   postReading,
   putReading,
   deleteReading,

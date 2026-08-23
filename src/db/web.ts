@@ -60,9 +60,15 @@ export const fetchAliyot        = (): Promise<RawRow[]>                => getJso
 export const fetchReadings      = (): Promise<ReadingRecord[]>         => getJson('/api/readings');
 export const fetchLocationStats = (): Promise<LocationStat[]>          => getJson('/api/stats/location');
 
-export async function fetchHebcal(): Promise<{ schedule: Record<string, string> }> {
+export async function fetchHebcal(): Promise<{ schedule: Record<string, string>; datesByParsha: Record<string, string[]>; cacheYears: [number, number] }> {
   const res = await fetch('/api/hebcal');
-  if (!res.ok) return { schedule: {} };
+  if (!res.ok) return { schedule: {}, datesByParsha: {}, cacheYears: [0, 0] };
+  return res.json();
+}
+
+export async function fetchHebcalOnDate(date: string): Promise<{ parshiot: string[] }> {
+  const res = await fetch(`/api/hebcal/lookup?date=${encodeURIComponent(date)}`);
+  if (!res.ok) return { parshiot: [] };
   return res.json();
 }
 

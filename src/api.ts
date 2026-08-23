@@ -168,6 +168,7 @@ export {
   fetchReadings,
   fetchLocationStats,
   fetchHebcal,
+  fetchHebcalOnDate,
   postReading,
   putReading,
   deleteReading,

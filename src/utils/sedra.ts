@@ -51,8 +51,45 @@ export function scheduleFromEntries(
   return schedule;
 }
 
+/**
+ * Reduces flat [date, parshaName] entries into { parshaName: every date it was read },
+ * with no `today` filtering — used to check whether a *historical* date genuinely had
+ * a reading of a given parsha, as opposed to `scheduleFromEntries`'s "next occurrence".
+ *
+ * @param entries flat [ISO date, parsha name] pairs (e.g. SEDRA_CACHE)
+ * @param known   the set of valid parsha name_en values, used to guard hyphen splits
+ */
+export function datesByParshaFromEntries(
+  entries: readonly SedraEntry[],
+  known: Set<string>,
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [date, name] of entries) {
+    for (const key of parshaKeysFromDesc(name, known)) {
+      out[key] ??= [];
+      out[key].push(date);
+    }
+  }
+  return out;
+}
+
 /** Hebcal asks API consumers to identify themselves. */
 const USER_AGENT = 'torah-tracker/1.0';
+
+/** Shared GET against the Hebcal.com REST API for a [start, end] date window. */
+async function fetchHebcalWindow(
+  startISO: string,
+  endISO: string,
+  fetchFn: typeof fetch,
+): Promise<HebcalItem[]> {
+  const url = 'https://www.hebcal.com/hebcal?v=1&cfg=json&s=on&i=off&leyning=off'
+            + `&start=${startISO}&end=${endISO}`;
+
+  const res = await fetchFn(url, { headers: { 'User-Agent': USER_AGENT } });
+  if (!res.ok) throw new Error(`Hebcal API returned HTTP ${res.status}`);
+  const body = await res.json() as { items?: HebcalItem[] };
+  return body.items ?? [];
+}
 
 /**
  * Fetches the two years of parshiot starting at `today` from Hebcal.com. Used only to
@@ -68,13 +105,21 @@ export async function fetchLiveHebcalItems(
 ): Promise<HebcalItem[]> {
   const end = new Date(`${today}T00:00:00Z`);
   end.setUTCFullYear(end.getUTCFullYear() + 2);
-  const url = 'https://www.hebcal.com/hebcal?v=1&cfg=json&s=on&i=off&leyning=off'
-            + `&start=${today}&end=${end.toISOString().slice(0, 10)}`;
+  return fetchHebcalWindow(today, end.toISOString().slice(0, 10), fetchFn);
+}
 
-  const res = await fetchFn(url, { headers: { 'User-Agent': USER_AGENT } });
-  if (!res.ok) throw new Error(`Hebcal API returned HTTP ${res.status}`);
-  const body = await res.json() as { items?: HebcalItem[] };
-  return body.items ?? [];
+/**
+ * Fetches a single day's items from Hebcal.com. Used to verify a reading date that
+ * falls outside the baked cache's range (SEDRA_YEARS), on demand and opt-in.
+ *
+ * @param date    ISO date (YYYY-MM-DD) to look up
+ * @param fetchFn injectable for tests; defaults to the global fetch
+ */
+export async function fetchLiveHebcalItemsForDate(
+  date: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<HebcalItem[]> {
+  return fetchHebcalWindow(date, date, fetchFn);
 }
 
 /** Everything buildSchedule needs, injected so it can be exercised without a clock or network. */
@@ -91,6 +136,14 @@ export interface BuildScheduleOptions {
   fetchLive:    (today: string) => Promise<HebcalItem[]>;
 }
 
+/** What `buildSchedule` returns: the upcoming-parsha schedule, plus every date each parsha was ever read. */
+export interface Schedule {
+  /** { parshaName: firstDate on or after `today` }. */
+  schedule:      Record<string, string>;
+  /** { parshaName: every date it was read }, unfiltered by `today` — for historical lookups. */
+  datesByParsha: Record<string, string[]>;
+}
+
 /**
  * Builds the upcoming-parsha schedule, extending the baked cache with a live fetch only
  * when `today` has reached the last year the cache covers.
@@ -99,7 +152,7 @@ export interface BuildScheduleOptions {
  * client — work with zero network requests. A live fetch that fails is logged and ignored:
  * a stale-but-present schedule is far better than none.
  */
-export async function buildSchedule(opts: BuildScheduleOptions): Promise<Record<string, string>> {
+export async function buildSchedule(opts: BuildScheduleOptions): Promise<Schedule> {
   const { parshaNames, today, cache, cacheEndYear, fetchLive } = opts;
 
   let entries: readonly SedraEntry[] = cache;
@@ -111,5 +164,8 @@ export async function buildSchedule(opts: BuildScheduleOptions): Promise<Record<
     }
   }
 
-  return scheduleFromEntries(entries, parshaNames, today);
+  return {
+    schedule:      scheduleFromEntries(entries, parshaNames, today),
+    datesByParsha: datesByParshaFromEntries(entries, parshaNames),
+  };
 }

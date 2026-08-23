@@ -9,7 +9,7 @@ import { createDb } from './src/db/drizzle-server.js';
 import { initDb } from './src/db/init.js';
 import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot, specialReadings, weekdayAliyot, weekdayReadings, hosafotReadings, torahChapters, adminPassword, authSessions } from './src/db/schema.js';
 import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './src/db/queries.js';
-import { buildSchedule, fetchLiveHebcalItems } from './src/utils/sedra.js';
+import { buildSchedule, fetchLiveHebcalItems, fetchLiveHebcalItemsForDate, entriesFromHebcalItems, type Schedule } from './src/utils/sedra.js';
 import { SEDRA_CACHE, SEDRA_YEARS } from './src/data/sedraCache.js';
 import { hashPassword, verifyPassword, generateSessionToken, hashSessionToken, parseSessionCookie, serializeSessionCookie, clearSessionCookie, isHeaderAuthenticated, generateBootstrapPassword } from './src/utils/auth.js';
 import { buildExportBuffer } from './src/utils/export-server.js';
@@ -206,9 +206,9 @@ app.post('/api/auth/change-password', changePasswordLimiter, privateOnly, (req, 
 // from the Hebcal.com REST API — CC BY 4.0). The cache runs through SEDRA_YEARS[1], so
 // a live call is only needed once "today" is within a year of that end.
 
-let _schedule: Record<string, string> | null = null;
+let _schedule: Schedule | null = null;
 
-async function getSchedule(): Promise<Record<string, string>> {
+async function getSchedule(): Promise<Schedule> {
   if (_schedule) return _schedule;
 
   _schedule = await buildSchedule({
@@ -281,10 +281,28 @@ function findAliyahId(parsha: string, aliyahNum: number): number | null {
 
 app.get('/api/hebcal', async (_req, res) => {
   try {
-    res.json({ schedule: await getSchedule() });
+    const { schedule, datesByParsha } = await getSchedule();
+    res.json({ schedule, datesByParsha, cacheYears: SEDRA_YEARS });
   } catch (err: unknown) {
     console.error('Hebcal error:', errText(err));
-    res.json({ schedule: {} });
+    res.json({ schedule: {}, datesByParsha: {}, cacheYears: SEDRA_YEARS });
+  }
+});
+
+// On-demand, single-day live lookup for dates outside SEDRA_YEARS — opt-in from the
+// client (Settings toggle), since it's an outbound call to Hebcal.com per date checked.
+app.get('/api/hebcal/lookup', async (req, res) => {
+  const date = req.query['date'];
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ detail: 'date must be YYYY-MM-DD' });
+    return;
+  }
+  try {
+    const items = await fetchLiveHebcalItemsForDate(date);
+    res.json({ parshiot: entriesFromHebcalItems(items).map(([, name]) => name) });
+  } catch (err: unknown) {
+    console.error('Hebcal lookup error:', errText(err));
+    res.json({ parshiot: [] });
   }
 });
 
