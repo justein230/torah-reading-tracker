@@ -14,13 +14,15 @@
 .year-label { font-size: 20px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
 .yr-stats { font-size: 13px; font-weight: 400; color: var(--muted); }
 .reading-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 14px; border-left: 4px solid transparent; }
-.ri-date { font-size: 12px; color: var(--muted); min-width: 110px; }
+.ri-date-col { display: flex; flex-direction: column; gap: 4px; min-width: 110px; }
+.ri-date { font-size: 12px; color: var(--muted); }
 .ri-parsha { flex: 1; display: flex; gap: 8px; align-items: flex-start; min-width: 0; }
 .ri-parsha-text { flex: 1; min-width: 0; }
 .ri-parsha-text .heb { font-size: 15px; font-weight: 600; text-align: left; }
 .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
-.ri-tag { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--surface2); white-space: nowrap; }
-.ri-pct { font-size: 12px; color: var(--muted2); white-space: nowrap; }
+.ri-tag { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--surface2); white-space: nowrap; align-self: flex-start; }
+.ri-stat-box { display: flex; flex-direction: column; gap: 2px; background: var(--surface2); border-radius: 6px; padding: 4px 7px; font-size: 11px; color: var(--text); align-self: flex-start; margin-left: -4px; }
+.ri-pct { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--muted); white-space: nowrap; }
 .ri-footer { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .ri-parsha-count { font-weight: 600; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; row-gap: 2px; }
 .ri-parsha-count .heb { font-size: inherit; unicode-bidi: isolate; }
@@ -40,12 +42,13 @@
 @media (max-width: 520px) {
   .collapsible-summary { padding: 10px 12px; gap: 8px; }
   .reading-item { padding: 10px 12px; gap: 8px; align-items: flex-start; }
-  .ri-date { min-width: 0; font-size: 11px; }
+  .ri-date-col { min-width: 0; gap: 2px; }
+  .ri-date { font-size: 11px; }
   .ri-parsha { min-width: 0; }
 
   /* Rows with action buttons: date + actions on line 1, parsha full-width below */
   .reading-item.has-actions { flex-wrap: wrap; align-items: center; }
-  .reading-item.has-actions .ri-date { order: 1; flex: 0 0 auto; }
+  .reading-item.has-actions .ri-date-col { order: 1; flex: 0 0 auto; }
   .reading-item.has-actions .ri-footer { order: 2; margin-left: auto; }
   .reading-item.has-actions .ri-parsha { order: 3; flex: 0 0 100%; margin-top: 4px; }
 }

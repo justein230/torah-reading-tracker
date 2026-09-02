@@ -26,9 +26,10 @@ export function ReadingRow({ r, compact = false, actions = null }: Readonly<Read
     && (r.verseStart   ?? -1) > 0
     && (r.chapterEnd   ?? -1) > 0
     && (r.verseEnd     ?? -1) > 0;
-  const verseRange = hasVerseRange
-    ? ` · ${r.chapterStart}:${r.verseStart}–${r.chapterEnd}:${r.verseEnd}`
+  const verseRangeStr = hasVerseRange
+    ? `${r.chapterStart}:${r.verseStart}–${r.chapterEnd}:${r.verseEnd}`
     : '';
+  const verseRange = verseRangeStr && ` · ${verseRangeStr}`;
 
   let aliyahHebrew: string;
   if      (r.aliyah === 'hosafah')    aliyahHebrew = 'הוספה';
@@ -37,7 +38,15 @@ export function ReadingRow({ r, compact = false, actions = null }: Readonly<Read
 
   return (
     <div className={`reading-item${actions ? ' has-actions' : ''}`} style={{ ...borderStyle, background: bg }}>
-      {!compact && <div className="ri-date">{fmtDate(r.displayDate)}</div>}
+      {!compact && (
+        <div className="ri-date-col">
+          <div className="ri-date">{fmtDate(r.displayDate)}</div>
+          <div className="ri-stat-box">
+            <div>{r.pseukim} pseukim</div>
+            {verseRangeStr && <div>{verseRangeStr}</div>}
+          </div>
+        </div>
+      )}
       <div className="ri-parsha">
         <div className="ri-parsha-text">
           <div className={`hebrew heb${compact ? ' compact-heb' : ''}`}>
@@ -49,11 +58,11 @@ export function ReadingRow({ r, compact = false, actions = null }: Readonly<Read
             )}
           </div>
           <div className="sub">
-            {TLIT[r.parsha] ?? ''} · {fmtAliyah(r.aliyah)} · <span style={{ color }}>{seferMeta?.en ?? r.sefer}</span>{verseRange}{occasion}{note}{location}
+            {TLIT[r.parsha] ?? ''} · {fmtAliyah(r.aliyah)} · <span style={{ color }}>{seferMeta?.en ?? r.sefer}</span>{compact ? verseRange : ''}{occasion}{note}{location}
           </div>
         </div>
         <div className="ri-stats">
-          <span className="ri-tag">{r.pseukim} pseukim</span>
+          {compact && <span className="ri-tag">{r.pseukim} pseukim</span>}
           <span className="ri-pct">{r.pct.toFixed(2)}%</span>
         </div>
       </div>

@@ -81,7 +81,13 @@ function DayCard({ dateStr, day, dayPseukim, dayPct, sefers, occasions, mainColo
 
   const summary = (
     <>
-      <div className="ri-date">{fmtDate(dateStr)}</div>
+      <div className="ri-date-col">
+        <div className="ri-date">{fmtDate(dateStr)}</div>
+        <div className="ri-stat-box">
+          <div>{dayPseukim} pseukim</div>
+          {verseRangeStr && <div>{verseRangeStr}</div>}
+        </div>
+      </div>
       <div className="ri-parsha">
         <div className="ri-parsha-text">
           <div className="ri-parsha-count">
@@ -101,11 +107,9 @@ function DayCard({ dateStr, day, dayPseukim, dayPct, sefers, occasions, mainColo
               </span>
             ))}
             {occasions.length > 0 && ' · ' + occasions.join(', ')}
-            {verseRangeStr && ' · ' + verseRangeStr}
           </div>
         </div>
         <div className="ri-stats">
-          <span className="ri-tag">{dayPseukim} pseukim</span>
           <span className="ri-pct">{dayPct.toFixed(2)}%</span>
         </div>
       </div>
@@ -132,7 +136,13 @@ function CombinedAliyahCard({ group, rowActions }: Readonly<{ group: CombinedAli
   // Mirror DayCard's summary markup so .collapsible-summary styles its direct children correctly.
   const summary = (
     <>
-      <div className="ri-date">{fmtDate(s.displayDate)}</div>
+      <div className="ri-date-col">
+        <div className="ri-date">{fmtDate(s.displayDate)}</div>
+        <div className="ri-stat-box">
+          <div>{s.pseukim} pseukim</div>
+          {verseRangeStr && <div>{verseRangeStr}</div>}
+        </div>
+      </div>
       <div className="ri-parsha">
         <div className="ri-parsha-text">
           <div className="hebrew heb">
@@ -143,11 +153,9 @@ function CombinedAliyahCard({ group, rowActions }: Readonly<{ group: CombinedAli
           </div>
           <div className="sub">
             {s.pairNameEn} · Aliyah {s.combinedAliyah} · <span style={{ color: mainColor }}>{seferMeta?.en ?? s.sefer}</span>
-            {verseRangeStr && ' · ' + verseRangeStr}
           </div>
         </div>
         <div className="ri-stats">
-          <span className="ri-tag">{s.pseukim} pseukim</span>
           <span className="ri-pct">{s.pct.toFixed(2)}%</span>
         </div>
       </div>
