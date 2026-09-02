@@ -22,7 +22,7 @@
 .ri-parsha-text { flex: 1; min-width: 0; }
 .ri-parsha-text .heb { font-size: 15px; font-weight: 600; text-align: left; }
 .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
-.ri-tag { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--surface2); white-space: nowrap; align-self: flex-start; }
+.ri-tag { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--surface2); white-space: nowrap; }
 .ri-stat-box { display: flex; flex-direction: column; gap: 2px; background: var(--surface2); border-radius: 6px; padding: 4px 7px; font-size: 11px; color: var(--text); align-self: flex-start; margin-left: -4px; }
 .ri-pct { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--muted); white-space: nowrap; }
 .ri-footer { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
