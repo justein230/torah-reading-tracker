@@ -109,15 +109,12 @@ function DayCard({ dateStr, day, dayPseukim, dayPct, sefers, occasions, mainColo
             {occasions.length > 0 && ' · ' + occasions.join(', ')}
           </div>
         </div>
-        <div className="ri-stats">
-          <span className="ri-pct">{dayPct.toFixed(2)}%</span>
-        </div>
       </div>
     </>
   );
 
   return (
-    <CollapsibleRow summary={summary} accentColor={mainColor}>
+    <CollapsibleRow summary={summary} accentColor={mainColor} corner={<span className="ri-pct">{dayPct.toFixed(2)}%</span>}>
       <div className="day-breakdown">
         {day.map(r => <ReadingRow key={`${r.parsha}-${r.aliyah}`} r={r as LogEntry} compact actions={rowActions?.(r)} />)}
       </div>
@@ -155,15 +152,12 @@ function CombinedAliyahCard({ group, rowActions }: Readonly<{ group: CombinedAli
             {s.pairNameEn} · Aliyah {s.combinedAliyah} · <span style={{ color: mainColor }}>{seferMeta?.en ?? s.sefer}</span>
           </div>
         </div>
-        <div className="ri-stats">
-          <span className="ri-pct">{s.pct.toFixed(2)}%</span>
-        </div>
       </div>
     </>
   );
 
   return (
-    <CollapsibleRow summary={summary} accentColor={mainColor}>
+    <CollapsibleRow summary={summary} accentColor={mainColor} corner={<span className="ri-pct">{s.pct.toFixed(2)}%</span>}>
       <div className="day-breakdown">
         {group.components.map(c => (
           <ReadingRow key={`${c.parsha}-${c.aliyah}-${c.displayDate}`} r={c} compact actions={rowActions?.(c)} />

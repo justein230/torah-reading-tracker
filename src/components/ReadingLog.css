@@ -17,6 +17,8 @@
 .ri-date-col { display: flex; flex-direction: column; gap: 4px; min-width: 110px; }
 .ri-date { font-size: 12px; color: var(--muted); }
 .ri-parsha { flex: 1; display: flex; gap: 8px; align-items: flex-start; min-width: 0; }
+/* Reserve room so title/sub text can't run under the absolutely-positioned corner badge (percentage above the arrow). */
+.collapsible-summary .ri-parsha { padding-right: 54px; }
 .ri-parsha-text { flex: 1; min-width: 0; }
 .ri-parsha-text .heb { font-size: 15px; font-weight: 600; text-align: left; }
 .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
