@@ -24,6 +24,9 @@ linux:
   syncDesktopName: true
 mac:
   target: dmg
+  identity: "-"        # ad-hoc sign — no Developer ID cert needed
+  hardenedRuntime: false   # ad-hoc sig lacks a Team ID; hardened runtime + Electron's
+                            # Apple-signed frameworks would otherwise fail library validation
 dmg:
   writeUpdateInfo: false   # skip generating the .blockmap; we don't use electron-updater
 win:
