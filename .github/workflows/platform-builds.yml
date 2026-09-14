@@ -38,7 +38,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: torah-windows
           path: dist-electron/*.exe
@@ -64,7 +64,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"   # no signing cert configured; build unsigned
         run: npx electron-builder --mac --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: torah-mac
           path: dist-electron/*.dmg
@@ -91,7 +91,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --linux --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: torah-linux
           path: |
@@ -118,7 +118,7 @@ jobs:
   #     - run: mkdir -p public/assets/databases && cp seed.db public/assets/databases/torah.db
   #     - run: npm run build && rm -rf public/assets && npx cap sync android
   #     - run: cd android && ./gradlew assembleDebug
-  #     - uses: actions/upload-artifact@v4
+  #     - uses: actions/upload-artifact@v7
   #       with:
   #         name: torah-android
   #         path: android/app/build/outputs/apk/**/*.apk
