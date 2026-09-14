@@ -27,8 +27,8 @@ export function mapRow(r: RawRow): MappedRow {
   const isReadPast   = isRead && orig <= today;
   const isReadFuture = isRead && orig > today;
   const hasFuture    = futDates.length > 0;
-  const yearRead     = isRead    ? new Date(orig).getFullYear()                          : null;
-  const futureYear   = hasFuture ? new Date(futDates[0] as string).getFullYear()         : null;
+  const yearRead     = isRead    ? Number(orig.slice(0, 4))                              : null;
+  const futureYear   = hasFuture ? Number((futDates[0] as string).slice(0, 4))           : null;
   const allYears     = [...new Set([yearRead, futureYear].filter((y): y is number => y !== null))];
   return {
     sefer: r.sefer, parsha: r.parsha, aliyah: r.aliyah,

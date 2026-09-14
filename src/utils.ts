@@ -13,6 +13,15 @@ export function versesOverlap(
   return aStart < bEnd && aEnd > bStart;
 }
 
+/** Whole days between two 'YYYY-MM-DD' strings. Parses both via UTC so the result is the same regardless of the host machine's timezone. */
+export function daysBetween(fromStr: string, toStr: string): number {
+  const toUTCms = (s: string): number => {
+    const [y, m, d] = s.split('-').map(Number);
+    return Date.UTC(y as number, (m as number) - 1, d as number);
+  };
+  return Math.round((toUTCms(toStr) - toUTCms(fromStr)) / 86400000);
+}
+
 export function fmtDate(dateStr: string): string {
   if (!dateStr) return '';
   const parts = dateStr.split('-').map(Number);

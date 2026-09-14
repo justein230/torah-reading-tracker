@@ -84,9 +84,16 @@ describe('mapRow — future re-reads (fut field)', () => {
   });
 });
 
+describe('mapRow — year attribution near Jan 1', () => {
+  it('does not misattribute a Jan 1 reading to the prior year (regression: yearRead used new Date(orig).getFullYear(), which parses the date-only string as UTC and can roll back a day in negative-UTC-offset timezones)', () => {
+    const r = mapRow({ ...BASE, orig: '2025-01-01', fut: '2026-01-01' });
+    expect(r.yearRead).toBe(2025);
+    expect(r.futureYear).toBe(2026);
+  });
+});
+
 describe('mapRow — allYears', () => {
   it('deduplicates when yearRead equals futureYear', () => {
-    // Use mid-year dates to avoid timezone year-boundary issues on Jan 1
     const r = mapRow({ ...BASE, orig: '2025-06-01', fut: '2025-09-15' });
     expect(r.allYears).toEqual([2025]);
   });

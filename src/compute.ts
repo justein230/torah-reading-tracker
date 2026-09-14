@@ -1,5 +1,5 @@
 import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, Filters, ForecastConfig, ForecastResult, Stats, SeferStats, SeferMeta, YearEntry } from './types/index.js';
-import { versesOverlap } from './utils.js';
+import { versesOverlap, daysBetween } from './utils.js';
 
 /**
  * Computes partialOrig for each Shabbat aliyah: the earliest date a holiday or weekday
@@ -130,17 +130,24 @@ function buildVerseKeySets(allRows: MappedRow[], seferMap: Record<string, SeferM
   return { allKeys, readKeys };
 }
 
+// today's calendar date, in local time — matches how reading dates are entered (api.ts's getTodayStr)
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function computeReadingRate(allRows: MappedRow[], forecastConfig: ForecastConfig, today: Date, seferMap: Record<string, SeferMeta>): number | null {
   const { lookbackYears, paceOverride } = forecastConfig;
   if (paceOverride && paceOverride > 0) return paceOverride;
 
-  const cutoff = lookbackYears
-    ? new Date(today.getFullYear() - lookbackYears, today.getMonth(), today.getDate())
+  const todayStr = localDateStr(today);
+  const cutoffStr = lookbackYears
+    ? `${today.getFullYear() - lookbackYears}-${todayStr.slice(5)}`
     : null;
-  const windowRows = allRows.filter(r => r.isRead && r.orig && (!cutoff || new Date(r.orig) >= cutoff));
+  // string comparison works here: 'YYYY-MM-DD' sorts lexically in calendar order
+  const windowRows = allRows.filter(r => r.isRead && r.orig && (!cutoffStr || r.orig >= cutoffStr));
   if (windowRows.length < 2) return null;
-  const dates          = windowRows.map(r => new Date(r.orig)).sort((a, b) => a.getTime() - b.getTime());
-  const daysSinceFirst = (today.getTime() - (dates[0] as Date).getTime()) / 86400000;
+  const dates          = windowRows.map(r => r.orig).sort();
+  const daysSinceFirst = daysBetween(dates[0] as string, todayStr);
   if (daysSinceFirst <= 0) return null;
   const windowKeys = new Set<string>();
   for (const r of windowRows) for (const k of verseKeysForRange(r, seferMap)) windowKeys.add(k);

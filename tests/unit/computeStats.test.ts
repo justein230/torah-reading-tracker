@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { computeStats, estimateCompletion, countPseukim, computeRing, effectivePseukimOf, committedPseukimOf, remainingPseukim, isAliyahRead, isAliyahPartial, countReadAliyot, computePairTotalPseukim, computePairReadPseukim } from '../../src/compute.js';
 import type { MappedRow, MappedOccasionAliyah, MappedHosafah, Filters } from '../../src/types/index.js';
 
@@ -229,6 +229,21 @@ describe('estimateCompletion — lookback window', () => {
     // With a 2-year window: old row should be excluded → only 1 row in window → returns null
     const result = estimateCompletion([recent, old], NO_FILTERS, { lookbackYears: 2, paceOverride: null });
     expect(result).toBeNull();
+  });
+
+  it('includes a reading dated exactly on the lookback boundary (regression: local/UTC date mismatch dropped it a few hours early)', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 13, 12, 0, 0)); // "today" = 2026-09-13, local noon
+    try {
+      const boundary = makeRow({ isRead: true, orig: '2025-09-13', pseukim: 200 }); // exactly 1 year before today
+      const recent   = makeRow({ aliyah: 2, isRead: true, orig: '2026-06-01', pseukim: 100 });
+      const result = estimateCompletion([boundary, recent], NO_FILTERS, { lookbackYears: 1, paceOverride: null });
+      // If the boundary row were excluded, only 1 row would remain in the window and this would be null.
+      expect(result).not.toBeNull();
+      expect(result!.ratePerYear).toBe(300);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -268,11 +268,14 @@ export const HOSAFOT_READINGS_SQL = `
   ORDER BY hr.date_read
 `;
 
+// {{TODAY}} is filled in by the caller with the app's own local-calendar-date string
+// (see server.ts's todayStr()) rather than SQLite's date('now'), which is UTC and can
+// disagree with the server's local day right around midnight.
 export const LOCATION_STATS_SQL = `
   SELECT COALESCE(location, '') AS location,
     COUNT(*) AS count,
-    SUM(CASE WHEN date_read <= date('now') THEN 1 ELSE 0 END) AS past_count,
-    SUM(CASE WHEN date_read > date('now') THEN 1 ELSE 0 END) AS upcoming_count
+    SUM(CASE WHEN date_read <= '{{TODAY}}' THEN 1 ELSE 0 END) AS past_count,
+    SUM(CASE WHEN date_read > '{{TODAY}}' THEN 1 ELSE 0 END) AS upcoming_count
   FROM (
     SELECT location, date_read FROM readings
     UNION ALL

@@ -19,7 +19,7 @@ export function standardRowKey(r: { parsha: string; aliyah: string | number }): 
  * (a future date), re-deriving the same fields mapRow() would set from `orig`.
  */
 export function withHypotheticalRowDate(r: MappedRow, date: string): MappedRow {
-  const yearRead = new Date(date).getFullYear();
+  const yearRead = Number(date.slice(0, 4));
   return {
     ...r,
     orig: date,

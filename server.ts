@@ -208,6 +208,13 @@ app.post('/api/auth/change-password', changePasswordLimiter, privateOnly, (req, 
 
 let _schedule: Schedule | null = null;
 
+// Local calendar date, e.g. "2026-09-13" — avoids new Date().toISOString(), which is
+// UTC and can land on the wrong side of midnight relative to the server's local day.
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 async function getSchedule(): Promise<Schedule> {
   if (_schedule) return _schedule;
 
@@ -215,7 +222,7 @@ async function getSchedule(): Promise<Schedule> {
     parshaNames: new Set(
       db.select({ name_en: parshiot.nameEn }).from(parshiot).all().map(r => r.name_en)
     ),
-    today:        new Date().toISOString().slice(0, 10),
+    today:        todayStr(),
     cache:        SEDRA_CACHE,
     cacheEndYear: SEDRA_YEARS[1],
     fetchLive:    fetchLiveHebcalItems,
@@ -364,7 +371,7 @@ app.get('/api/aliyot', (_req, res) => {
 });
 
 app.get('/api/stats/location', (_req, res) => {
-  res.json(db.all(sql.raw(LOCATION_STATS_SQL)));
+  res.json(db.all(sql.raw(LOCATION_STATS_SQL.replace(/\{\{TODAY\}\}/g, todayStr()))));
 });
 
 app.get('/api/readings', (_req, res) => {
