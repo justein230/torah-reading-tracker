@@ -4,6 +4,7 @@ import { afterAll, afterEach, describe, it, expect } from 'vitest';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import Database from 'better-sqlite3';
 import request from 'supertest';
 
 const TEMP_DB = path.join(os.tmpdir(), `torah-test-${process.pid}.db`);
@@ -13,7 +14,10 @@ process.env.TORAH_DB_PATH        = TEMP_DB;
 process.env.TORAH_ADMIN_PASSWORD = TEST_PASSWORD;
 
 // server.ts calls initDb on import: migrate + seed are applied automatically
-const { app, rawDb: db } = await import('../../server.ts');
+const { app } = await import('../../server.ts');
+// Own connection to the same file server.ts opened, used only for direct SQL cleanup
+// between tests — server.ts no longer exports its internal db handle (see server.ts).
+const db = new Database(TEMP_DB);
 
 // This suite is about reading CRUD, not auth — logging in once up front via a
 // cookie-persisting agent keeps every request below authenticated without having

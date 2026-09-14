@@ -10,6 +10,7 @@ import { afterEach, afterAll, describe, it, expect } from 'vitest';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import Database from 'better-sqlite3';
 import request from 'supertest';
 
 const TEMP_DB = path.join(os.tmpdir(), `torah-auth-test-${process.pid}.db`);
@@ -19,7 +20,10 @@ process.env.TORAH_REQUIRE_PROXY_HEADER = 'true';
 process.env.TORAH_ADMIN_PASSWORD  = 'correct horse battery staple';
 process.env.TORAH_AUTH_HEADER     = 'x-test-user';
 
-const { app, rawDb: db } = await import('../../server.ts');
+const { app } = await import('../../server.ts');
+// Own connection to the same file server.ts opened, used only for direct SQL cleanup
+// between tests — server.ts no longer exports its internal db handle (see server.ts).
+const db = new Database(TEMP_DB);
 
 afterEach(() => {
   db.prepare('DELETE FROM auth_sessions').run();

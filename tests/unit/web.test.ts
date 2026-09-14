@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
-  fetchCanWrite, fetchMeta, fetchHebcal, fetchHebcalOnDate,
+  fetchCanWrite, fetchAuthStatus, login, logout, changePassword,
+  fetchMeta, fetchHebcal, fetchHebcalOnDate,
   fetchAliyot, fetchReadings, fetchLocationStats,
   postReading, putReading, deleteReading,
   fetchOccasions, fetchOccasionAliyot, fetchSpecialReadings,
@@ -30,6 +31,56 @@ describe('fetchCanWrite', () => {
   it('falls back to false when the request rejects', async () => {
     mockFetchOnce(() => Promise.reject(new Error('network down')));
     expect(await fetchCanWrite()).toBe(false);
+  });
+});
+
+describe('fetchAuthStatus', () => {
+  it('maps authMode and insecureConfig from the response body', async () => {
+    mockFetchOnce(() => Promise.resolve(jsonResponse({ canWrite: true, authMode: 'password', insecureConfig: true })));
+    expect(await fetchAuthStatus()).toEqual({ authMode: 'password', insecureConfig: true });
+  });
+
+  it('falls back to password/no-insecure-config when the request rejects', async () => {
+    mockFetchOnce(() => Promise.reject(new Error('network down')));
+    expect(await fetchAuthStatus()).toEqual({ authMode: 'password', insecureConfig: false });
+  });
+});
+
+describe('login', () => {
+  it('returns true when the login request succeeds', async () => {
+    mockFetchOnce(() => Promise.resolve(jsonResponse({}, true)));
+    expect(await login('secret')).toBe(true);
+  });
+
+  it('returns false when the login request fails', async () => {
+    mockFetchOnce(() => Promise.resolve(jsonResponse({}, false)));
+    expect(await login('wrong')).toBe(false);
+  });
+});
+
+describe('logout', () => {
+  it('POSTs to the logout endpoint', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({})));
+    vi.stubGlobal('fetch', fetchMock);
+    await logout();
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' });
+  });
+});
+
+describe('changePassword', () => {
+  it('returns ok:true when the change succeeds', async () => {
+    mockFetchOnce(() => Promise.resolve(jsonResponse({}, true)));
+    expect(await changePassword('old', 'new')).toEqual({ ok: true });
+  });
+
+  it('returns the detail message from the error body when the change fails', async () => {
+    mockFetchOnce(() => Promise.resolve(jsonResponse({ detail: 'Wrong current password' }, false)));
+    expect(await changePassword('old', 'new')).toEqual({ ok: false, error: 'Wrong current password' });
+  });
+
+  it('falls back to a default error message when the error body has no detail', async () => {
+    mockFetchOnce(() => Promise.resolve({ ok: false, status: 400, json: () => Promise.reject(new Error('bad json')) } as Response));
+    expect(await changePassword('old', 'new')).toEqual({ ok: false, error: 'Could not change password' });
   });
 });
 

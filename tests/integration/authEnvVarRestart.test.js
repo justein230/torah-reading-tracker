@@ -25,16 +25,15 @@ afterAll(() => {
 describe('TORAH_ADMIN_PASSWORD across restarts', () => {
   it('hashes it into the DB on first start', async () => {
     process.env.TORAH_ADMIN_PASSWORD = 'original-password';
-    const { app, rawDb } = await import('../../server.ts');
+    const { app } = await import('../../server.ts');
     const res = await request(app).post('/api/auth/login').send({ password: 'original-password' });
     expect(res.status).toBe(200);
-    rawDb.close();
   });
 
   it('does not overwrite the stored hash on a later start with a different value', async () => {
     vi.resetModules();
     process.env.TORAH_ADMIN_PASSWORD = 'different-password';
-    const { app, rawDb } = await import('../../server.ts');
+    const { app } = await import('../../server.ts');
 
     const originalStillWorks = await request(app).post('/api/auth/login').send({ password: 'original-password' });
     expect(originalStillWorks.status).toBe(200);
@@ -44,7 +43,5 @@ describe('TORAH_ADMIN_PASSWORD across restarts', () => {
 
     const canWrite = await request(app).get('/api/can-write');
     expect(canWrite.body).toEqual({ canWrite: false, authMode: 'password', insecureConfig: true });
-
-    rawDb.close();
   });
 });

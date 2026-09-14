@@ -1,4 +1,4 @@
-import { screen, act } from '@testing-library/react';
+import { screen, act, fireEvent } from '@testing-library/react';
 import { vi } from 'vitest';
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 import { makeCtx, MOCK_PARSHA } from '../../helpers/appContextMock.js';
@@ -136,5 +136,84 @@ describe('AddReadingForm — schedule warning', () => {
     await act(async () => { vi.advanceTimersByTime(400); await Promise.resolve(); await Promise.resolve(); });
 
     expect(screen.getByText(/Hebcal\.com shows Vayigash/)).toBeInTheDocument();
+  });
+});
+
+describe('AddReadingForm — edit mode and messages', () => {
+  beforeEach(() => {
+    mockUseApp.mockReturnValue(makeCtx({
+      schedule: {}, datesByParsha: {}, cacheYears: [1990, 2050],
+    }));
+  });
+
+  function renderEdit(overrides: Record<string, unknown> = {}) {
+    return renderWithProviders(
+      <AddReadingForm
+        form={baseForm}
+        setField={vi.fn()}
+        editId={5}
+        recreate={false}
+        locked={false}
+        msg={{ text: '', error: false }}
+        formTitle="Edit Reading"
+        submitLabel="Save"
+        doRecreate={vi.fn()}
+        submit={vi.fn()}
+        resetForm={vi.fn()}
+        parshaOptions={[]}
+        aliyahOptions={[]}
+        {...overrides}
+      />,
+    );
+  }
+
+  it('shows Re-create and Cancel buttons when editing a standard reading', () => {
+    renderEdit();
+    expect(screen.getByText('Re-create')).toBeInTheDocument();
+    expect(screen.getByText('Cancel')).toBeInTheDocument();
+  });
+
+  it('hides the Re-create button once recreate is true', () => {
+    renderEdit({ recreate: true });
+    expect(screen.queryByText('Re-create')).not.toBeInTheDocument();
+    expect(screen.getByText('Cancel')).toBeInTheDocument();
+  });
+
+  it('hides the reading-type radio group and parsha auto-fill switch when locked', () => {
+    renderEdit({ locked: true });
+    expect(screen.queryByText('Reading Type')).not.toBeInTheDocument();
+  });
+
+  it('shows the error message in the error style when msg.error is true', () => {
+    renderEdit({ msg: { text: 'Could not save reading', error: true } });
+    const msgEl = screen.getByText('Could not save reading');
+    expect(msgEl).toHaveStyle({ color: 'var(--error)' });
+  });
+
+  it('shows a success message when msg.error is false', () => {
+    renderEdit({ msg: { text: 'Reading saved', error: false } });
+    const msgEl = screen.getByText('Reading saved');
+    expect(msgEl).toHaveStyle({ color: 'var(--success)' });
+  });
+
+  it('calls submit when the submit button is clicked', () => {
+    const submit = vi.fn();
+    renderEdit({ submit });
+    fireEvent.click(screen.getByText('Save'));
+    expect(submit).toHaveBeenCalled();
+  });
+
+  it('calls doRecreate when Re-create is clicked', () => {
+    const doRecreate = vi.fn();
+    renderEdit({ doRecreate });
+    fireEvent.click(screen.getByText('Re-create'));
+    expect(doRecreate).toHaveBeenCalled();
+  });
+
+  it('calls resetForm when Cancel is clicked', () => {
+    const resetForm = vi.fn();
+    renderEdit({ resetForm });
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(resetForm).toHaveBeenCalled();
   });
 });

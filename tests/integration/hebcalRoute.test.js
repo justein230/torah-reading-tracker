@@ -11,13 +11,17 @@ import { afterAll, describe, it, expect, vi } from 'vitest';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import Database from 'better-sqlite3';
 import request from 'supertest';
 
 const TEMP_DB = path.join(os.tmpdir(), `torah-hebcal-test-${process.pid}.db`);
 
 process.env.TORAH_DB_PATH     = TEMP_DB;
 
-const { app, rawDb: db } = await import('../../server.ts');
+const { app } = await import('../../server.ts');
+// Own connection to the same file server.ts opened, used only for direct SQL manipulation
+// in this test — server.ts no longer exports its internal db handle (see server.ts).
+const db = new Database(TEMP_DB);
 
 afterAll(() => {
   try { fs.unlinkSync(TEMP_DB); } catch {}

@@ -13,6 +13,7 @@ import { buildSchedule, fetchLiveHebcalItems, fetchLiveHebcalItemsForDate, entri
 import { SEDRA_CACHE, SEDRA_YEARS } from './src/data/sedraCache.js';
 import { hashPassword, verifyPassword, generateSessionToken, hashSessionToken, parseSessionCookie, serializeSessionCookie, clearSessionCookie, isHeaderAuthenticated, generateBootstrapPassword } from './src/utils/auth.js';
 import { buildExportBuffer } from './src/utils/export-server.js';
+import { importDatabase, ImportValidationError } from './src/utils/import-server.js';
 import { buildCalendarFeed } from './src/utils/calendar-feed.js';
 import { errText } from './src/utils/errText.js';
 
@@ -28,14 +29,19 @@ const PROJECT_ROOT = path.basename(__dirname) === 'dist-server' ? path.dirname(_
 const PORT    = process.env.PORT || 3000;
 const HOST    = process.env.TORAH_HOST || '127.0.0.1';
 const DB_PATH = process.env.TORAH_DB_PATH || path.join(PROJECT_ROOT, 'torah.db');
+const MIGRATIONS_DIR = path.join(PROJECT_ROOT, 'drizzle');
 
 // ── database ──────────────────────────────────────────────────────────────────
 
-export const rawDb = new Database(DB_PATH);
+// `let`, not `const`: a DB import (see /api/import/db below) closes the old handle and
+// reassigns both to a freshly opened, migrated database. Not exported — nothing outside
+// this module needs it; tests that need direct SQL access open their own connection to
+// the same TORAH_DB_PATH file instead (see tests/integration).
+let rawDb = new Database(DB_PATH);
 rawDb.pragma('journal_mode = DELETE');
 rawDb.pragma('foreign_keys = OFF'); // must be off during migrations (table recreations need it)
-export const db = createDb(rawDb);
-initDb(rawDb, db, path.join(PROJECT_ROOT, 'drizzle'));
+let db = createDb(rawDb);
+initDb(rawDb, db, MIGRATIONS_DIR);
 rawDb.pragma('foreign_keys = ON');
 
 // ── express app ───────────────────────────────────────────────────────────────
@@ -271,7 +277,8 @@ function requireFields(res: express.Response, body: Record<string, unknown>, fie
 function requireInts<F extends string>(res: express.Response, body: Record<string, unknown>, fields: F[]): Record<F, number> | null {
   const out = {} as Record<F, number>;
   for (const f of fields) {
-    const n = Number.parseInt(String(body[f]), 10);
+    const raw = body[f];
+    const n = typeof raw === 'string' || typeof raw === 'number' ? Number.parseInt(String(raw), 10) : Number.NaN;
     if (!Number.isFinite(n) || n < 1) {
       res.status(400).json({ detail: `${f} must be a positive integer` });
       return null;
@@ -364,6 +371,22 @@ app.get('/api/export/db', privateOnly, (_req, res) => {
   res.end(data);
 });
 
+// express.raw is scoped to this route only, so the global express.json() above still
+// handles every other endpoint untouched.
+app.post('/api/import/db', privateOnly, express.raw({ type: 'application/vnd.sqlite3', limit: '25mb' }), (req, res) => {
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    return res.status(400).json({ detail: 'No file uploaded.' });
+  }
+  try {
+    ({ rawDb, db } = importDatabase(req.body, rawDb, DB_PATH, MIGRATIONS_DIR));
+    res.json({ success: true });
+  } catch (err: unknown) {
+    if (err instanceof ImportValidationError) return res.status(400).json({ detail: err.message });
+    console.error('DB import error:', errText(err));
+    res.status(500).json({ detail: 'Failed to import database.' });
+  }
+});
+
 app.get('/api/meta', (_req, res) => {
   const seferRows  = db.select({ id: sefarim.id, name: sefarim.name, name_en: sefarim.nameEn, color: sefarim.color }).from(sefarim).orderBy(sefarim.sortOrder).all();
   const parshaRows = db.select({ id: parshiot.id, name: parshiot.name, name_en: parshiot.nameEn }).from(parshiot).orderBy(parshiot.sortOrder).all();
@@ -387,6 +410,7 @@ app.get('/api/aliyot', (_req, res) => {
 });
 
 app.get('/api/stats/location', (_req, res) => {
+  // NOSONAR(S7781) — replaceAll needs ES2021 lib; tsconfig targets ES2020, so this stays a regex .replace.
   res.json(db.all(sql.raw(LOCATION_STATS_SQL.replace(/\{\{TODAY\}\}/g, todayStr()))));
 });
 
