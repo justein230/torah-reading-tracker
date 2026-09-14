@@ -3,6 +3,10 @@ name: platform-builds
 # Ported from .woodpecker/platform-builds.yml
 # Builds the Electron desktop artifacts on version tags (v*) or manual dispatch,
 # and publishes them straight to a GitHub Release when triggered by a tag.
+#
+# electron-builder.yml sets publish.publishAutoUpdate: false, so the built-in
+# GitHub publish below uploads only the installer artifacts — not the
+# electron-updater metadata (latest*.yml, .blockmap files) we don't use.
 on:
   push:
     tags:
