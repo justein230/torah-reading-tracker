@@ -21,7 +21,6 @@ linux:
     - deb
     - rpm
   category: Education
-  desktopName: torah-tracker.desktop
   syncDesktopName: true
 mac:
   target: dmg
