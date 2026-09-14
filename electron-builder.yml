@@ -14,7 +14,7 @@ publish:
   provider: github
   owner: justein230
   repo: torah-reading-tracker
-  publishAutoUpdate: false   # we don't use electron-updater; skip latest*.yml / .blockmap noise
+  publishAutoUpdate: false   # we don't use electron-updater; skip latest*.yml manifest
 linux:
   target:
     - AppImage
@@ -23,5 +23,9 @@ linux:
   category: Education
 mac:
   target: dmg
+dmg:
+  writeUpdateInfo: false   # skip generating the .blockmap; we don't use electron-updater
 win:
   target: nsis
+nsis:
+  differentialPackage: false   # skip generating the .blockmap; we don't use electron-updater
