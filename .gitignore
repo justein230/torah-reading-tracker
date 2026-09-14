@@ -12,6 +12,7 @@ __pycache__/
 .claude/
 .fontconfig/
 .npm/
+.vite/
 
 # Databases (live data, not source). The mobile seed DB is generated from
 # migrations at build time (npm run cap:db) — never committed.
