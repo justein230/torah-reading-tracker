@@ -55,3 +55,7 @@ sonar-project.properties
 *.xlsx
 
 plans/
+
+# Wine prefix created inside the mounted project by the electronuserland/builder:wine
+# container when cross-building the Windows target from Linux.
+.wine/

@@ -53,7 +53,12 @@ const REQUIRE_PROXY_HEADER = process.env.TORAH_REQUIRE_PROXY_HEADER
   : process.env.NODE_ENV === 'production';
 
 // ── auth ──────────────────────────────────────────────────────────────────────
-// Two mutually exclusive modes, picked via TORAH_AUTH_MODE:
+// Three mutually exclusive modes:
+//  'none'                — no auth at all. Forced on, and NOT settable via env var
+//                          (so a web deployment can't be misconfigured into it), whenever
+//                          this process is actually running inside Electron — see
+//                          IS_ELECTRON below. The desktop app's DB is per-user local
+//                          storage with no network exposure, so there's nothing to guard.
 //  'password' (default) — the app's own login, for deployments with no auth in front.
 //  'header'              — trust a header an upstream reverse proxy sets after doing
 //                           its own auth (e.g. Traefik/Caddy basicAuth). Only trusted
@@ -62,7 +67,14 @@ const REQUIRE_PROXY_HEADER = process.env.TORAH_REQUIRE_PROXY_HEADER
 //                           Any IP-based restriction (e.g. LAN-only access) is the
 //                           reverse proxy's job now, not the app's.
 
-const AUTH_MODE   = process.env.TORAH_AUTH_MODE === 'header' ? 'header' : 'password';
+// True only when this process is actually running inside the Electron runtime
+// (server.ts is imported in-process by electron/main.cjs, not spawned as a plain
+// Node subprocess) — not a flag any deployment config could set by accident.
+const IS_ELECTRON = !!(process.versions as NodeJS.ProcessVersions & { electron?: string }).electron;
+
+const AUTH_MODE = IS_ELECTRON ? 'none'
+  : process.env.TORAH_AUTH_MODE === 'header' ? 'header'
+  : 'password';
 const AUTH_HEADER = (process.env.TORAH_AUTH_HEADER || 'x-forwarded-user').toLowerCase();
 const COOKIE_SECURE = process.env.NODE_ENV === 'production';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
@@ -116,6 +128,7 @@ function hasValidSession(req: express.Request): boolean {
 }
 
 function isAuthenticated(req: express.Request): boolean {
+  if (AUTH_MODE === 'none') return true;
   return AUTH_MODE === 'header'
     ? isHeaderAuthenticated(req.headers[AUTH_HEADER], REQUIRE_PROXY_HEADER)
     : hasValidSession(req);

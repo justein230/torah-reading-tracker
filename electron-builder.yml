@@ -5,7 +5,8 @@ directories:
 files:
   - dist/**
   - electron/**
-  - server.js
+  - dist-server/**
+  - drizzle/**
   - seed.db
   - node_modules/**
   - package.json

@@ -1,5 +1,8 @@
 {
   "name": "torah-tracker",
+  "author": {
+    "name": "Justin Stein"
+  },
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -14,9 +17,9 @@
     "prebuild": "tsx scripts/gen-sedra-cache.ts",
     "build": "vite build",
     "serve": "tsx server.ts",
-    "electron": "npm run build && npx electron-rebuild 2>/dev/null || true && electron .",
-    "electron:dev": "npx electron-rebuild 2>/dev/null || true && concurrently -n api,vite,electron -c cyan,magenta,yellow \"PORT=3000 nodemon --exec tsx server.ts\" \"vite\" \"wait-on http://localhost:8000 && ELECTRON_DEV=true electron .\"",
-    "electron:build": "npm run build && npx electron-rebuild 2>/dev/null || true && electron-builder",
+    "electron": "node scripts/build-electron.mjs && npx electron-rebuild && electron .",
+    "electron:dev": "npx electron-rebuild && concurrently -n api,vite,electron -c cyan,magenta,yellow \"PORT=3000 nodemon --exec tsx server.ts\" \"vite\" \"wait-on http://localhost:8000 && ELECTRON_DEV=true electron .\"",
+    "electron:build": "node scripts/build-electron.mjs && npx electron-rebuild && electron-builder",
     "cap:db": "mkdir -p public/assets/databases && rm -f public/assets/databases/torah.db && TORAH_DB_PATH=public/assets/databases/torah.db tsx scripts/db-init.ts",
     "cap:sync": "npm run cap:db && npm run build && rm -rf public/assets && npx cap sync",
     "cap:ios": "npm run cap:db && npm run build && rm -rf public/assets && npx cap sync && npx cap open ios",

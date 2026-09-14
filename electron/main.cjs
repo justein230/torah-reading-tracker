@@ -51,7 +51,7 @@ async function start() {
     process.env.TORAH_DB_PATH = path.join(app.getPath('userData'), 'torah.db');
     process.env.PORT = String(serverPort);
 
-    const { app: expressApp } = require('../server.js');
+    const { app: expressApp } = await import('../dist-server/server.js');
     await new Promise(resolve => expressApp.listen(serverPort, '127.0.0.1', resolve));
   }
 

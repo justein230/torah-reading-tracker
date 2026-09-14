@@ -261,7 +261,7 @@ export interface PutReadingBody {
 }
 
 export interface AuthStatus {
-  authMode: 'password' | 'header';
+  authMode: 'password' | 'header' | 'none';
   insecureConfig: boolean;
 }
 
