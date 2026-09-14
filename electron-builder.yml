@@ -10,8 +10,15 @@ files:
   - seed.db
   - node_modules/**
   - package.json
+publish:
+  provider: github
+  owner: justein230
+  repo: torah-reading-tracker
 linux:
-  target: AppImage
+  target:
+    - AppImage
+    - deb
+    - rpm
   category: Education
 mac:
   target: dmg
