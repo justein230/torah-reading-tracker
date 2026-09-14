@@ -138,7 +138,7 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
       position="right"
       size="sm"
       styles={{
-        content: { background: 'var(--surface)', position: 'relative' },
+        content: { background: 'var(--surface)' },
         header:  { background: 'var(--surface)', borderBottom: '1px solid var(--surface2)' },
       }}
       classNames={{ header: 'modal-header-safe' }}
@@ -287,7 +287,7 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
         )}
       </Stack>
 
-      <Text c="dimmed" style={{ position: 'absolute', bottom: 8, right: 12, fontSize: 12 }}>
+      <Text c="dimmed" ta="right" px={6} pb={4} style={{ fontSize: 12 }}>
         v{__APP_VERSION__}
       </Text>
     </Drawer>
