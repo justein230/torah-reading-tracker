@@ -72,9 +72,12 @@ const REQUIRE_PROXY_HEADER = process.env.TORAH_REQUIRE_PROXY_HEADER
 // Node subprocess) — not a flag any deployment config could set by accident.
 const IS_ELECTRON = !!(process.versions as NodeJS.ProcessVersions & { electron?: string }).electron;
 
-const AUTH_MODE = IS_ELECTRON ? 'none'
-  : process.env.TORAH_AUTH_MODE === 'header' ? 'header'
-  : 'password';
+function resolveAuthMode(): 'none' | 'header' | 'password' {
+  if (IS_ELECTRON) return 'none';
+  if (process.env.TORAH_AUTH_MODE === 'header') return 'header';
+  return 'password';
+}
+const AUTH_MODE = resolveAuthMode();
 const AUTH_HEADER = (process.env.TORAH_AUTH_HEADER || 'x-forwarded-user').toLowerCase();
 const COOKIE_SECURE = process.env.NODE_ENV === 'production';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days

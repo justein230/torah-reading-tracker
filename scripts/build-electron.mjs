@@ -5,5 +5,5 @@
 // a prebuilt native binary and would have it clobbered by a rebuild for the host platform.
 import { execSync } from 'node:child_process';
 
-execSync('npm run build', { stdio: 'inherit' });
-execSync('npx tsc -p tsconfig.server.json', { stdio: 'inherit' });
+execSync('npm run build', { stdio: 'inherit' }); // NOSONAR (S4036) - local-only build script, PATH is meant to be dynamic here
+execSync('npx tsc -p tsconfig.server.json', { stdio: 'inherit' }); // NOSONAR (S4036) - local-only build script, PATH is meant to be dynamic here

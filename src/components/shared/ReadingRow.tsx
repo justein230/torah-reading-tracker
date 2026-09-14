@@ -9,6 +9,24 @@ interface ReadingRowProps {
   actions?: React.ReactNode;
 }
 
+// Hebrew label for the aliyah number, or the special-case labels for hosafah/maftir.
+function aliyahHebrewLabel(aliyah: LogEntry['aliyah']): string {
+  if (aliyah === 'hosafah') return 'הוספה';
+  if (Number(aliyah) === 8) return 'מפטיר';
+  return `עליה ${aliyah}`;
+}
+
+// Formatted "chapter:verse–chapter:verse" range, or '' if the reading has no verse range
+// (e.g. a hosafah, or incomplete data).
+function verseRangeLabel(r: LogEntry): string {
+  const hasVerseRange = r.aliyah !== 'hosafah'
+    && (r.chapterStart ?? -1) > 0
+    && (r.verseStart   ?? -1) > 0
+    && (r.chapterEnd   ?? -1) > 0
+    && (r.verseEnd     ?? -1) > 0;
+  return hasVerseRange ? `${r.chapterStart}:${r.verseStart}–${r.chapterEnd}:${r.verseEnd}` : '';
+}
+
 export function ReadingRow({ r, compact = false, actions = null }: Readonly<ReadingRowProps>) {
   const { SEFER_MAP, TLIT } = useApp();
   const seferMeta = SEFER_MAP[r.sefer];
@@ -21,20 +39,9 @@ export function ReadingRow({ r, compact = false, actions = null }: Readonly<Read
     ? { borderLeft: `3px dashed ${color}` }
     : { borderLeftColor: color };
 
-  const hasVerseRange = r.aliyah !== 'hosafah'
-    && (r.chapterStart ?? -1) > 0
-    && (r.verseStart   ?? -1) > 0
-    && (r.chapterEnd   ?? -1) > 0
-    && (r.verseEnd     ?? -1) > 0;
-  const verseRangeStr = hasVerseRange
-    ? `${r.chapterStart}:${r.verseStart}–${r.chapterEnd}:${r.verseEnd}`
-    : '';
-  const verseRange = verseRangeStr && ` · ${verseRangeStr}`;
-
-  let aliyahHebrew: string;
-  if      (r.aliyah === 'hosafah')    aliyahHebrew = 'הוספה';
-  else if (Number(r.aliyah) === 8)    aliyahHebrew = 'מפטיר';
-  else                                aliyahHebrew = `עליה ${r.aliyah}`;
+  const verseRangeStr = verseRangeLabel(r);
+  const verseRange    = verseRangeStr && ` · ${verseRangeStr}`;
+  const aliyahHebrew  = aliyahHebrewLabel(r.aliyah);
 
   return (
     <div className={`reading-item${actions ? ' has-actions' : ''}`} style={{ ...borderStyle, background: bg }}>

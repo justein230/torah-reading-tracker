@@ -146,7 +146,7 @@ function computeReadingRate(allRows: MappedRow[], forecastConfig: ForecastConfig
   // string comparison works here: 'YYYY-MM-DD' sorts lexically in calendar order
   const windowRows = allRows.filter(r => r.isRead && r.orig && (!cutoffStr || r.orig >= cutoffStr));
   if (windowRows.length < 2) return null;
-  const dates          = windowRows.map(r => r.orig).sort();
+  const dates          = windowRows.map(r => r.orig).sort((a, b) => new Date(a!).getTime() - new Date(b!).getTime());
   const daysSinceFirst = daysBetween(dates[0] as string, todayStr);
   if (daysSinceFirst <= 0) return null;
   const windowKeys = new Set<string>();
