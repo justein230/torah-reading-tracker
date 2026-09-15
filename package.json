@@ -1,5 +1,6 @@
 {
   "name": "torah-tracker",
+  "productName": "Torah Reading Tracker",
   "desktopName": "torah-tracker.desktop",
   "author": {
     "name": "Justin Stein",
