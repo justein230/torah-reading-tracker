@@ -1,14 +1,24 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const net  = require('node:net');
 const path = require('node:path');
 const fs   = require('node:fs');
 const log  = require('electron-log/main');
 
-// Captures both this (main) process's and the renderer's logging (via preload.cjs's
-// bridge) into a real, rotated file at the OS-conventional log location. Separate from
-// server.ts's own pino-based request log — this one covers the desktop app shell and
-// frontend, not API/mutation traffic (which the embedded server logs itself either way).
+// Captures both this (main) process's and the renderer's logging into a real, rotated
+// file at the OS-conventional log location. Separate from server.ts's own pino-based
+// request log — this one covers the desktop app shell and frontend, not API/mutation
+// traffic (which the embedded server logs itself either way).
 log.initialize();
+
+const LOG_LEVELS = new Set(['error', 'warn', 'info', 'debug']);
+
+// Renderer-side logging (src/utils/logger-client/electron.ts) reaches this via
+// preload.cjs's contextBridge — see that file for why this is a hand-rolled bridge
+// rather than electron-log/preload + electron-log/renderer.
+ipcMain.on('torah:log', (_event, { level, category, message, meta } = {}) => {
+  const fn = LOG_LEVELS.has(level) ? level : 'info';
+  log[fn](`[${category}] ${message}`, meta ?? '');
+});
 
 let mainWindow = null;
 let serverPort = null;

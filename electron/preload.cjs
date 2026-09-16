@@ -1,10 +1,14 @@
-const { contextBridge } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
-// Wires the IPC bridge electron-log/renderer expects, so calls made from the renderer
-// (src/utils/logger-client/electron.ts) reach the main process and land in the log file
-// electron-log/main sets up via log.initialize() in main.cjs.
-require('electron-log/preload');
-
-// Lets src/utils/logger-client/index.ts tell "running inside our Electron app's
-// renderer" apart from plain web / Capacitor at runtime — nothing else sets this.
-contextBridge.exposeInMainWorld('torahElectron', true);
+// A hand-rolled bridge rather than electron-log/preload: that helper relies on require()
+// resolving an arbitrary node_modules package from inside the preload script, which fails
+// under Electron's default sandboxed preload (sandbox: true — see main.cjs, kept on
+// deliberately). electron/ipcRenderer are the only things a sandboxed preload can
+// require(), so the bridge is built from those directly; main.cjs's ipcMain listener is
+// what actually writes to electron-log's file.
+contextBridge.exposeInMainWorld('torahElectron', {
+  isElectron: true,
+  log(level, category, message, meta) {
+    ipcRenderer.send('torah:log', { level, category, message, meta });
+  },
+});
