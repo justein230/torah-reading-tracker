@@ -2,7 +2,11 @@ import fs   from 'node:fs';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import pino from 'pino';
-import pinoHttp from 'pino-http';
+// Named import, not default: pino-http's default-export interop resolves differently
+// under tsconfig.server.json's module/moduleResolution: NodeNext (used for the Electron
+// build) than under the main tsconfig.json's bundler resolution — the named export
+// avoids that mismatch entirely.
+import { pinoHttp } from 'pino-http';
 
 // Sensitive body fields that must never reach the log file, even at debug level.
 const REDACT_BODY_KEYS = new Set(['password', 'currentPassword', 'newPassword', 'token']);
