@@ -4,11 +4,12 @@ import { fetchMeta, fetchAliyot, fetchHebcal, mapRow, enrichRows, mapOccasionAli
          fetchWeekdayAliyot, fetchHosafotReadings, fetchCanWrite } from '../api.js';
 import { computeStats, enrichPartialOrig, enrichOccasionPartialOrig, enrichWeekdayPartialOrig, enrichHosafotPartialOrig } from '../compute.js';
 import { TABS } from '../constants.js';
+import { logEvent } from '../utils/logger-client/index.js';
 import type { AppContextValue, MappedRow, MappedOccasionAliyah, MappedHosafah, OccasionRecord, SpecialReadingRecord,
               Filters, ForecastConfig, ParshaPair, SeferMeta, AppSettings } from '../types/index.js';
 
 const SETTINGS_KEY = 'torah-tracker:settings';
-const DEFAULT_SETTINGS: AppSettings = { liveHebcalLookups: false };
+const DEFAULT_SETTINGS: AppSettings = { liveHebcalLookups: false, debugLogging: false };
 
 // Persisted across reloads (unlike filters/sortMode/etc., which are plain in-memory
 // state) since it's an opt-in "make a live third-party call" preference — resetting it
@@ -69,6 +70,23 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
       // private browsing / storage full — the toggle just won't survive a reload
     }
   }, [settings]);
+
+  // A silent JS exception (e.g. in a click handler) would otherwise look like "the
+  // delete button just didn't do anything" with no trace of why — catch it here.
+  useEffect(() => {
+    function onError(e: ErrorEvent) {
+      logEvent('error', 'client', e.message, { filename: e.filename, lineno: e.lineno });
+    }
+    function onRejection(e: PromiseRejectionEvent) {
+      logEvent('error', 'client', 'Unhandled promise rejection', { reason: String(e.reason) });
+    }
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {

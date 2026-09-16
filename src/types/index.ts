@@ -105,6 +105,8 @@ export interface Filters {
 export interface AppSettings {
   /** Verify reading dates outside the baked cache's range (SEDRA_YEARS) via a live Hebcal.com call. Off by default. */
   liveHebcalLookups: boolean;
+  /** Capture verbose diagnostic detail (request/response bodies, breadcrumbs) in the log. Off by default — uses more disk space. */
+  debugLogging: boolean;
 }
 
 // ── Forecast configuration ────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import Database from 'better-sqlite3';
 import request from 'supertest';
+import { logFilePath } from '../../src/utils/logger-server.ts';
 
 const TEMP_DB = path.join(os.tmpdir(), `torah-test-${process.pid}.db`);
 const TEST_PASSWORD = 'correct horse battery staple';
@@ -592,6 +593,30 @@ describe('unhandled route errors', () => {
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ detail: 'Internal error' });
     expect(res.text).not.toMatch(/at .*\(.*:\d+:\d+\)/); // no stack frame leaked
+  });
+});
+
+// ── mutation logging ─────────────────────────────────────────────────────────
+
+describe('mutation logging', () => {
+  it('logs a warn-level line for a failed mutation, without the request body at the default (info) level', async () => {
+    const res = await agent.delete('/api/readings/999999');
+    expect(res.status).toBe(404);
+
+    const logged = fs.readFileSync(logFilePath(TEMP_DB), 'utf8');
+    const lines = logged.trim().split('\n').map(l => JSON.parse(l));
+    const entry = lines.find(l => l.msg === 'request completed' && l.req?.url === '/api/readings/999999');
+    expect(entry).toBeDefined();
+    expect(entry.level).toBe(40); // pino 'warn'
+    expect(entry.res.statusCode).toBe(404);
+    expect(entry.body).toBeUndefined();
+  });
+
+  it('never logs a line for a GET request', async () => {
+    await agent.get('/api/readings');
+    const logged = fs.readFileSync(logFilePath(TEMP_DB), 'utf8');
+    const lines = logged.trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
+    expect(lines.some(l => l.req?.method === 'GET')).toBe(false);
   });
 });
 

@@ -16,6 +16,7 @@ import { buildExportBuffer } from './src/utils/export-server.js';
 import { importDatabase, ImportValidationError } from './src/utils/import-server.js';
 import { buildCalendarFeed } from './src/utils/calendar-feed.js';
 import { errText } from './src/utils/errText.js';
+import { createLogger, createHttpLogger, allLogFiles } from './src/utils/logger-server.js';
 
 if (process.env.SERVICE_MODE !== 'prod') {
   const dotenv = await import('dotenv');
@@ -30,6 +31,13 @@ const PORT    = process.env.PORT || 3000;
 const HOST    = process.env.TORAH_HOST || '127.0.0.1';
 const DB_PATH = process.env.TORAH_DB_PATH || path.join(PROJECT_ROOT, 'torah.db');
 const MIGRATIONS_DIR = path.join(PROJECT_ROOT, 'drizzle');
+
+// ── logging ───────────────────────────────────────────────────────────────────
+// Log path follows DB_PATH's directory (not PROJECT_ROOT) so it lands in Electron's
+// writable userData dir alongside torah.db — see createLogger's doc comment.
+
+const logger     = createLogger(DB_PATH);
+const httpLogger = createHttpLogger(logger);
 
 // ── database ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +56,7 @@ rawDb.pragma('foreign_keys = ON');
 
 export const app = express();
 app.use(express.json());
+app.use(httpLogger);
 app.use(express.static(path.join(PROJECT_ROOT, 'dist')));
 app.disable('x-powered-by');
 
@@ -314,7 +323,7 @@ app.get('/api/hebcal', async (_req, res) => {
     const { schedule, datesByParsha } = await getSchedule();
     res.json({ schedule, datesByParsha, cacheYears: SEDRA_YEARS });
   } catch (err: unknown) {
-    console.error('Hebcal error:', errText(err));
+    logger.error({ err: errText(err) }, 'Hebcal error');
     res.json({ schedule: {}, datesByParsha: {}, cacheYears: SEDRA_YEARS });
   }
 });
@@ -331,7 +340,7 @@ app.get('/api/hebcal/lookup', async (req, res) => {
     const items = await fetchLiveHebcalItemsForDate(date);
     res.json({ parshiot: entriesFromHebcalItems(items).map(([, name]) => name) });
   } catch (err: unknown) {
-    console.error('Hebcal lookup error:', errText(err));
+    logger.error({ err: errText(err) }, 'Hebcal lookup error');
     res.json({ parshiot: [] });
   }
 });
@@ -359,7 +368,7 @@ app.get('/api/export/excel', privateOnly, async (_req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buf);
   } catch (err: unknown) {
-    console.error('Excel export error:', errText(err));
+    logger.error({ err: errText(err) }, 'Excel export error');
     res.status(500).json({ detail: 'Failed to generate export.' });
   }
 });
@@ -369,6 +378,19 @@ app.get('/api/export/db', privateOnly, (_req, res) => {
   res.setHeader('Content-Type', 'application/vnd.sqlite3');
   res.setHeader('Content-Disposition', 'attachment; filename="torah.db"');
   res.end(data);
+});
+
+// Server-side mutation/request log only — there is no endpoint for the client to write
+// to this file. See src/utils/logger-client for how browser/Electron/Capacitor logging
+// is handled instead (console, electron-log, and on-device file respectively).
+app.get('/api/export/logs', privateOnly, (_req, res) => {
+  const files = allLogFiles(DB_PATH);
+  const body = files.length
+    ? files.map(f => `── ${path.basename(f)} ──\n${fs.readFileSync(f, 'utf8')}`).join('\n')
+    : '(no log entries yet)\n';
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="torah-logs.txt"');
+  res.send(body);
 });
 
 // express.raw is scoped to this route only, so the global express.json() above still
@@ -382,7 +404,7 @@ app.post('/api/import/db', privateOnly, express.raw({ type: 'application/vnd.sql
     res.json({ success: true });
   } catch (err: unknown) {
     if (err instanceof ImportValidationError) return res.status(400).json({ detail: err.message });
-    console.error('DB import error:', errText(err));
+    logger.error({ err: errText(err) }, 'DB import error');
     res.status(500).json({ detail: 'Failed to import database.' });
   }
 });
@@ -637,7 +659,7 @@ app.get('/api/calendar.ics', async (_req, res) => {
     res.setHeader('Content-Disposition', 'inline; filename="torah-readings.ics"');
     res.send(ics);
   } catch (err: unknown) {
-    console.error('Calendar feed error:', errText(err));
+    logger.error({ err: errText(err) }, 'Calendar feed error');
     res.status(500).json({ detail: 'Failed to generate calendar feed.' });
   }
 });
@@ -647,7 +669,7 @@ app.get('/api/calendar.ics', async (_req, res) => {
 // Terminal handler: without this, Express's default error handler responds with the
 // full stack trace (including absolute filesystem paths) whenever a route throws.
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Unhandled error:', errText(err));
+  logger.error({ err: errText(err) }, 'Unhandled error');
   res.status(500).json({ detail: 'Internal error' });
 });
 
