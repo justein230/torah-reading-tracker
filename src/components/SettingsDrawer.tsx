@@ -35,7 +35,8 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
     void fetchAuthStatus().then(setAuthStatus);
   }, []);
 
-  async function handleLogin() {
+  async function handleLogin(e: React.SubmitEvent) {
+    e.preventDefault();
     setLoggingIn(true);
     setLoginError('');
     try {
@@ -53,7 +54,8 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
     await refreshCanWrite();
   }
 
-  async function handleChangePassword() {
+  async function handleChangePassword(e: React.SubmitEvent) {
+    e.preventDefault();
     setChangingPassword(true);
     setChangeError('');
     try {
@@ -233,16 +235,19 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
           <>
             <Divider />
             <Text size="xs" tt="uppercase" fw={600} c="dimmed" lts={1}>Manage</Text>
-            <PasswordInput
-              label="Admin password"
-              value={password}
-              onChange={e => setPassword(e.currentTarget.value)}
-              onKeyDown={e => { if (e.key === 'Enter') void handleLogin(); }}
-              error={loginError || undefined}
-            />
-            <Button fullWidth loading={loggingIn} onClick={handleLogin}>
-              Log in
-            </Button>
+            <Box component="form" onSubmit={e => void handleLogin(e)}>
+              <Stack gap="sm">
+                <PasswordInput
+                  label="Admin password"
+                  value={password}
+                  onChange={e => setPassword(e.currentTarget.value)}
+                  error={loginError || undefined}
+                />
+                <Button fullWidth type="submit" loading={loggingIn}>
+                  Log in
+                </Button>
+              </Stack>
+            </Box>
           </>
         )}
 
@@ -279,23 +284,26 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
             )}
             {authStatus?.authMode === 'password' && (
               <>
-                <PasswordInput
-                  label="Current password"
-                  value={currentPassword}
-                  onChange={e => setCurrentPassword(e.currentTarget.value)}
-                  error={changeError || undefined}
-                />
-                <PasswordInput
-                  label="New password"
-                  description="At least 8 characters"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.currentTarget.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') void handleChangePassword(); }}
-                />
-                <Button variant="light" color="gray" fullWidth
-                  loading={changingPassword} onClick={handleChangePassword}>
-                  Change password
-                </Button>
+                <Box component="form" onSubmit={e => void handleChangePassword(e)}>
+                  <Stack gap="sm">
+                    <PasswordInput
+                      label="Current password"
+                      value={currentPassword}
+                      onChange={e => setCurrentPassword(e.currentTarget.value)}
+                      error={changeError || undefined}
+                    />
+                    <PasswordInput
+                      label="New password"
+                      description="At least 8 characters"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.currentTarget.value)}
+                    />
+                    <Button variant="light" color="gray" fullWidth type="submit"
+                      loading={changingPassword}>
+                      Change password
+                    </Button>
+                  </Stack>
+                </Box>
                 <Button variant="subtle" color="gray" fullWidth onClick={handleLogout}>
                   Log out
                 </Button>
