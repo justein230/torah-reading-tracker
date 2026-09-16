@@ -15,6 +15,13 @@
       "when": 1786897547066,
       "tag": "0001_seed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789500608046,
+      "tag": "0002_chol_hamoed_weekday",
+      "breakpoints": true
     }
   ]
 }
