@@ -91,7 +91,7 @@ function DayCard({ dateStr, day, dayPseukim, dayPct, sefers, occasions, mainColo
       <div className="ri-parsha">
         <div className="ri-parsha-text">
           <div className="ri-parsha-count">
-            <span>{day.length} aliyot</span>
+            <span>{day.length} {day.length === 1 ? 'aliyah' : 'aliyot'}</span>
             {parshiot.length > 0 && (
               <>
                 <span className="ri-count-sep">·</span>
@@ -217,7 +217,7 @@ function YearGroup({ yr, group, SEFER_MAP, rowActions }: Readonly<YearGroupProps
     <div className="year-group">
       <div className="year-label">
         {yr}
-        <span className="yr-stats">{topEntries.length} aliyot · {totalPseukim} pseukim · {totalPct.toFixed(2)}%</span>
+        <span className="yr-stats">{topEntries.length} {topEntries.length === 1 ? 'aliyah' : 'aliyot'} · {totalPseukim} pseukim · {totalPct.toFixed(2)}%</span>
       </div>
       {days.map(({ dateStr, combined, singles }) => (
         <React.Fragment key={dateStr}>

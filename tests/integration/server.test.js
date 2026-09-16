@@ -91,6 +91,18 @@ describe('GET /api/aliyot', () => {
     expect(row.reread_count).toBe(1);
     expect(row.fut).toContain('2025-06-01');
   });
+
+  // Regression: a hosafah whose verse range exactly matches a standard aliyah (e.g. the
+  // reported Bamidbar 4:21-4:37 case) must set that aliyah's `orig`, not just leave it as a
+  // partial-read candidate — the ALIYOT_SQL query previously had no hosafot_readings branch
+  // in its `orig` COALESCE, so a fully-covering hosafah never marked the aliyah as read.
+  it('sets orig on the standard aliyah when a hosafah fully covers its verse range', async () => {
+    await agent.post('/api/readings/hosafot')
+      .send({ sefer: 'בראשית', chapter_start: 1, verse_start: 1, chapter_end: 2, verse_end: 3, pseukim: 34, date_read: '2024-01-01' });
+    const res = await agent.get('/api/aliyot');
+    const row = res.body.find(r => r.aliyah === 1);
+    expect(row.orig).toBe('2024-01-01');
+  });
 });
 
 // ── POST /api/readings ────────────────────────────────────────────────────────
