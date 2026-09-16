@@ -48,9 +48,10 @@
   .ri-date { font-size: 11px; }
   .ri-parsha { min-width: 0; }
 
-  /* Rows with action buttons: date + actions on line 1, parsha full-width below */
-  .reading-item.has-actions { flex-wrap: wrap; align-items: center; }
-  .reading-item.has-actions .ri-date-col { order: 1; flex: 0 0 auto; }
-  .reading-item.has-actions .ri-footer { order: 2; margin-left: auto; }
-  .reading-item.has-actions .ri-parsha { order: 3; flex: 0 0 100%; margin-top: 4px; }
+  /* Rows with action buttons: date + parsha stay side by side; actions float into the
+     bottom-right corner instead of claiming a full-width row of their own. */
+  .reading-item.has-actions { flex-wrap: wrap; align-items: flex-start; position: relative; padding-bottom: 34px; }
+  .reading-item.has-actions .ri-date-col { order: 1; }
+  .reading-item.has-actions .ri-parsha { order: 2; }
+  .reading-item.has-actions .ri-footer { position: absolute; right: 12px; bottom: 10px; margin: 0; }
 }
