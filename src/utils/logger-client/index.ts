@@ -11,11 +11,14 @@ export type { LogLevel } from './types.js';
 const isElectron = typeof window !== 'undefined'
   && Boolean((window as { torahElectron?: { isElectron?: boolean } }).torahElectron?.isElectron);
 
-const eventImpl = isElectron
-  ? await import('./electron.js')
-  : Capacitor.isNativePlatform()
-    ? await import('./native.js')
-    : webImpl;
+let eventImpl;
+if (isElectron) {
+  eventImpl = await import('./electron.js');
+} else if (Capacitor.isNativePlatform()) {
+  eventImpl = await import('./native.js');
+} else {
+  eventImpl = webImpl;
+}
 
 const exportImpl = Capacitor.isNativePlatform() ? await import('./native.js') : webImpl;
 
