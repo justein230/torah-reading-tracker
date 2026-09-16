@@ -80,7 +80,7 @@ describe('ReadingLog — past readings grouped by year', () => {
     (useApp as Mock).mockReturnValue(makeCtx({ allRows: [row], hosafotReadings: [] }));
     renderWithProviders(<ReadingLog />);
     expect(screen.getByText('2020')).toBeInTheDocument();
-    expect(screen.getByText('1 aliyot · 30 pseukim · 5.00%')).toBeInTheDocument();
+    expect(screen.getByText('1 aliyah · 30 pseukim · 5.00%')).toBeInTheDocument();
   });
 
   it('excludes maftir (aliyah 8) pseukim/pct from the year totals', () => {
@@ -197,7 +197,7 @@ describe('ReadingLog — holiday & weekday readings', () => {
     }));
     renderWithProviders(<ReadingLog />);
     // Only the holiday reading is counted — the derived standard row is gone (else it'd be 2 aliyot).
-    expect(screen.getByText('1 aliyot · 8 pseukim · 8.00%')).toBeInTheDocument();
+    expect(screen.getByText('1 aliyah · 8 pseukim · 8.00%')).toBeInTheDocument();
   });
 
   it('renders a weekday reading in the log', () => {
@@ -207,7 +207,7 @@ describe('ReadingLog — holiday & weekday readings', () => {
     }));
     renderWithProviders(<ReadingLog />);
     expect(screen.getByText('2024')).toBeInTheDocument();
-    expect(screen.getByText('1 aliyot · 5 pseukim · 5.00%')).toBeInTheDocument();
+    expect(screen.getByText('1 aliyah · 5 pseukim · 5.00%')).toBeInTheDocument();
   });
 });
 
@@ -224,7 +224,7 @@ describe('ReadingLog — double parsha grouping', () => {
     }));
     const { container } = renderWithProviders(<ReadingLog />);
     // One combined aliyah, pseukim summed (13+12+6), pct summed (3) — not three separate rows.
-    expect(screen.getByText('1 aliyot · 31 pseukim · 3.00%')).toBeInTheDocument();
+    expect(screen.getByText('1 aliyah · 31 pseukim · 3.00%')).toBeInTheDocument();
     // The pair label and the underlying component aliyot both appear (components live in the expansion).
     expect(container.textContent).toContain('תזריע-מצורע');
     expect(container.textContent).toContain('Tazria-Metzora');

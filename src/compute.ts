@@ -22,7 +22,7 @@ export function enrichPartialOrig(
         .filter(wa => wa.isReadPast && wa.parsha === r.parsha && versesOverlap(wa, r))
         .map(wa => wa.dateRead),
       ...hosafotReadings
-        .filter(hr => hr.isReadPast && hr.sefer === r.sefer && versesOverlap(hr, r))
+        .filter(hr => hr.isReadPast && hr.sefer === r.sefer && partiallyOverlaps(hr, r))
         .map(hr => hr.dateRead),
     ];
     if (!dates.length) return r;

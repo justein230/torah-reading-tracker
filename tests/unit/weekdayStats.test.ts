@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { enrichPartialOrig, computeStats } from '../../src/compute.js';
 import type { Filters } from '../../src/types/index.js';
-import { makeRow, makeOA, makeWA } from '../helpers/fixtures.js';
+import { makeRow, makeOA, makeWA, makeHosafah } from '../helpers/fixtures.js';
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
@@ -112,6 +112,51 @@ describe('enrichPartialOrig — weekday aliyah overlaps Shabbat aliyah', () => {
     const wa  = makeWA({ dateRead: '2023-01-10', chapterStart: 1, verseStart: 3, chapterEnd: 1, verseEnd: 8 });
     const [out] = enrichPartialOrig([row], [oa], [wa]);
     expect(out!.partialOrig).toBe('2023-01-10');
+  });
+});
+
+// ── enrichPartialOrig — hosafah readings ──────────────────────────────────────
+
+describe('enrichPartialOrig — hosafah reading overlaps Shabbat aliyah', () => {
+  it('sets partialOrig when hosafah partially overlaps', () => {
+    const row = makeRow(); // Bereishit 1:1–1:10, unread
+    const hr  = makeHosafah(); // 1:1–1:5, read — partial overlap
+    const [out] = enrichPartialOrig([row], [], [], [hr]);
+    expect(out!.partialOrig).toBe('2024-01-15');
+  });
+
+  it('does NOT set partialOrig when a hosafah fully contains the Shabbat aliyah (matches occasion behavior)', () => {
+    // regression: a hosafah spanning a whole aliyah (e.g. the Bamidbar 4:21–4:37 case) must be
+    // treated as a full read via `orig` (SQL), not flagged partial here.
+    const row = makeRow({ chapterStart: 4, verseStart: 21, chapterEnd: 4, verseEnd: 37 });
+    const hr  = makeHosafah({ chapterStart: 4, verseStart: 21, chapterEnd: 4, verseEnd: 37 }); // exact match
+    const [out] = enrichPartialOrig([row], [], [], [hr]);
+    expect(out!.partialOrig).toBe('');
+  });
+
+  it('does NOT set partialOrig when hosafah is unread', () => {
+    const row = makeRow();
+    const hr  = makeHosafah({ isReadPast: false, dateRead: '' });
+    const [out] = enrichPartialOrig([row], [], [], [hr]);
+    expect(out!.partialOrig).toBe('');
+  });
+
+  it('does NOT set partialOrig for a different sefer', () => {
+    const row = makeRow({ sefer: 'Genesis' });
+    const hr  = makeHosafah({ sefer: 'Exodus' });
+    const [out] = enrichPartialOrig([row], [], [], [hr]);
+    expect(out!.partialOrig).toBe('');
+  });
+
+  it('a hosafah spanning two aliyot fully covers one and only partially covers its neighbor', () => {
+    // hosafah: 4:15–4:37 — fully contains aliyah A (4:21–4:37) but only partially overlaps
+    // aliyah B (4:1–4:20, touching 4:15–4:20).
+    const aliyahA = makeRow({ aliyah: 1, chapterStart: 4, verseStart: 21, chapterEnd: 4, verseEnd: 37 });
+    const aliyahB = makeRow({ aliyah: 2, chapterStart: 4, verseStart: 1,  chapterEnd: 4, verseEnd: 20 });
+    const hr      = makeHosafah({ chapterStart: 4, verseStart: 15, chapterEnd: 4, verseEnd: 37 });
+    const [outA, outB] = enrichPartialOrig([aliyahA, aliyahB], [], [], [hr]);
+    expect(outA!.partialOrig).toBe('');             // fully covered — handled by `orig`, not partial
+    expect(outB!.partialOrig).toBe('2024-01-15');    // only partially covered — flagged partial
   });
 });
 

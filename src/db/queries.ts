@@ -52,6 +52,14 @@ export const ALIYOT_SQL = `
          AND (oa.chapter_start * 1000 + oa.verse_start) <= (a.chapter_start * 1000 + a.verse_start)
          AND (oa.chapter_end   * 1000 + oa.verse_end)   >= (a.chapter_end   * 1000 + a.verse_end)
        ORDER BY sr.date_read LIMIT 1),
+      -- hosafah reading whose verse range fully contains this aliyah (matched by sefer, since
+      -- hosafot span verse ranges rather than a single aliyah_id; a hosafah spanning a boundary
+      -- between two aliyot only fully contains one of them, so this only fires for that one)
+      (SELECT hr.date_read FROM hosafot_readings hr
+       WHERE hr.sefer = s.name
+         AND (hr.chapter_start * 1000 + hr.verse_start) <= (a.chapter_start * 1000 + a.verse_start)
+         AND (hr.chapter_end   * 1000 + hr.verse_end)   >= (a.chapter_end   * 1000 + a.verse_end)
+       ORDER BY hr.date_read LIMIT 1),
       '') AS orig,
     COALESCE(
       -- direct standard/double-parsha reading of this aliyah
