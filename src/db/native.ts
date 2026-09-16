@@ -6,6 +6,7 @@ import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_A
 import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
 import { scheduleFromEntries, datesByParshaFromEntries, fetchLiveHebcalItemsForDate, entriesFromHebcalItems } from '../utils/sedra.js';
 import { SEDRA_CACHE, SEDRA_YEARS } from '../data/sedraCache.js';
+import { logEvent } from '../utils/logger-client/index.js';
 
 const sqlite = new SQLiteConnection(CapacitorSQLite);
 let dbPromise: Promise<Awaited<ReturnType<typeof sqlite.createConnection>>> | null = null;
@@ -82,7 +83,7 @@ export async function fetchLocationStats(): Promise<LocationStat[]> {
   return (res.values ?? []) as LocationStat[];
 }
 
-export async function postReading({ parsha, aliyah, date_read, occasion = '', location = '' }: PostReadingBody): Promise<{ id: number; reading_type: string }> {
+async function postReadingFn({ parsha, aliyah, date_read, occasion = '', location = '' }: PostReadingBody): Promise<{ id: number; reading_type: string }> {
   if (!parsha || !aliyah || !date_read) throw Object.assign(new Error('parsha, aliyah, and date_read are required'), { detail: 'parsha, aliyah, and date_read are required' });
 
   const parshaRow = await db
@@ -118,7 +119,7 @@ export async function postReading({ parsha, aliyah, date_read, occasion = '', lo
   return { id: inserted.id, reading_type };
 }
 
-export async function putReading(id: number, { occasion = '', location = '' }: PutReadingBody): Promise<{ id: number }> {
+async function putReadingFn(id: number, { occasion = '', location = '' }: PutReadingBody): Promise<{ id: number }> {
   const exists = await db
     .select({ id: readings.id })
     .from(readings)
@@ -132,7 +133,7 @@ export async function putReading(id: number, { occasion = '', location = '' }: P
   return { id };
 }
 
-export async function deleteReading(id: number): Promise<void> {
+async function deleteReadingFn(id: number): Promise<void> {
   const exists = await db
     .select({ id: readings.id })
     .from(readings)
@@ -189,7 +190,7 @@ export async function fetchSpecialReadings(): Promise<RawSpecialReadingRow[]> {
   return (res.values ?? []) as RawSpecialReadingRow[];
 }
 
-export async function postSpecialReading({ occasion_aliyah_id, date_read, note = '', location = '' }: PostSpecialReadingBody): Promise<{ id: number }> {
+async function postSpecialReadingFn({ occasion_aliyah_id, date_read, note = '', location = '' }: PostSpecialReadingBody): Promise<{ id: number }> {
   const oaRow = await db
     .select({ id: occasionAliyotTable.id })
     .from(occasionAliyotTable)
@@ -207,7 +208,7 @@ export async function postSpecialReading({ occasion_aliyah_id, date_read, note =
   return { id: inserted.id };
 }
 
-export async function deleteSpecialReading(id: number): Promise<void> {
+async function deleteSpecialReadingFn(id: number): Promise<void> {
   const exists = await db
     .select({ id: specialReadingsTable.id })
     .from(specialReadingsTable)
@@ -223,7 +224,7 @@ export async function fetchWeekdayAliyot(): Promise<RawWeekdayAliyahRow[]> {
   return (res.values ?? []) as RawWeekdayAliyahRow[];
 }
 
-export async function postWeekdayReading({ weekday_aliyah_id, date_read, note = '', location = '' }: PostWeekdayReadingBody): Promise<{ id: number }> {
+async function postWeekdayReadingFn({ weekday_aliyah_id, date_read, note = '', location = '' }: PostWeekdayReadingBody): Promise<{ id: number }> {
   const waRow = await db
     .select({ id: weekdayAliyotTable.id })
     .from(weekdayAliyotTable)
@@ -241,13 +242,13 @@ export async function postWeekdayReading({ weekday_aliyah_id, date_read, note = 
   return { id: inserted.id };
 }
 
-export async function putWeekdayReading(id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> {
+async function putWeekdayReadingFn(id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> {
   const exists = await db.select({ id: weekdayReadingsTable.id }).from(weekdayReadingsTable).where(eq(weekdayReadingsTable.id, id)).get();
   if (!exists) throw Object.assign(new Error('Weekday reading not found'), { detail: 'Weekday reading not found' });
   await db.update(weekdayReadingsTable).set({ dateRead: body.date_read, note: body.note ?? null, location: body.location ?? null }).where(eq(weekdayReadingsTable.id, id));
 }
 
-export async function deleteWeekdayReading(id: number): Promise<void> {
+async function deleteWeekdayReadingFn(id: number): Promise<void> {
   const exists = await db
     .select({ id: weekdayReadingsTable.id })
     .from(weekdayReadingsTable)
@@ -263,7 +264,7 @@ export async function fetchHosafotReadings(): Promise<RawHosafahRow[]> {
   return (res.values ?? []) as RawHosafahRow[];
 }
 
-export async function postHosafah(body: PostHosafahBody): Promise<{ id: number }> {
+async function postHosafahFn(body: PostHosafahBody): Promise<{ id: number }> {
   const {
     sefer, parsha_id_1 = null, parsha_id_2 = null, occasion_id = null,
     is_double_parsha = 0, chapter_start, verse_start, chapter_end, verse_end,
@@ -290,7 +291,7 @@ export async function postHosafah(body: PostHosafahBody): Promise<{ id: number }
   return { id: inserted.id };
 }
 
-export async function putHosafah(id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> {
+async function putHosafahFn(id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> {
   const exists = await db
     .select({ id: hosafotReadingsTable.id })
     .from(hosafotReadingsTable)
@@ -302,7 +303,7 @@ export async function putHosafah(id: number, body: { date_read: string; note?: s
     .where(eq(hosafotReadingsTable.id, id));
 }
 
-export async function deleteHosafah(id: number): Promise<void> {
+async function deleteHosafahFn(id: number): Promise<void> {
   const exists = await db
     .select({ id: hosafotReadingsTable.id })
     .from(hosafotReadingsTable)
@@ -311,3 +312,34 @@ export async function deleteHosafah(id: number): Promise<void> {
   if (!exists) throw Object.assign(new Error('Hosafah reading not found'), { detail: 'Hosafah reading not found' });
   await db.delete(hosafotReadingsTable).where(eq(hosafotReadingsTable.id, id));
 }
+
+// ── logging ───────────────────────────────────────────────────────────────────
+// Wraps each CUD function above with attempt/outcome logging, mirroring what
+// src/db/web.ts's mutateJson/mutateVoid/del do for the web/Electron path — there's no
+// single shared helper here since each function talks to Drizzle directly rather than
+// going through a common fetch wrapper.
+function logged<A extends unknown[], R>(label: string, fn: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
+  return async (...args: A): Promise<R> => {
+    logEvent('debug', 'mutation', `${label} start`);
+    try {
+      const result = await fn(...args);
+      logEvent('info', 'mutation', `${label} ok`);
+      return result;
+    } catch (e: unknown) {
+      logEvent('warn', 'mutation', `${label} failed`, { detail: (e as { detail?: string } | null)?.detail });
+      throw e;
+    }
+  };
+}
+
+export const postReading           = logged('postReading', postReadingFn);
+export const putReading            = logged('putReading', putReadingFn);
+export const deleteReading         = logged('deleteReading', deleteReadingFn);
+export const postSpecialReading    = logged('postSpecialReading', postSpecialReadingFn);
+export const deleteSpecialReading  = logged('deleteSpecialReading', deleteSpecialReadingFn);
+export const postWeekdayReading    = logged('postWeekdayReading', postWeekdayReadingFn);
+export const putWeekdayReading     = logged('putWeekdayReading', putWeekdayReadingFn);
+export const deleteWeekdayReading  = logged('deleteWeekdayReading', deleteWeekdayReadingFn);
+export const postHosafah           = logged('postHosafah', postHosafahFn);
+export const putHosafah            = logged('putHosafah', putHosafahFn);
+export const deleteHosafah         = logged('deleteHosafah', deleteHosafahFn);

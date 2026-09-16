@@ -7,6 +7,7 @@ import { useApp } from '../context/AppContext.js';
 import { fetchAuthStatus, login, logout, changePassword } from '../api.js';
 import { exportExcel, exportDb } from '../utils/export.js';
 import { importDb } from '../utils/import.js';
+import { exportLogs } from '../utils/logger-client/index.js';
 import type { AuthStatus } from '../types/index.js';
 
 interface SettingsDrawerProps {
@@ -17,7 +18,7 @@ interface SettingsDrawerProps {
 export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps) {
   const { SEFER_ORDER, SEFER_MAP, allYears, filters, setFilters, canWrite, refreshCanWrite,
           settings, setSettings, cacheYears } = useApp();
-  const [exporting, setExporting] = useState<'excel' | 'db' | null>(null);
+  const [exporting, setExporting] = useState<'excel' | 'db' | 'logs' | null>(null);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
@@ -86,6 +87,12 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
   async function handleDbExport() {
     setExporting('db');
     try { await exportDb(); }
+    finally { setExporting(null); }
+  }
+
+  async function handleLogsExport() {
+    setExporting('logs');
+    try { await exportLogs(); }
     finally { setExporting(null); }
   }
 
@@ -215,6 +222,13 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
           onChange={e => setSettings(s => ({ ...s, liveHebcalLookups: e.currentTarget.checked }))}
         />
 
+        <Switch
+          label="Verbose debug logging"
+          description="Uses more disk space / console output — turn on only while reproducing an issue"
+          checked={settings.debugLogging}
+          onChange={e => setSettings(s => ({ ...s, debugLogging: e.currentTarget.checked }))}
+        />
+
         {authStatus?.authMode === 'password' && !canWrite && (
           <>
             <Divider />
@@ -243,6 +257,10 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
             <Button variant="light" color="gray" fullWidth
               loading={exporting === 'db'} onClick={handleDbExport}>
               Export DB (.sqlite)
+            </Button>
+            <Button variant="light" color="gray" fullWidth
+              loading={exporting === 'logs'} onClick={handleLogsExport}>
+              Export logs
             </Button>
             {!Capacitor.isNativePlatform() && (
               <>

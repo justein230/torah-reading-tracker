@@ -2,6 +2,13 @@ const { app, BrowserWindow } = require('electron');
 const net  = require('node:net');
 const path = require('node:path');
 const fs   = require('node:fs');
+const log  = require('electron-log/main');
+
+// Captures both this (main) process's and the renderer's logging (via preload.cjs's
+// bridge) into a real, rotated file at the OS-conventional log location. Separate from
+// server.ts's own pino-based request log — this one covers the desktop app shell and
+// frontend, not API/mutation traffic (which the embedded server logs itself either way).
+log.initialize();
 
 let mainWindow = null;
 let serverPort = null;
@@ -32,6 +39,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   });
 

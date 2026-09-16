@@ -57,9 +57,12 @@
     "date-fns": "^4.2.1",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "electron-log": "^5.4.4",
     "express": "^4.18.3",
     "express-rate-limit": "^8.5.2",
     "ical-generator": "^11.0.0",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "write-excel-file": "^4.1.1"

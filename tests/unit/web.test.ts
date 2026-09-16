@@ -156,6 +156,36 @@ describe('postReading', () => {
   });
 });
 
+describe('mutation logging', () => {
+  // web.ts's logEvent (default, non-debug settings) writes via console.* — see
+  // src/utils/logger-client/web.ts. A successful mutation logs at info, a failed one at
+  // warn; both go through mutateJson/mutateVoid/del, so postReading/deleteReading here
+  // stand in for every CUD call in the app.
+  it('logs at info on a successful mutation', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    mockFetchOnce(() => Promise.resolve(jsonResponse({ id: 1, reading_type: 'standard' })));
+    await postReading({ parsha: 'בראשית', aliyah: 1, date_read: '2024-01-01' });
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('POST /api/readings ok'), expect.anything());
+    info.mockRestore();
+  });
+
+  it('logs at warn on a failed mutation', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFetchOnce(() => Promise.resolve(jsonResponse({ detail: 'Aliyah already read.' }, false)));
+    await postReading({ parsha: 'בראשית', aliyah: 1, date_read: '2024-01-01' }).catch(() => {});
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('POST /api/readings failed'), expect.anything());
+    warn.mockRestore();
+  });
+
+  it('logs at warn when a delete fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockFetchOnce(() => Promise.resolve({ ok: false, status: 404 } as Response));
+    await deleteReading(999).catch(() => {});
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('DELETE /api/readings/999 failed'), expect.anything());
+    warn.mockRestore();
+  });
+});
+
 describe('postSpecialReading / postWeekdayReading / postHosafah', () => {
   it('postSpecialReading returns id on success', async () => {
     mockFetchOnce(() => Promise.resolve(jsonResponse({ id: 9 })));

@@ -99,7 +99,7 @@ describe('AddReadingForm — schedule warning', () => {
       schedule: { Bereishit: '2026-10-10' },
       datesByParsha: {},
       cacheYears: [1990, 2050],
-      settings: { liveHebcalLookups: false },
+      settings: { liveHebcalLookups: false, debugLogging: false },
     }));
 
     renderForm({ ...baseForm, date: new Date('1950-01-01T00:00:00') });
@@ -112,7 +112,7 @@ describe('AddReadingForm — schedule warning', () => {
       schedule: { Bereishit: '2026-10-10' },
       datesByParsha: {},
       cacheYears: [1990, 2050],
-      settings: { liveHebcalLookups: true },
+      settings: { liveHebcalLookups: true, debugLogging: false },
     }));
     fetchHebcalOnDate.mockResolvedValue({ parshiot: ['Bereishit'] });
 
@@ -128,7 +128,7 @@ describe('AddReadingForm — schedule warning', () => {
       schedule: { Bereishit: '2026-10-10' },
       datesByParsha: {},
       cacheYears: [1990, 2050],
-      settings: { liveHebcalLookups: true },
+      settings: { liveHebcalLookups: true, debugLogging: false },
     }));
     fetchHebcalOnDate.mockResolvedValue({ parshiot: ['Vayigash'] });
 

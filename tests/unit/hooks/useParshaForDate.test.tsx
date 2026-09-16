@@ -16,7 +16,7 @@ function setCtx(overrides: Parameters<typeof makeCtx>[0] = {}) {
   mockUseApp.mockReturnValue(makeCtx({
     datesByParsha: { Bereshit: ['2026-01-03', '2011-01-01'] },
     cacheYears: [1990, 2050],
-    settings: { liveHebcalLookups: false },
+    settings: { liveHebcalLookups: false, debugLogging: false },
     ...overrides,
   }));
 }
@@ -44,13 +44,13 @@ describe('useParshaForDate', () => {
   });
 
   it('reports live-disabled for an out-of-range date when the setting is off', () => {
-    setCtx({ settings: { liveHebcalLookups: false } });
+    setCtx({ settings: { liveHebcalLookups: false, debugLogging: false } });
     const { result } = renderHook(() => useParshaForDate('1950-01-01'));
     expect(result.current).toEqual({ status: 'live-disabled', parshiot: [] });
   });
 
   it('debounces then resolves a live lookup for an out-of-range date when the setting is on', async () => {
-    setCtx({ settings: { liveHebcalLookups: true } });
+    setCtx({ settings: { liveHebcalLookups: true, debugLogging: false } });
     fetchHebcalOnDate.mockResolvedValue({ parshiot: ['Vayigash'] });
 
     const { result } = renderHook(() => useParshaForDate('1950-01-01'));
@@ -64,7 +64,7 @@ describe('useParshaForDate', () => {
   });
 
   it('discards a stale in-flight request when the date changes before it resolves', async () => {
-    setCtx({ settings: { liveHebcalLookups: true } });
+    setCtx({ settings: { liveHebcalLookups: true, debugLogging: false } });
     let resolveFirst: (v: { parshiot: string[] }) => void = () => {};
     fetchHebcalOnDate.mockImplementationOnce(() => new Promise(r => { resolveFirst = r; }));
     fetchHebcalOnDate.mockResolvedValueOnce({ parshiot: ['Second'] });

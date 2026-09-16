@@ -1,26 +1,48 @@
 import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
+import { logEvent } from '../utils/logger-client/index.js';
 
 // ── fetch helpers ────────────────────────────────────────────────────────────
 // Every function below is a thin wrapper around one of these four shapes:
 // plain GET, a mutation that returns JSON on success, a mutation whose success
 // body is ignored (void), and a DELETE that reports a fixed error message.
+//
+// mutateJson/mutateVoid/del are where every CUD call in the app funnels through, so
+// logging attempt/outcome here alone covers postReading/putReading/deleteReading and all
+// special/weekday/hosafah variants below, without instrumenting each call site.
 
 const getJson = <T>(path: string): Promise<T> => fetch(path).then(r => r.json() as Promise<T>);
 
 async function mutateJson<T>(path: string, method: string, body: unknown, fallback: string): Promise<T> {
+  logEvent('debug', 'mutation', `${method} ${path}`, { body });
   const res = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!res.ok) throw await res.json().catch(() => ({ detail: fallback }));
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({ detail: fallback }));
+    logEvent('warn', 'mutation', `${method} ${path} failed`, { status: res.status, detail });
+    throw detail;
+  }
+  logEvent('info', 'mutation', `${method} ${path} ok`, { status: res.status });
   return res.json();
 }
 
 async function mutateVoid(path: string, method: string, body: unknown, fallback: string): Promise<void> {
+  logEvent('debug', 'mutation', `${method} ${path}`, { body });
   const res = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!res.ok) throw await res.json().catch(() => ({ detail: fallback }));
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({ detail: fallback }));
+    logEvent('warn', 'mutation', `${method} ${path} failed`, { status: res.status, detail });
+    throw detail;
+  }
+  logEvent('info', 'mutation', `${method} ${path} ok`, { status: res.status });
 }
 
 async function del(path: string, fallback: string): Promise<void> {
+  logEvent('debug', 'mutation', `DELETE ${path}`);
   const res = await fetch(path, { method: 'DELETE' });
-  if (!res.ok && res.status !== 204) throw Object.assign(new Error(fallback), { detail: fallback });
+  if (!res.ok && res.status !== 204) {
+    logEvent('warn', 'mutation', `DELETE ${path} failed`, { status: res.status });
+    throw Object.assign(new Error(fallback), { detail: fallback });
+  }
+  logEvent('info', 'mutation', `DELETE ${path} ok`, { status: res.status });
 }
 
 // ── reading catalog / stats ───────────────────────────────────────────────────
@@ -37,11 +59,13 @@ export async function fetchAuthStatus(): Promise<AuthStatus> {
 
 export async function login(password: string): Promise<boolean> {
   const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+  logEvent(res.ok ? 'info' : 'warn', 'auth', res.ok ? 'login ok' : 'login failed', { status: res.status });
   return res.ok;
 }
 
 export async function logout(): Promise<void> {
   await fetch('/api/auth/logout', { method: 'POST' });
+  logEvent('info', 'auth', 'logout');
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -50,6 +74,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ currentPassword, newPassword }),
   });
+  logEvent(res.ok ? 'info' : 'warn', 'auth', res.ok ? 'change-password ok' : 'change-password failed', { status: res.status });
   if (res.ok) return { ok: true };
   const body = await res.json().catch(() => null);
   return { ok: false, error: body?.detail ?? 'Could not change password' };

@@ -54,7 +54,7 @@ export function makeCtx(overrides: Partial<AppContextValue> = {}): AppContextVal
     schedule: {},
     datesByParsha: {},
     cacheYears: [1990, 2050],
-    settings: { liveHebcalLookups: false },
+    settings: { liveHebcalLookups: false, debugLogging: false },
     setSettings: vi.fn(),
     filters: { sefarim: [], years: [], includeFutureDates: false, pctMode: 'pseukim', showHolidayRing: false, showWeekdayRing: false },
     setFilters:        vi.fn(),

@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import Database from 'better-sqlite3';
 import request from 'supertest';
+import { logFilePath } from '../../src/utils/logger-server.ts';
 
 const TEMP_DB = path.join(os.tmpdir(), `torah-hebcal-test-${process.pid}.db`);
 
@@ -29,7 +30,6 @@ afterAll(() => {
 
 describe('GET /api/hebcal — failure fallback', () => {
   it('serves an empty schedule with status 200 when the schedule cannot be built', async () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     // Pull the parshiot table out from under getSchedule. The frontend treats a missing
     // schedule as "no upcoming dates known" and still renders; a 500 would break the load.
     db.prepare('ALTER TABLE parshiot RENAME TO parshiot_hidden').run();
@@ -38,10 +38,10 @@ describe('GET /api/hebcal — failure fallback', () => {
       const res = await request(app).get('/api/hebcal');
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ schedule: {}, datesByParsha: {}, cacheYears: [1990, 2050] });
-      expect(error).toHaveBeenCalledWith('Hebcal error:', expect.any(String));
+      const logged = fs.readFileSync(logFilePath(TEMP_DB), 'utf8');
+      expect(logged).toContain('Hebcal error');
     } finally {
       db.prepare('ALTER TABLE parshiot_hidden RENAME TO parshiot').run();
-      error.mockRestore();
     }
   });
 
