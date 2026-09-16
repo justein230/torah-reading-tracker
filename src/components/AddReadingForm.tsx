@@ -259,11 +259,6 @@ export function AddReadingForm({
         }))
     : [];
 
-  // Check whether selected occasion has a Shabbat variant at all
-  const selectedOccasionHasShabbatVariant = form.occasionId
-    ? occasionAliyot.some(oa => oa.occasionId === form.occasionId && oa.isShabbatVariant)
-    : false;
-
   const aliyahPlaceholder = getAliyahPlaceholder(isDouble, form.pairId, form.parsha);
   const aliyahDisabled = isDouble ? !form.pairId : !form.parsha;
 
@@ -328,24 +323,17 @@ export function AddReadingForm({
                 data={occasionSelectOptions}
                 value={form.occasionId ? String(form.occasionId) : null}
                 onChange={v => {
-                  setField('occasionId', v ? Number(v) : null);
+                  const newOccasionId = v ? Number(v) : null;
+                  setField('occasionId', newOccasionId);
                   setField('occasionAliyahIds', []);
-                  setField('isShabbatVariant', false);
+                  // Occasions never mix Shabbat/weekday aliyot, so this is derived, not user-toggled.
+                  setField('isShabbatVariant', newOccasionId
+                    ? occasionAliyot.some(oa => oa.occasionId === newOccasionId && oa.isShabbatVariant)
+                    : false);
                 }}
                 mb={12}
                 searchable
               />
-              {selectedOccasionHasShabbatVariant && (
-                <Switch
-                  label="Shabbat reading (expanded aliyot)"
-                  checked={form.isShabbatVariant}
-                  onChange={e => {
-                    setField('isShabbatVariant', e.currentTarget.checked);
-                    setField('occasionAliyahIds', []);
-                  }}
-                  mb={12}
-                />
-              )}
               <MultiSelect
                 label="Aliyot"
                 placeholder={form.occasionId ? 'Select aliyot…' : '— Select Occasion first —'}
