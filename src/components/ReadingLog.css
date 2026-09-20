@@ -23,8 +23,10 @@
 .reading-item .ri-corner { position: absolute; top: 11px; right: 13px; }
 /* Actions float into the bottom-right corner instead of sitting inline, so they can't collide
    with the corner badge above on short (single-line) rows. min-height keeps the two corners
-   from crowding each other without padding out rows that are already tall enough. */
-.reading-item.has-actions { min-height: 78px; }
+   from crowding each other without padding out rows that are already tall enough, and
+   padding-bottom reserves room below the wrapped text so long occasion/note text can't run
+   underneath the absolutely-positioned footer. */
+.reading-item.has-actions { min-height: 78px; padding-bottom: 34px; }
 .reading-item.has-actions .ri-footer { position: absolute; right: 12px; bottom: 10px; margin: 0; }
 .ri-parsha-text { flex: 1; min-width: 0; }
 .ri-parsha-text .heb { font-size: 15px; font-weight: 600; text-align: left; }
