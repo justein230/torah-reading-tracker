@@ -48,6 +48,8 @@ Torah is the holy book of the Jewish people. It is divided into parshiot (singul
 
 Tables: `sefarim` → `parshiot` → `aliyot` → `readings`. Also: `parsha_pairs`, `occasion_aliyot`, `special_readings`, `weekday_aliyot`, `weekday_readings`. `foreign_keys = OFF` pragma is intentional during migrations (table recreations require it).
 
+**Native (Capacitor) migrations:** `src/db/native.ts` applies drizzle migrations in place on the on-device SQLite file via `@capacitor-community/sqlite`'s `addUpgradeStatement`/`createConnection(version)` mechanism (Android-`SQLiteOpenHelper`-style — each `drizzle/000N_*.sql` maps to one numbered upgrade step, tracked via `PRAGMA user_version`). `src/db/nativeMigrations.generated.ts` is generated from `drizzle/*.sql` by `scripts/build-native-migrations.ts` (`npm run build:native-migrations`, also run automatically by `cap:db`) — never hand-edit it. Adding a new drizzle migration automatically becomes a new native upgrade step next time that script runs; no manual JS changes needed. `scripts/db-init.ts` stamps the baked asset db's `PRAGMA user_version` to `NATIVE_DB_VERSION` so fresh installs don't replay history.
+
 ## Key Constraints
 
 - **No Prettier** — code uses intentional column alignment that Prettier would destroy. Don't introduce it without explicit discussion.

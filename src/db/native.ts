@@ -1,6 +1,7 @@
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import { and, eq, inArray } from 'drizzle-orm';
 import { createNativeDb } from './drizzle-native.js';
+import { NATIVE_DB_VERSION, NATIVE_UPGRADE_STATEMENTS } from './nativeMigrations.generated.js';
 import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, hosafotReadings as hosafotReadingsTable, torahChapters } from './schema.js';
 import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './queries.js';
 import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
@@ -14,7 +15,11 @@ let dbPromise: Promise<Awaited<ReturnType<typeof sqlite.createConnection>>> | nu
 function getConn() {
   dbPromise ??= (async () => {
     await sqlite.copyFromAssets(false);
-    const conn = await sqlite.createConnection('torah', false, 'no-encryption', 1, false);
+    // Applies any drizzle migrations added since the on-device db's PRAGMA user_version was
+    // last stamped (see scripts/build-native-migrations.ts and src/db/init.ts's server-side
+    // equivalent) — a no-op for a freshly-copied asset db, which is already at NATIVE_DB_VERSION.
+    await sqlite.addUpgradeStatement('torah', NATIVE_UPGRADE_STATEMENTS);
+    const conn = await sqlite.createConnection('torah', false, 'no-encryption', NATIVE_DB_VERSION, false);
     await conn.open();
     return conn;
   })();
