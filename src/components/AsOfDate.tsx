@@ -38,6 +38,7 @@ export default function AsOfDate() {
             onChange={setDate}
             maxDate={TODAY_STR}
             firstDayOfWeek={0}
+            withNativeLevelSelect
           />
           {asOfStats && date && (
             <Stack gap={4} justify="center" style={{ minWidth: 140 }}>
