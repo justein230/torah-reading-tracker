@@ -1,12 +1,14 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppShell, Tabs, Box, ActionIcon, Text, Indicator } from '@mantine/core';
 import { useApp } from './context/AppContext.js';
 import { useTabIndicator } from './hooks/useTabIndicator.js';
+import { usePullToRefresh } from './hooks/usePullToRefresh.js';
 import { TABS, TAB_LABELS } from './constants.js';
 import { fetchAuthStatus } from './api.js';
 import SettingsDrawer from './components/SettingsDrawer.js';
 import BottomNav from './components/BottomNav.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
+import { PullToRefreshIndicator } from './components/shared/PullToRefreshIndicator.js';
 import Overview   from './components/Overview.js';
 import GridsTab   from './components/GridsTab.js';
 import ReadingLog from './components/ReadingLog.js';
@@ -24,12 +26,19 @@ function filterCount(filters: Filters): number {
 }
 
 export default function App() {
-  const { activeTab, setActiveTab, filters, setFilters, setSortMode, ready } = useApp();
+  const { activeTab, setActiveTab, filters, setFilters, setSortMode, ready,
+          refresh, refreshSpecial, refreshWeekday, refreshHosafot, refreshCanWrite } = useApp();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [insecureConfig, setInsecureConfig] = useState(false);
   const { tabListRef, indicatorRef } = useTabIndicator(activeTab);
   const headerRef     = useRef<HTMLDivElement>(null);
+  const mainRef        = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(106);
+
+  const handlePullToRefresh = useCallback(async () => {
+    await Promise.all([refresh(), refreshSpecial(), refreshWeekday(), refreshHosafot(), refreshCanWrite()]);
+  }, [refresh, refreshSpecial, refreshWeekday, refreshHosafot, refreshCanWrite]);
+  const { pullDistance, phase: pullPhase } = usePullToRefresh(mainRef, handlePullToRefresh);
 
   // The tabs row is hidden below 768px (see .app-tabs-bar in global.css), so the header's
   // natural height shrinks on mobile. Measure it directly instead of hardcoding two heights.
@@ -161,7 +170,8 @@ export default function App() {
         </div>
       </AppShell.Header>
 
-      <AppShell.Main className="app-main" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <AppShell.Main ref={mainRef} className="app-main" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <PullToRefreshIndicator pullDistance={pullDistance} phase={pullPhase} />
         <div className="app-main-inner">
           <ErrorBoundary>
             {ready ? tabPanel() : (
