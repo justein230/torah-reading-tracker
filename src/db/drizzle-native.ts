@@ -14,7 +14,8 @@ export function createNativeDb(getConn: () => Promise<CapacitorConn>) {
     const rows = (result.values ?? []).map(row =>
       Object.values(row as Record<string, unknown>)
     );
-    return { rows };
+    // .get() wants the matched row itself (or undefined), not a one-element array of rows.
+    return { rows: (method === 'get' ? rows[0] : rows) as unknown[] };
   }, { schema });
 }
 

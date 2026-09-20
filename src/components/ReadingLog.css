@@ -13,12 +13,19 @@
 .year-group { margin-bottom: 28px; }
 .year-label { font-size: 20px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
 .yr-stats { font-size: 13px; font-weight: 400; color: var(--muted); }
-.reading-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 14px; border-left: 4px solid transparent; }
+.reading-item { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 14px; border-left: 4px solid transparent; }
 .ri-date-col { display: flex; flex-direction: column; gap: 4px; min-width: 110px; }
 .ri-date { font-size: 12px; color: var(--muted); }
 .ri-parsha { flex: 1; display: flex; gap: 8px; align-items: flex-start; min-width: 0; }
 /* Reserve room so title/sub text can't run under the absolutely-positioned corner badge (percentage above the arrow). */
-.collapsible-summary .ri-parsha { padding-right: 54px; }
+.collapsible-summary .ri-parsha, .reading-item .ri-parsha { padding-right: 54px; }
+/* Percentage always pinned to the same top-right corner as the collapsible cards' badge, regardless of actions. */
+.reading-item .ri-corner { position: absolute; top: 11px; right: 13px; }
+/* Actions float into the bottom-right corner instead of sitting inline, so they can't collide
+   with the corner badge above on short (single-line) rows. min-height keeps the two corners
+   from crowding each other without padding out rows that are already tall enough. */
+.reading-item.has-actions { min-height: 78px; }
+.reading-item.has-actions .ri-footer { position: absolute; right: 12px; bottom: 10px; margin: 0; }
 .ri-parsha-text { flex: 1; min-width: 0; }
 .ri-parsha-text .heb { font-size: 15px; font-weight: 600; text-align: left; }
 .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
@@ -48,10 +55,9 @@
   .ri-date { font-size: 11px; }
   .ri-parsha { min-width: 0; }
 
-  /* Rows with action buttons: date + parsha stay side by side; actions float into the
-     bottom-right corner instead of claiming a full-width row of their own. */
-  .reading-item.has-actions { flex-wrap: wrap; align-items: flex-start; position: relative; padding-bottom: 34px; }
+  /* Rows with action buttons: date + parsha stay side by side, wrapping only if the
+     narrow width forces it. The corner badge and floated footer are handled by the base rules above. */
+  .reading-item.has-actions { flex-wrap: wrap; align-items: flex-start; }
   .reading-item.has-actions .ri-date-col { order: 1; }
   .reading-item.has-actions .ri-parsha { order: 2; }
-  .reading-item.has-actions .ri-footer { position: absolute; right: 12px; bottom: 10px; margin: 0; }
 }
