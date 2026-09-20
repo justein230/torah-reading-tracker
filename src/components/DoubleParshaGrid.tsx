@@ -131,7 +131,7 @@ export default function DoubleParshaGrid() {
                       />
                     ))}
                   </div>
-                  <span className="badge" style={{ color: 'var(--text)', fontSize: 10, whiteSpace: 'nowrap' }}>
+                  <span className="badge" style={{ color: 'var(--text)', fontSize: '0.625rem', whiteSpace: 'nowrap' }}>
                     {pairReadCount}/7 ({pairPct}%)
                   </span>
                 </div>

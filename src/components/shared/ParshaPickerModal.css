@@ -6,7 +6,7 @@
 }
 
 .parsha-picker-section-label {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .07em;
@@ -26,7 +26,7 @@
   padding: 13px 8px;
   cursor: pointer;
   color: var(--text);
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .parsha-picker-row:active,
@@ -36,7 +36,7 @@
 .parsha-picker-row.selected .parsha-picker-heb { color: var(--accent); }
 
 .parsha-picker-tlit {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
   font-family: Inter, sans-serif;
 }

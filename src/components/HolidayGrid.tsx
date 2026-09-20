@@ -95,7 +95,7 @@ export default function HolidayGrid() {
         return (
           <SeferSection
             key={cat}
-            title={<span className="eng" style={{ color, fontWeight: 600, fontSize: 15 }}>{CATEGORY_LABELS_GRID[cat] ?? cat}</span>}
+            title={<span className="eng" style={{ color, fontWeight: 600, fontSize: '0.9375rem' }}>{CATEGORY_LABELS_GRID[cat] ?? cat}</span>}
             badge={<>{readCount}/{totalCount} Aliyot &bull; {aPct}%</>}
             columnKeys={visibleKeys}
             renderColumnLabel={k => k === 'M' ? fmtAliyah(String(k), true) : String(k)}
@@ -108,7 +108,7 @@ export default function HolidayGrid() {
               return (
                 <div key={occ.id} className="parsha-row">
                   <div className="parsha-label">
-                    <span className="heb" style={{ fontSize: 12, textAlign: 'right' }}>{occ.name}</span>
+                    <span className="heb" style={{ fontSize: '0.75rem', textAlign: 'right' }}>{occ.name}</span>
                     <span className="eng">{occ.nameEn}</span>
                   </div>
                   <div className="aliyah-cells">

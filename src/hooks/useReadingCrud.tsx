@@ -138,7 +138,7 @@ function useManageData(refresh: () => Promise<void>, refreshSpecial: () => Promi
           <div className="confirm-preview">
             <Text size="sm">
               <span className="hebrew" style={{ color }}>{r.parsha}</span>
-              <span style={{ color: 'var(--muted)', fontSize: 12 }}> — {r.parsha_en} · {fmtAliyah(r.aliyah)}</span>
+              <span style={{ color: 'var(--muted)', fontSize: '0.75rem' }}> — {r.parsha_en} · {fmtAliyah(r.aliyah)}</span>
             </Text>
             <Text size="xs" c="dimmed">
               {fmtLongDate(r.date_read)}

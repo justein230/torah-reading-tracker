@@ -36,6 +36,10 @@
   --grid-label-width:  160px;  /* width of the parsha label column in the portions grid */
 }
 
+html {
+  font-size: 100%; /* explicit 16px rem anchor — lets iOS Dynamic Type scale the app via rem-based sizing */
+}
+
 html, body, #root {
   height: 100dvh;
   margin: 0;
@@ -140,13 +144,13 @@ input[type="date"]::-webkit-date-and-time-value {
 
 /* Table patterns */
 .table-base { width: 100%; border-collapse: collapse; }
-.th-base { text-align: left; padding: 6px 8px; font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+.th-base { text-align: left; padding: 6px 8px; font-size: 0.6875rem; color: var(--muted); font-weight: 600; text-transform: uppercase; }
 .td-base { padding: 8px; }
 .tr-divider { border-bottom: 1px solid var(--surface); }
 .tr-divider-strong { border-bottom: 1px solid var(--surface2); }
 .td-right { text-align: right; }
 .td-bold  { font-weight: 600; }
-.td-sm    { font-size: 12px; }
+.td-sm    { font-size: 0.75rem; }
 
 /* Inline stats row used in reading item layouts */
 .ri-stats { display: flex; gap: 8px; align-items: center; }
@@ -168,7 +172,7 @@ input[type="date"]::-webkit-date-and-time-value {
 .app-tabs-bar::-webkit-scrollbar { display: none; }
 .app-tabs-inner { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
 .app-tabs-list { flex-wrap: nowrap !important; gap: 0 !important; border-bottom: none !important; min-width: max-content; user-select: none; -webkit-user-select: none; }
-.app-tab { font-size: 13px !important; padding: 10px 14px !important; white-space: nowrap; user-select: none; -webkit-user-select: none; }
+.app-tab { font-size: 0.8125rem !important; padding: 10px 14px !important; white-space: nowrap; user-select: none; -webkit-user-select: none; }
 .app-main { background: var(--bg); min-height: 100vh; }
 .app-main-inner { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
 .tab-list-wrap { position: relative; }

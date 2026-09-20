@@ -42,7 +42,7 @@ function AgendaDay({ dateStr, readings, SEFER_MAP }: Readonly<AgendaDayProps>) {
           return (
             <div key={`${r.parsha}-${r.aliyah}-${i}`} className="cal-agenda-item">
               <SeferDot color={color} reread={r.isReread} />
-              <span className="hebrew" style={{ color, fontSize: 13 }}>{r.parsha}</span>
+              <span className="hebrew" style={{ color, fontSize: '0.8125rem' }}>{r.parsha}</span>
               <span className="cal-aliyah-label"> · {fmtAliyah(r.aliyah)}</span>
               <KindBadge kind={r.kind} />
               <ReadingStatusBadges isReread={r.isReread} isFuture={r.isFuture} />

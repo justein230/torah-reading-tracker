@@ -129,7 +129,7 @@ export default function Details() {
 
               return (
                 <tr key={p.parsha} className="tr-divider" style={{ opacity: p.seferOk ? 1 : 0.35 }}>
-                  <td className="td-base" style={{ color: 'var(--muted2)', fontSize: 12 }}>{p.idx}</td>
+                  <td className="td-base" style={{ color: 'var(--muted2)', fontSize: '0.75rem' }}>{p.idx}</td>
                   <td className="td-base">
                     <Text className="hebrew parsha-heb" fw={600} size="sm" style={{ color }}>{p.parsha}</Text>
                     <Text size="xs" c="dimmed">{TLIT[p.parsha] ?? ''}</Text>
@@ -137,7 +137,7 @@ export default function Details() {
                   <td className="td-base">
                     <span className="sefer-cell">
                       <SeferDot color={color} />
-                      <span style={{ fontSize: 13 }}>{SEFER_MAP[p.sefer]?.en}</span>
+                      <span style={{ fontSize: '0.8125rem' }}>{SEFER_MAP[p.sefer]?.en}</span>
                     </span>
                   </td>
                   <td className="td-base">
@@ -149,16 +149,16 @@ export default function Details() {
                     <Text size="xs" c="dimmed" mt={4}>{p.readAliyot}/{p.rows.length}{partialCount > 0 ? ` (+${partialCount}p)` : ''}</Text>
                   </td>
                   <td className="td-base">
-                    <div style={{ fontSize: 13 }}>{p.readPseukim}</div>
-                    <div style={{ fontSize: 13, color: 'var(--muted2)' }}>/ {p.totalPseukim}</div>
+                    <div style={{ fontSize: '0.8125rem' }}>{p.readPseukim}</div>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--muted2)' }}>/ {p.totalPseukim}</div>
                   </td>
                   <td className="td-base">
-                    <div style={{ fontSize: 13 }}>{p.parshaReadPct > 0 ? p.parshaReadPct.toFixed(1) + '%' : '—'}</div>
-                    <div style={{ fontSize: 13, color: 'var(--muted2)' }}>/ 100%</div>
+                    <div style={{ fontSize: '0.8125rem' }}>{p.parshaReadPct > 0 ? p.parshaReadPct.toFixed(1) + '%' : '—'}</div>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--muted2)' }}>/ 100%</div>
                   </td>
                   <td className="td-base">
-                    <div style={{ fontSize: 13 }}>{p.readPct > 0 ? p.readPct.toFixed(2) + '%' : '—'}</div>
-                    <div style={{ fontSize: 13, color: 'var(--muted2)' }}>/ {p.totalPct.toFixed(2)}%</div>
+                    <div style={{ fontSize: '0.8125rem' }}>{p.readPct > 0 ? p.readPct.toFixed(2) + '%' : '—'}</div>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--muted2)' }}>/ {p.totalPct.toFixed(2)}%</div>
                   </td>
                   <td className="td-base td-sm" style={{ color: 'var(--muted)' }}>{p.lastDate ? fmtDate(p.lastDate) : '—'}</td>
                   <td className="td-base td-sm" style={{ color: 'var(--muted)' }}>{p.nextReadDate ? fmtDate(p.nextReadDate) : '—'}</td>

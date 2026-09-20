@@ -36,7 +36,7 @@ export function Ring({ pct, pctCommitted, color, size = 140, label, sub1, sub2 }
         <div className="ring-center">
           <Text fw={700} size="xl" style={{ color }}>{pct.toFixed(2)}%</Text>
           {deltaLen > 0 && pctCommitted != null && (
-            <Text style={{ color: color + 'bb', fontSize: 12, lineHeight: 1.3 }}>
+            <Text style={{ color: color + 'bb', fontSize: '0.75rem', lineHeight: 1.3 }}>
               {pctCommitted.toFixed(2)}%↑
             </Text>
           )}

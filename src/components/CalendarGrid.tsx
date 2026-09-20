@@ -58,7 +58,7 @@ function CalDayTooltip({ dateStr, readings, pos, SEFER_MAP }: Readonly<CalDayToo
         return (
           <div key={`${r.parsha}-${r.aliyah}-${i}`} className="cal-tip-row">
             <SeferDot color={color} reread={r.isReread} />
-            <span className="hebrew" style={{ color, fontSize: 12 }}>{r.parsha}</span>
+            <span className="hebrew" style={{ color, fontSize: '0.75rem' }}>{r.parsha}</span>
             <span className="cal-aliyah-label"> · {fmtAliyah(r.aliyah)}</span>
             <KindBadge kind={r.kind} />
             <ReadingStatusBadges isReread={r.isReread} isFuture={r.isFuture} compact />
