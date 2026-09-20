@@ -243,6 +243,7 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
                   value={password}
                   onChange={e => setPassword(e.currentTarget.value)}
                   error={loginError || undefined}
+                  visibilityToggleFocusable
                 />
                 <Button fullWidth type="submit" loading={loggingIn}>
                   Log in
@@ -288,12 +289,14 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
                       value={currentPassword}
                       onChange={e => setCurrentPassword(e.currentTarget.value)}
                       error={changeError || undefined}
+                      visibilityToggleFocusable
                     />
                     <PasswordInput
                       label="New password"
                       description="At least 8 characters"
                       value={newPassword}
                       onChange={e => setNewPassword(e.currentTarget.value)}
+                      visibilityToggleFocusable
                     />
                     <Button variant="light" color="gray" fullWidth type="submit"
                       loading={changingPassword}>
