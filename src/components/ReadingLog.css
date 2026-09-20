@@ -17,17 +17,32 @@
 .ri-date-col { display: flex; flex-direction: column; gap: 4px; min-width: 110px; }
 .ri-date { font-size: 12px; color: var(--muted); }
 .ri-parsha { flex: 1; display: flex; gap: 8px; align-items: flex-start; min-width: 0; }
-/* Reserve room so title/sub text can't run under the absolutely-positioned corner badge (percentage above the arrow). */
-.collapsible-summary .ri-parsha, .reading-item .ri-parsha { padding-right: 54px; }
+/* Reserve room so title/sub text can't run under the absolutely-positioned corner badge (percentage
+   above the arrow). Compact rows (nested inside an already-badged collapsible card) render pct
+   inline in .ri-stats instead of a corner badge, so they're excluded via :has() — otherwise they'd
+   lose 54px of width to a badge that isn't there. */
+.collapsible-summary .ri-parsha, .reading-item:has(.ri-corner) .ri-parsha { padding-right: 54px; }
 /* Percentage always pinned to the same top-right corner as the collapsible cards' badge, regardless of actions. */
 .reading-item .ri-corner { position: absolute; top: 11px; right: 13px; }
-/* Actions float into the bottom-right corner instead of sitting inline, so they can't collide
-   with the corner badge above on short (single-line) rows. min-height keeps the two corners
-   from crowding each other without padding out rows that are already tall enough, and
-   padding-bottom reserves room below the wrapped text so long occasion/note text can't run
-   underneath the absolutely-positioned footer. */
-.reading-item.has-actions { min-height: 78px; padding-bottom: 34px; }
-.reading-item.has-actions .ri-footer { position: absolute; right: 12px; bottom: 10px; margin: 0; }
+/* Actions sit on their own row directly below the parsha text (inside .ri-parsha, not the outer
+   row) so their vertical position tracks only that text's height — not the date column's, which
+   can be taller or shorter than the text next to it. Grid (not flex-wrap + flex-basis: 100%) is
+   used deliberately: .ri-parsha's own width is itself resolved via flex-grow in the outer row,
+   and a percentage flex-basis can't reliably force a wrap while that's still being resolved. */
+.reading-item.has-actions { align-items: flex-start; }
+.reading-item.has-actions .ri-parsha {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "text stats" "footer footer";
+  row-gap: 4px;
+}
+.reading-item.has-actions .ri-parsha-text { grid-area: text; }
+.reading-item.has-actions .ri-stats { grid-area: stats; }
+.reading-item.has-actions .ri-footer { grid-area: footer; justify-self: end; }
+/* Full (non-compact) rows reserve 54px on .ri-parsha for the corner badge — cancel that on the
+   footer so its buttons still reach the same right edge as the badge above, instead of stopping
+   54px short. Compact rows have no corner badge/padding to cancel. */
+.reading-item.has-actions:has(.ri-corner) .ri-footer { margin-right: -54px; }
 .ri-parsha-text { flex: 1; min-width: 0; }
 .ri-parsha-text .heb { font-size: 15px; font-weight: 600; text-align: left; }
 .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
@@ -56,10 +71,4 @@
   .ri-date-col { min-width: 0; gap: 2px; }
   .ri-date { font-size: 11px; }
   .ri-parsha { min-width: 0; }
-
-  /* Rows with action buttons: date + parsha stay side by side, wrapping only if the
-     narrow width forces it. The corner badge and floated footer are handled by the base rules above. */
-  .reading-item.has-actions { flex-wrap: wrap; align-items: flex-start; }
-  .reading-item.has-actions .ri-date-col { order: 1; }
-  .reading-item.has-actions .ri-parsha { order: 2; }
 }

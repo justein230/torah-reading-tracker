@@ -71,11 +71,12 @@ export function ReadingRow({ r, compact = false, actions = null }: Readonly<Read
         {compact && (
           <div className="ri-stats">
             <span className="ri-tag">{r.pseukim} pseukim</span>
+            <span className="ri-pct">{r.pct.toFixed(2)}%</span>
           </div>
         )}
+        {actions && <div className="ri-footer">{actions}</div>}
       </div>
-      <div className="ri-corner"><span className="ri-pct">{r.pct.toFixed(2)}%</span></div>
-      {actions && <div className="ri-footer">{actions}</div>}
+      {!compact && <div className="ri-corner"><span className="ri-pct">{r.pct.toFixed(2)}%</span></div>}
     </div>
   );
 }
