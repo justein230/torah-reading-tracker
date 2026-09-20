@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Capacitor } from '@capacitor/core';
 import { Drawer, Stack, MultiSelect, Switch, SegmentedControl, Text, Box, Button, Divider, PasswordInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { modals } from '@mantine/modals';
@@ -115,7 +114,9 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
             This replaces all reading data in this app with the contents of <strong>{file.name}</strong>.
             The current database is backed up automatically first, but this can't be undone from here.
           </Text>
-          <Text size="sm" c="dimmed">Your login is not affected.</Text>
+          {authStatus?.authMode === 'password' && (
+            <Text size="sm" c="dimmed">Your login is not affected.</Text>
+          )}
         </Stack>
       ),
       labels: { confirm: 'Import and replace', cancel: 'Cancel' },
@@ -267,21 +268,17 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
               loading={exporting === 'logs'} onClick={handleLogsExport}>
               Export logs
             </Button>
-            {!Capacitor.isNativePlatform() && (
-              <>
-                <input
-                  ref={importInputRef}
-                  type="file"
-                  accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3"
-                  hidden
-                  onChange={handleImportFileSelected}
-                />
-                <Button variant="light" color="red" fullWidth
-                  loading={importing} onClick={handleImportClick}>
-                  Import DB (.sqlite)
-                </Button>
-              </>
-            )}
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3"
+              hidden
+              onChange={handleImportFileSelected}
+            />
+            <Button variant="light" color="red" fullWidth
+              loading={importing} onClick={handleImportClick}>
+              Import DB (.sqlite)
+            </Button>
             {authStatus?.authMode === 'password' && (
               <>
                 <Box component="form" onSubmit={e => void handleChangePassword(e)}>

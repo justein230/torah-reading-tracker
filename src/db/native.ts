@@ -1,5 +1,5 @@
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { createNativeDb } from './drizzle-native.js';
 import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, hosafotReadings as hosafotReadingsTable, torahChapters } from './schema.js';
 import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './queries.js';
@@ -30,7 +30,7 @@ export async function fetchCanWrite(): Promise<boolean> {
 // Native has direct on-device DB access — there's no server to authenticate against,
 // so writes are always allowed and login/logout are no-ops.
 export async function fetchAuthStatus(): Promise<AuthStatus> {
-  return { authMode: 'password', insecureConfig: false };
+  return { authMode: 'none', insecureConfig: false };
 }
 
 export async function login(_password: string): Promise<boolean> {
@@ -42,6 +42,79 @@ export async function logout(): Promise<void> {
 }
 
 export async function changePassword(_currentPassword: string, _newPassword: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  return { ok: true };
+}
+
+const REQUIRED_IMPORT_TABLES = ['sefarim', 'parshiot', 'aliyot', 'readings'];
+const SQLITE_MAGIC = 'SQLite format 3\0';
+
+// Writes the upload into a scratch db (so getUrl() tells us its real path) and opens it there,
+// to check it's valid before it ever touches the live database. Always tears the scratch db down.
+async function validateImportedDb(base64: string): Promise<string | null> {
+  const CHECK_DB = 'torah_import_check';
+  const { Filesystem } = await import('@capacitor/filesystem');
+
+  await CapacitorSQLite.deleteDatabase({ database: CHECK_DB }).catch(() => {});
+  await sqlite.createConnection(CHECK_DB, false, 'no-encryption', 1, false);
+  const { url: checkUrl } = await CapacitorSQLite.getUrl({ database: CHECK_DB });
+  await sqlite.closeConnection(CHECK_DB, false);
+  if (!checkUrl) return 'Could not locate scratch database on device.';
+  await Filesystem.writeFile({ path: checkUrl, data: base64 });
+
+  try {
+    const checkConn = await sqlite.createConnection(CHECK_DB, false, 'no-encryption', 1, false);
+    await checkConn.open();
+    try {
+      const integrity = await checkConn.query('PRAGMA integrity_check');
+      if (integrity.values?.[0]?.integrity_check !== 'ok') return 'Database failed integrity check.';
+
+      const tables = await checkConn.query("SELECT name FROM sqlite_master WHERE type = 'table'");
+      const tableNames = new Set((tables.values ?? []).map((r: { name: string }) => r.name));
+      const missing = REQUIRED_IMPORT_TABLES.filter(t => !tableNames.has(t));
+      if (missing.length) {
+        return `Doesn't look like a Torah Tracker database (missing table${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}).`;
+      }
+      return null;
+    } finally {
+      await checkConn.close();
+    }
+  } catch {
+    return 'Could not open file as a SQLite database.';
+  } finally {
+    await sqlite.closeConnection(CHECK_DB, false).catch(() => {});
+    await CapacitorSQLite.deleteDatabase({ database: CHECK_DB }).catch(() => {});
+  }
+}
+
+// Native equivalent of importDatabase in utils/import-server.ts, minus migration/auth-row
+// preservation (native has neither) — validates, then overwrites the live db file in place.
+export async function importDatabase(file: File): Promise<{ ok: true } | { ok: false; error: string }> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const header = new TextDecoder('latin1').decode(bytes.slice(0, 16));
+  if (header !== SQLITE_MAGIC) return { ok: false, error: 'Not a valid SQLite database file.' };
+
+  const base64 = Buffer.from(bytes).toString('base64');
+  const validationError = await validateImportedDb(base64);
+  if (validationError) return { ok: false, error: validationError };
+
+  const { Filesystem } = await import('@capacitor/filesystem');
+  const { url: mainUrl } = await CapacitorSQLite.getUrl({ database: 'torah' });
+  if (!mainUrl) return { ok: false, error: 'Could not locate the database on device.' };
+
+  // Best-effort backup, not surfaced in the UI — shouldn't block the import if it fails.
+  try {
+    const current = await Filesystem.readFile({ path: mainUrl });
+    await Filesystem.writeFile({ path: `${mainUrl}.bak`, data: current.data as string });
+  } catch {
+    // ignore
+  }
+
+  const conn = await getConn();
+  await conn.close();
+  await sqlite.closeConnection('torah', false);
+  await Filesystem.writeFile({ path: mainUrl, data: base64 });
+  dbPromise = null; // next getConn() reopens against the file just written
+
   return { ok: true };
 }
 
@@ -83,7 +156,7 @@ export async function fetchLocationStats(): Promise<LocationStat[]> {
   return (res.values ?? []) as LocationStat[];
 }
 
-async function postReadingFn({ parsha, aliyah, date_read, occasion = '', location = '' }: PostReadingBody): Promise<{ id: number; reading_type: string }> {
+async function postReadingFn({ parsha, aliyah, date_read, occasion = '', location = '', pair_id, reading_type: requested_type }: PostReadingBody): Promise<{ id: number; reading_type: string }> {
   if (!parsha || !aliyah || !date_read) throw Object.assign(new Error('parsha, aliyah, and date_read are required'), { detail: 'parsha, aliyah, and date_read are required' });
 
   const parshaRow = await db
@@ -103,9 +176,14 @@ async function postReadingFn({ parsha, aliyah, date_read, occasion = '', locatio
   const existing = await db
     .select({ id: readings.id })
     .from(readings)
-    .where(and(eq(readings.aliyahId, aliyahRow.id), eq(readings.readingType, 'original')))
+    .where(and(eq(readings.aliyahId, aliyahRow.id), inArray(readings.readingType, ['standard', 'double_parsha'])))
     .get();
-  const reading_type = existing ? 'additional' : 'original';
+  let reading_type: string;
+  if (existing) {
+    reading_type = 'additional';
+  } else {
+    reading_type = requested_type === 'double_parsha' ? 'double_parsha' : 'standard';
+  }
 
   const [inserted] = await db.insert(readings).values({
     aliyahId: aliyahRow.id,
@@ -113,6 +191,7 @@ async function postReadingFn({ parsha, aliyah, date_read, occasion = '', locatio
     occasion: occasion || null,
     location: location || null,
     readingType: reading_type,
+    pairId: pair_id ?? null,
   }).returning({ id: readings.id });
   if (!inserted) throw new Error('Insert failed unexpectedly');
 

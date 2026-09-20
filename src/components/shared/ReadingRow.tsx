@@ -68,11 +68,13 @@ export function ReadingRow({ r, compact = false, actions = null }: Readonly<Read
             {TLIT[r.parsha] ?? ''} · {fmtAliyah(r.aliyah)} · <span style={{ color }}>{seferMeta?.en ?? r.sefer}</span>{compact ? verseRange : ''}{occasion}{note}{location}
           </div>
         </div>
-        <div className="ri-stats">
-          {compact && <span className="ri-tag">{r.pseukim} pseukim</span>}
-          <span className="ri-pct">{r.pct.toFixed(2)}%</span>
-        </div>
+        {compact && (
+          <div className="ri-stats">
+            <span className="ri-tag">{r.pseukim} pseukim</span>
+          </div>
+        )}
       </div>
+      <div className="ri-corner"><span className="ri-pct">{r.pct.toFixed(2)}%</span></div>
       {actions && <div className="ri-footer">{actions}</div>}
     </div>
   );
