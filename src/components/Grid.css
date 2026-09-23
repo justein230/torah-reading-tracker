@@ -1,5 +1,5 @@
-.sefer-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 40px; }
-.sefer-section { margin-bottom: 28px; }
+.sefer-grid { column-count: 2; column-gap: 40px; }
+.sefer-section { margin-bottom: 28px; break-inside: avoid; }
 .sefer-hdr { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .sefer-hdr .heb { font-size: 1.125rem; font-weight: 600; }
 .sefer-hdr .eng { font-size: 0.8125rem; color: var(--muted); }
@@ -19,7 +19,7 @@
 .reread-dot { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: #fff; opacity: .85; pointer-events: none; }
 
 @media (max-width: 990px) {
-  .sefer-grid { grid-template-columns: 1fr; }
+  .sefer-grid { column-count: 1; }
 }
 
 @media (max-width: 700px) {

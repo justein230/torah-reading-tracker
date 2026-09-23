@@ -22,6 +22,13 @@
       "when": 1789500608046,
       "tag": "0002_chol_hamoed_weekday",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790133614176,
+      "tag": "0003_fast_and_mincha_readings",
+      "breakpoints": true
     }
   ]
 }
