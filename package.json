@@ -6,7 +6,7 @@
     "name": "Justin Stein",
     "email": "7889269+justein230@users.noreply.github.com"
   },
-  "version": "1.0.4",
+  "version": "1.0.5",
   "license": "MIT",
   "type": "module",
   "main": "electron/main.cjs",
