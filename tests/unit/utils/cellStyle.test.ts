@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aliyahCellStyle, aliyahState, fmtPct } from '../../../src/utils.js';
+import { aliyahCellStyle, aliyahState, fmtPct } from '../../../src/utils/format.js';
 
 const COLOR = '#4a7c59';
 

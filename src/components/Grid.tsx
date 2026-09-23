@@ -4,9 +4,10 @@ import './Grid.css';
 import { Box } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
 import { useAliyahTooltip, AliyahTooltip, TouchAwareCell, type CellHandlers } from './AliyahTooltip.js';
-import { aliyahCellStyle, aliyahState, fmtPct } from '../utils.js';
+import { aliyahCellStyle, aliyahState, fmtPct } from '../utils/format.js';
 import { GridLegend } from './GridLegend.js';
 import { SeferSection } from './shared/SeferSection.js';
+import { ParshaRow } from './shared/ParshaRow.js';
 import type { MappedRow, Filters, SeferMeta } from '../types/index.js';
 
 function cellStyle(r: MappedRow, filters: Filters, SEFER_MAP: Record<string, SeferMeta>) {
@@ -80,22 +81,19 @@ export default function Grid() {
               opacity={sOpacity}
             >
               {(parshaIndex[s] ?? []).map(parsha => (
-                <div key={parsha} className="parsha-row">
-                  <div className="parsha-label">
-                    <span className="hebrew heb">{parsha}</span>
-                    <span className="eng">{TLIT[parsha] ?? ''}</span>
-                  </div>
-                  <div className="aliyah-cells">
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map(a => {
-                      const r = rowLookup[parsha + '|' + a];
-                      if (!r) return null;
-                      return (
-                        <AliyahCell key={a} r={r} filters={filters} SEFER_MAP={SEFER_MAP}
-                          showTip={showTip} handlers={handlers} />
-                      );
-                    })}
-                  </div>
-                </div>
+                <ParshaRow
+                  key={parsha}
+                  label={<><span className="hebrew heb">{parsha}</span><span className="eng">{TLIT[parsha] ?? ''}</span></>}
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(a => {
+                    const r = rowLookup[parsha + '|' + a];
+                    if (!r) return null;
+                    return (
+                      <AliyahCell key={a} r={r} filters={filters} SEFER_MAP={SEFER_MAP}
+                        showTip={showTip} handlers={handlers} />
+                    );
+                  })}
+                </ParshaRow>
               ))}
             </SeferSection>
           );

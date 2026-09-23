@@ -526,7 +526,7 @@ describe('POST /api/readings/hosafot', () => {
   });
 
   it('returns 400 when a required field is missing', async () => {
-    const { pseukim, ...rest } = HOSAFAH_BODY;
+    const { pseukim: _pseukim, ...rest } = HOSAFAH_BODY;
     const res = await agent.post('/api/readings/hosafot').send(rest);
     expect(res.status).toBe(400);
   });

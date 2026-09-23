@@ -24,7 +24,7 @@ const pctOf = (pseukim: number, stats: Stats | null): number =>
   stats ? (pseukim / stats.totalPseukim) * 100 : 0;
 
 /** Push one re-read entry per scheduled future date that passes the year filter. */
-export function addFutureReadings(readings: DisplayEntry[], r: MappedRow, filters: Filters): void {
+function addFutureReadings(readings: DisplayEntry[], r: MappedRow, filters: Filters): void {
   for (const dateStr of r.futDates) {
     const rereadYear = yearOf(dateStr);
     if (yearAllowed(rereadYear, filters)) {

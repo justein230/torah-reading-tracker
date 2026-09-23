@@ -123,7 +123,7 @@ export async function fetchLiveHebcalItemsForDate(
 }
 
 /** Everything buildSchedule needs, injected so it can be exercised without a clock or network. */
-export interface BuildScheduleOptions {
+interface BuildScheduleOptions {
   /** Valid parshiot.name_en values — guards hyphen splitting of combined parshiot. */
   parshaNames:  Set<string>;
   /** ISO date (YYYY-MM-DD); entries before it are ignored. */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { versesOverlap } from '../../../src/utils.js';
+import { versesOverlap } from '../../../src/utils/verseRange.js';
 
 // Helper: call versesOverlap with flat [chStart, vStart, chEnd, vEnd] pairs.
 const ov = (a: [number,number,number,number], b: [number,number,number,number]) =>

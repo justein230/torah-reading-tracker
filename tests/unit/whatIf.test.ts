@@ -20,7 +20,7 @@ function makeRow(overrides: Partial<MappedRow> = {}): MappedRow {
     chapterStart: chapter, verseStart: 1, chapterEnd: chapter, verseEnd: pseukim,
     isRead: false, isReadPast: false, isReadFuture: false, isFuture: false, isReread: false,
     hasFuture: false, yearRead: null, futureYear: null, allYears: [],
-    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', futDates: [], occasion: '', location: '', rereadCount: 0,
+    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', isCoveredPast: false, futDates: [], occasion: '', location: '', rereadCount: 0,
     ...overrides,
   };
 }
@@ -55,7 +55,7 @@ function makeHR(overrides: Partial<MappedHosafah> = {}): MappedHosafah {
     id: 1, sefer: 'Genesis', parshaId1: null, parshaId2: null, occasionId: null, isDoubleParsha: false,
     chapterStart: 2, verseStart: 1, chapterEnd: 2, verseEnd: 10, pseukim: 10, dateRead: '',
     note: '', location: '', parsha1: '', parsha1En: '', parsha2: null, parsha2En: null,
-    occasion: null, occasionEn: null, isReadPast: false, isReadFuture: false, partialOrig: '',
+    occasion: null, occasionEn: null, isReadPast: false, isReadFuture: false, partialOrig: '', isCoveredPast: false,
     ...overrides,
   };
 }
@@ -111,7 +111,7 @@ describe('withHypotheticalOccasionDate / WeekdayDate / HosafahDate', () => {
 describe('applyWhatIfPicks — merges into computeStats', () => {
   it('leaves stats unchanged with no picks', () => {
     const rows = [makeRow({ aliyah: 1, pseukim: 50 }), makeRow({ aliyah: 2, pseukim: 60 })];
-    const merged = applyWhatIfPicks(rows, [], [], [], []);
+    const merged = applyWhatIfPicks({ allRows: rows, occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] }, []);
     const s = computeStats(merged.allRows, merged.occasionAliyot, SEFER_ORDER, SEFER_MAP, NO_FILTERS, merged.weekdayAliyot, merged.hosafotReadings);
     expect(s.committedPseukim).toBe(0);
   });
@@ -119,7 +119,7 @@ describe('applyWhatIfPicks — merges into computeStats', () => {
   it('increases committedPseukim for a picked standard aliyah', () => {
     const rows = [makeRow({ aliyah: 1, pseukim: 50 }), makeRow({ aliyah: 2, pseukim: 60 })];
     const picks = [{ kind: 'standard' as const, key: standardRowKey(rows[0] as MappedRow), date: '2099-01-01' }];
-    const merged = applyWhatIfPicks(rows, [], [], [], picks);
+    const merged = applyWhatIfPicks({ allRows: rows, occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] }, picks);
     const s = computeStats(merged.allRows, merged.occasionAliyot, SEFER_ORDER, SEFER_MAP, NO_FILTERS, merged.weekdayAliyot, merged.hosafotReadings);
     expect(s.committedPseukim).toBe(50);
     expect(s.committedAliyot).toBe(1);
@@ -129,14 +129,15 @@ describe('applyWhatIfPicks — merges into computeStats', () => {
   it('does not affect rows not in the pick list', () => {
     const rows = [makeRow({ aliyah: 1, pseukim: 50 }), makeRow({ aliyah: 2, pseukim: 60 })];
     const picks = [{ kind: 'standard' as const, key: standardRowKey(rows[0] as MappedRow), date: '2099-01-01' }];
-    const merged = applyWhatIfPicks(rows, [], [], [], picks);
+    const merged = applyWhatIfPicks({ allRows: rows, occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] }, picks);
     expect(merged.allRows[1]).toEqual(rows[1]);
   });
 
-  it('a hypothetical future weekday pick is credited via specialFuturePseukim like any other future special reading', () => {
+  it('a hypothetical future weekday pick is not double-counted against a future standard pick covering the same verses (A0)', () => {
     // Standard aliyah (already scheduled future) covers ch1:1-10; weekday aliyah picked as hypothetical covers the same verses.
-    // computeStats only dedupes special-future against *past* standard reads (readVerseKeys), not other future
-    // reads — this mirrors existing behavior for two real overlapping future readings, not something whatIf.ts changes.
+    // creditFutureKeys skips verses already in committedVerseKeys (populated from the standard row's own
+    // future-dated pick), so the weekday pick contributes nothing new here — matching the fix for A0, where
+    // a real future special reading that fully covers a standard aliyah must not be credited twice.
     const std = makeRow({ aliyah: 1, pseukim: 10, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 10,
                            isRead: true, isReadFuture: true, orig: '2099-01-01', yearRead: 2099, allYears: [2099] });
     const wa = makeWA({ chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 10, pseukim: 10 });
@@ -144,16 +145,16 @@ describe('applyWhatIfPicks — merges into computeStats', () => {
       { kind: 'standard' as const, key: standardRowKey(std), date: '2099-01-01' },
       { kind: 'weekday' as const, key: String(wa.id), date: '2099-02-01' },
     ];
-    const merged = applyWhatIfPicks([std], [], [wa], [], picks);
+    const merged = applyWhatIfPicks({ allRows: [std], occasionAliyot: [], weekdayAliyot: [wa], hosafotReadings: [] }, picks);
     const s = computeStats(merged.allRows, merged.occasionAliyot, SEFER_ORDER, SEFER_MAP, NO_FILTERS, merged.weekdayAliyot, merged.hosafotReadings);
     expect(s.committedPseukim).toBe(10);
-    expect(s.specialFuturePseukim).toBe(10);
+    expect(s.specialFuturePseukim).toBe(0);
   });
 
   it('a hypothetical future hosafah contributes new specialFuturePseukim when it does not overlap standard aliyot', () => {
     const hr = makeHR({ chapterStart: 5, verseStart: 1, chapterEnd: 5, verseEnd: 8, pseukim: 8 });
     const picks = [{ kind: 'hosafah' as const, key: String(hr.id), date: '2099-03-01' }];
-    const merged = applyWhatIfPicks([], [], [], [hr], picks);
+    const merged = applyWhatIfPicks({ allRows: [], occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [hr] }, picks);
     const s = computeStats(merged.allRows, merged.occasionAliyot, SEFER_ORDER, SEFER_MAP, NO_FILTERS, merged.weekdayAliyot, merged.hosafotReadings);
     expect(s.specialFuturePseukim).toBe(8);
     expect(s.specialTotalPseukim).toBe(8);
@@ -162,7 +163,7 @@ describe('applyWhatIfPicks — merges into computeStats', () => {
   it('a hypothetical future occasion aliyah contributes to specialFuturePseukim, not specialReadPseukim', () => {
     const oa = makeOA({ pseukim: 12 });
     const picks = [{ kind: 'occasion' as const, key: String(oa.id), date: '2099-04-01' }];
-    const merged = applyWhatIfPicks([], [oa], [], [], picks);
+    const merged = applyWhatIfPicks({ allRows: [], occasionAliyot: [oa], weekdayAliyot: [], hosafotReadings: [] }, picks);
     const s = computeStats(merged.allRows, merged.occasionAliyot, SEFER_ORDER, SEFER_MAP, NO_FILTERS, merged.weekdayAliyot, merged.hosafotReadings);
     expect(s.specialFuturePseukim).toBe(12);
     expect(s.specialReadPseukim).toBe(0);
@@ -170,7 +171,7 @@ describe('applyWhatIfPicks — merges into computeStats', () => {
 
   it('leaving a real future standard row out of the picks reverts it to unread (revertRow)', () => {
     const futureRow = makeRow({ aliyah: 1, pseukim: 50, isRead: true, isReadFuture: true, orig: '2099-01-01', yearRead: 2099, allYears: [2099] });
-    const merged = applyWhatIfPicks([futureRow], [], [], [], []);
+    const merged = applyWhatIfPicks({ allRows: [futureRow], occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] }, []);
     expect(merged.allRows[0]).toEqual(revertRow(futureRow));
     const s = computeStats(merged.allRows, merged.occasionAliyot, SEFER_ORDER, SEFER_MAP, NO_FILTERS, merged.weekdayAliyot, merged.hosafotReadings);
     expect(s.committedPseukim).toBe(0);
@@ -179,7 +180,7 @@ describe('applyWhatIfPicks — merges into computeStats', () => {
   it('a real future standard row present in the picks with its own date is unaffected', () => {
     const futureRow = makeRow({ aliyah: 1, pseukim: 50, isRead: true, isReadFuture: true, orig: '2099-01-01', yearRead: 2099, allYears: [2099] });
     const picks = [{ kind: 'standard' as const, key: standardRowKey(futureRow), date: '2099-01-01' }];
-    const merged = applyWhatIfPicks([futureRow], [], [], [], picks);
+    const merged = applyWhatIfPicks({ allRows: [futureRow], occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] }, picks);
     const s = computeStats(merged.allRows, merged.occasionAliyot, SEFER_ORDER, SEFER_MAP, NO_FILTERS, merged.weekdayAliyot, merged.hosafotReadings);
     expect(s.committedPseukim).toBe(50);
   });
@@ -188,7 +189,7 @@ describe('applyWhatIfPicks — merges into computeStats', () => {
     const oa = makeOA({ pseukim: 12, isRead: true, isReadFuture: true, orig: '2099-04-01' });
     const wa = makeWA({ pseukim: 5, isReadFuture: true, dateRead: '2099-04-01' });
     const hr = makeHR({ pseukim: 8, chapterStart: 5, verseStart: 1, chapterEnd: 5, verseEnd: 8, isReadFuture: true, dateRead: '2099-04-01' });
-    const merged = applyWhatIfPicks([], [oa], [wa], [hr], []);
+    const merged = applyWhatIfPicks({ allRows: [], occasionAliyot: [oa], weekdayAliyot: [wa], hosafotReadings: [hr] }, []);
     expect(merged.occasionAliyot[0]).toEqual(revertOccasion(oa));
     expect(merged.weekdayAliyot[0]).toEqual(revertWeekday(wa));
     expect(merged.hosafotReadings[0]).toEqual(revertHosafah(hr));
@@ -200,7 +201,7 @@ describe('applyWhatIfPicks — merges into computeStats', () => {
     const oa = makeOA({ pseukim: 12, isRead: true, isReadPast: true, orig: '2020-04-01' });
     const wa = makeWA({ pseukim: 5, isReadPast: true, dateRead: '2020-04-01' });
     const hr = makeHR({ pseukim: 8, chapterStart: 5, verseStart: 1, chapterEnd: 5, verseEnd: 8, isReadPast: true, dateRead: '2020-04-01' });
-    const merged = applyWhatIfPicks([], [oa], [wa], [hr], []);
+    const merged = applyWhatIfPicks({ allRows: [], occasionAliyot: [oa], weekdayAliyot: [wa], hosafotReadings: [hr] }, []);
     expect(merged.occasionAliyot[0]).toEqual(oa);
     expect(merged.weekdayAliyot[0]).toEqual(wa);
     expect(merged.hosafotReadings[0]).toEqual(hr);

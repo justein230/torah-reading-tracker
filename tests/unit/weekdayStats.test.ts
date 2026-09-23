@@ -41,6 +41,17 @@ describe('enrichPartialOrig — occasion aliyah overlaps Shabbat aliyah', () => 
     expect(out!.partialOrig).toBe('');
   });
 
+  it('does NOT set partialOrig for a future-dated occasion aliyah', () => {
+    // enrichPartialOrig filters occasions on oa.isRead, which is true for future-dated
+    // readings too — every sibling function (weekday, hosafah) filters on isReadPast instead.
+    // A future-dated occasion partially overlapping an unread Shabbat aliyah must not mark
+    // it partial yet; the reading hasn't happened.
+    const row = makeRow(); // Bereishit 1:1–1:13, unread
+    const oa  = makeOA({ isRead: true, isReadPast: false, isReadFuture: true, orig: '2099-01-01' }); // Pesach 1:1–1:5, partial overlap
+    const [out] = enrichPartialOrig([row], [oa], []);
+    expect(out!.partialOrig).toBe('');
+  });
+
   it('does NOT set partialOrig for a different parsha', () => {
     const row = makeRow({ parsha: 'Noach' });
     const oa  = makeOA({ parsha: 'Bereishit' });
@@ -99,7 +110,15 @@ describe('enrichPartialOrig — weekday aliyah overlaps Shabbat aliyah', () => {
 
   it('sets partialOrig even when weekday aliyah fully contains Shabbat aliyah (unlike occasion behavior)', () => {
     // Shabbat aliyah: 1:3–1:7 (fully contained by weekday 1:1–1:13)
-    // Occasions skip full containment; weekday aliyot do not — any overlap sets partialOrig
+    // Occasions/hosafot skip full containment because ALIYOT_SQL's `orig` COALESCE
+    // (src/db/queries.ts) already has full-containment branches for both of those kinds, so
+    // `orig` (not partialOrig) carries a fully-covered aliyah as read. There is no equivalent
+    // weekday branch in that COALESCE at all (verified: zero `weekday` references in it), so
+    // partialOrig is the *only* signal available for weekday coverage — tightening this to
+    // partiallyOverlaps would silently drop a fully-covered aliyah back to "unread".
+    // In the live data this case doesn't currently occur (all real weekday↔standard overlaps
+    // run the other way, standard ⊇ weekday), so this test guards a hypothetical the database
+    // doesn't yet exercise — but the guard still matters, since nothing else would catch it.
     const row = makeRow({ chapterStart: 1, verseStart: 3, chapterEnd: 1, verseEnd: 7 });
     const wa  = makeWA({ chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 13 });
     const [out] = enrichPartialOrig([row], [], [wa]);

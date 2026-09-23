@@ -3,7 +3,7 @@ import { Card, Text, Group, TextInput } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
 import { ToggleButtons } from './shared/ToggleButtons.js';
 import { remainingPseukim } from '../compute.js';
-import { getCurrentYear } from '../utils.js';
+import { getCurrentYear } from '../utils/format.js';
 
 const WINDOWS: { label: string; years: number | null }[] = [
   { label: '1 yr',     years: 1 },

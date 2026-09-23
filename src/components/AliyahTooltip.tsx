@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext.js';
-import { fmtDate, fmtAliyah, fmtPct } from '../utils.js';
+import { fmtDate, fmtAliyah, fmtPct } from '../utils/format.js';
 import { positionTooltip } from '../utils/tooltip.js';
 import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, TipData, TipRow } from '../types/index.js';
 import './AliyahTooltip.css';

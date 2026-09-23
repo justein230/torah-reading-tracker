@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { daysBetween } from '../../../src/utils.js';
+import { daysBetween } from '../../../src/utils/format.js';
 
 describe('daysBetween', () => {
   it('is zero for the same date', () => {

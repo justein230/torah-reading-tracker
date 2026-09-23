@@ -1,10 +1,66 @@
 import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, Filters, ForecastConfig, ForecastResult, Stats, SeferStats, SeferMeta, YearEntry } from './types/index.js';
-import { versesOverlap, daysBetween } from './utils.js';
+import { daysBetween } from './utils/format.js';
+import { partiallyOverlaps, fullyContains, versesOverlap, type VerseRange } from './utils/verseRange.js';
+
+function earliestDate(dates: string[]): string {
+  return [...dates].sort((a, b) => a.localeCompare(b))[0] as string;
+}
 
 /**
- * Computes partialOrig for each Shabbat aliyah: the earliest date a holiday or weekday
- * reading covered part (but not all) of the aliyah's verse range. Runs in TypeScript after
- * all data is fetched so the overlap logic is testable without a database.
+ * One cross-referenced source of overlap dates for a single subject: the source items
+ * already filtered down to "same parsha/sefer as the subject and read in the past", plus
+ * the overlap predicate this particular (subject kind, source kind) pair uses. The predicate
+ * varies deliberately — see the table in each enrich*PartialOrig function below: kinds whose
+ * full containment is already captured elsewhere (via ALIYOT_SQL's `orig` COALESCE) use
+ * partiallyOverlaps so they don't double up with `orig`; weekday, which has no such SQL
+ * branch, uses the looser versesOverlap so a fully-covered aliyah isn't missed entirely.
+ */
+interface OverlapSource {
+  dates: () => string[];
+  coversFully: () => boolean;
+}
+
+function overlapSource<T extends VerseRange>(
+  items: T[],
+  matches: (item: T) => boolean,
+  overlap: (source: VerseRange, subject: VerseRange) => boolean,
+  subject: VerseRange,
+  dateOf: (item: T) => string,
+): OverlapSource {
+  const relevant = items.filter(matches);
+  return {
+    dates: () => relevant.filter(item => overlap(item, subject)).map(dateOf),
+    coversFully: () => relevant.some(item => fullyContains(item, subject)),
+  };
+}
+
+/**
+ * Shared assembly for the four enrich*PartialOrig functions: for each subject not already
+ * fully read, gathers overlap dates and full-containment coverage from its cross-referenced
+ * sources, then stamps partialOrig (earliest overlap date) and isCoveredPast (fully covered
+ * by some past reading) onto it. Skips (returns unchanged) subjects the skip guard flags —
+ * already read, or without a real verse range.
+ */
+function enrichOverlapDates<S extends VerseRange & { partialOrig: string; isCoveredPast: boolean }>(
+  subjects: S[],
+  skip: (s: S) => boolean,
+  sourcesOf: (s: S) => OverlapSource[],
+): S[] {
+  return subjects.map(s => {
+    if (skip(s)) return s;
+    const sources = sourcesOf(s);
+    const isCoveredPast = sources.some(src => src.coversFully());
+    const dates = sources.flatMap(src => src.dates());
+    if (!dates.length && !isCoveredPast) return s;
+    return { ...s, partialOrig: dates.length ? earliestDate(dates) : '', isCoveredPast };
+  });
+}
+
+/**
+ * Computes partialOrig/isCoveredPast for each Shabbat aliyah: the earliest date a holiday or
+ * weekday reading covered part (but not all) of the aliyah's verse range, and whether some
+ * past reading covers it in full. Runs in TypeScript after all data is fetched so the overlap
+ * logic is testable without a database.
  */
 export function enrichPartialOrig(
   rows: MappedRow[],
@@ -12,42 +68,11 @@ export function enrichPartialOrig(
   weekdayAliyot: MappedWeekdayAliyah[],
   hosafotReadings: MappedHosafah[] = [],
 ): MappedRow[] {
-  return rows.map(r => {
-    if (r.chapterStart < 0) return r;
-    const dates = [
-      ...occasionAliyot
-        .filter(oa => oa.isRead && oa.coversAliyahId == null && oa.parsha === r.parsha && partiallyOverlaps(oa, r))
-        .map(oa => oa.orig),
-      ...weekdayAliyot
-        .filter(wa => wa.isReadPast && wa.parsha === r.parsha && versesOverlap(wa, r))
-        .map(wa => wa.dateRead),
-      ...hosafotReadings
-        .filter(hr => hr.isReadPast && hr.sefer === r.sefer && partiallyOverlaps(hr, r))
-        .map(hr => hr.dateRead),
-    ];
-    if (!dates.length) return r;
-    return { ...r, partialOrig: earliestDate(dates) };
-  });
-}
-
-type VerseRange = { chapterStart: number; verseStart: number; chapterEnd: number; verseEnd: number };
-
-function partiallyOverlaps(a: VerseRange, b: VerseRange): boolean {
-  const aStart = a.chapterStart * 1000 + a.verseStart;
-  const aEnd   = a.chapterEnd   * 1000 + a.verseEnd;
-  const bStart = b.chapterStart * 1000 + b.verseStart;
-  const bEnd   = b.chapterEnd   * 1000 + b.verseEnd;
-  return versesOverlap(a, b) && !(aStart <= bStart && aEnd >= bEnd);
-}
-
-/* True when a's verse range wholly contains b's — meaning b is fully covered by a. */
-function fullyContains(a: VerseRange, b: VerseRange): boolean {
-  return (a.chapterStart * 1000 + a.verseStart) <= (b.chapterStart * 1000 + b.verseStart)
-      && (a.chapterEnd   * 1000 + a.verseEnd)   >= (b.chapterEnd   * 1000 + b.verseEnd);
-}
-
-function earliestDate(dates: string[]): string {
-  return [...dates].sort((a, b) => a.localeCompare(b))[0] as string;
+  return enrichOverlapDates(rows, r => r.chapterStart < 0, r => [
+    overlapSource(occasionAliyot, oa => oa.isReadPast && oa.coversAliyahId == null && oa.parsha === r.parsha, partiallyOverlaps, r, oa => oa.orig),
+    overlapSource(weekdayAliyot, wa => wa.isReadPast && wa.parsha === r.parsha, versesOverlap, r, wa => wa.dateRead),
+    overlapSource(hosafotReadings, hr => hr.isReadPast && hr.sefer === r.sefer, partiallyOverlaps, r, hr => hr.dateRead),
+  ]);
 }
 
 export function enrichOccasionPartialOrig(
@@ -56,20 +81,11 @@ export function enrichOccasionPartialOrig(
   weekdayAliyot: MappedWeekdayAliyah[],
   hosafotReadings: MappedHosafah[] = [],
 ): MappedOccasionAliyah[] {
-  return occasionAliyot.map(oa => {
-    if (oa.isReadPast || oa.chapterStart < 0) return oa;
-    const isCoveredPast =
-      shabbatRows.some(r  => r.isReadPast  && r.parsha  === oa.parsha && fullyContains(r,  oa)) ||
-      weekdayAliyot.some(wa => wa.isReadPast && wa.parsha === oa.parsha && fullyContains(wa, oa)) ||
-      hosafotReadings.some(hr => hr.isReadPast && hr.sefer === oa.sefer  && fullyContains(hr, oa));
-    const dates = [
-      ...shabbatRows.filter(r  => r.isReadPast  && r.parsha  === oa.parsha && partiallyOverlaps(r,  oa)).map(r  => r.orig),
-      ...weekdayAliyot.filter(wa => wa.isReadPast && wa.parsha === oa.parsha && versesOverlap(wa, oa)).map(wa => wa.dateRead),
-      ...hosafotReadings.filter(hr => hr.isReadPast && hr.sefer === oa.sefer  && versesOverlap(hr, oa)).map(hr => hr.dateRead),
-    ];
-    if (!dates.length && !isCoveredPast) return oa;
-    return { ...oa, partialOrig: dates.length ? earliestDate(dates) : '', isCoveredPast };
-  });
+  return enrichOverlapDates(occasionAliyot, oa => oa.isReadPast || oa.chapterStart < 0, oa => [
+    overlapSource(shabbatRows, r => r.isReadPast && r.parsha === oa.parsha, partiallyOverlaps, oa, r => r.orig),
+    overlapSource(weekdayAliyot, wa => wa.isReadPast && wa.parsha === oa.parsha, versesOverlap, oa, wa => wa.dateRead),
+    overlapSource(hosafotReadings, hr => hr.isReadPast && hr.sefer === oa.sefer, versesOverlap, oa, hr => hr.dateRead),
+  ]);
 }
 
 export function enrichWeekdayPartialOrig(
@@ -78,20 +94,11 @@ export function enrichWeekdayPartialOrig(
   occasionAliyot: MappedOccasionAliyah[],
   hosafotReadings: MappedHosafah[] = [],
 ): MappedWeekdayAliyah[] {
-  return weekdayAliyot.map(wa => {
-    if (wa.dateRead || wa.chapterStart < 0) return wa;
-    const isCoveredPast =
-      shabbatRows.some(r    => r.isReadPast    && r.parsha    === wa.parsha && fullyContains(r,    wa)) ||
-      occasionAliyot.some(oa => oa.isReadPast  && oa.parsha   === wa.parsha && fullyContains(oa,   wa)) ||
-      hosafotReadings.some(hr => hr.isReadPast && hr.sefer    === wa.sefer  && fullyContains(hr,   wa));
-    const dates = [
-      ...shabbatRows.filter(r    => r.isReadPast    && r.parsha    === wa.parsha && partiallyOverlaps(r,    wa)).map(r    => r.orig),
-      ...occasionAliyot.filter(oa => oa.isReadPast  && oa.parsha   === wa.parsha && partiallyOverlaps(oa,   wa)).map(oa   => oa.orig),
-      ...hosafotReadings.filter(hr => hr.isReadPast && hr.sefer    === wa.sefer  && versesOverlap(hr,   wa)).map(hr   => hr.dateRead),
-    ];
-    if (!dates.length && !isCoveredPast) return wa;
-    return { ...wa, partialOrig: dates.length ? earliestDate(dates) : '', isCoveredPast };
-  });
+  return enrichOverlapDates(weekdayAliyot, wa => wa.isReadPast || wa.chapterStart < 0, wa => [
+    overlapSource(shabbatRows, r => r.isReadPast && r.parsha === wa.parsha, partiallyOverlaps, wa, r => r.orig),
+    overlapSource(occasionAliyot, oa => oa.isReadPast && oa.parsha === wa.parsha, partiallyOverlaps, wa, oa => oa.orig),
+    overlapSource(hosafotReadings, hr => hr.isReadPast && hr.sefer === wa.sefer, versesOverlap, wa, hr => hr.dateRead),
+  ]);
 }
 
 export function enrichHosafotPartialOrig(
@@ -100,16 +107,11 @@ export function enrichHosafotPartialOrig(
   occasionAliyot: MappedOccasionAliyah[],
   weekdayAliyot: MappedWeekdayAliyah[],
 ): MappedHosafah[] {
-  return hosafotReadings.map(hr => {
-    if (hr.isReadPast || hr.chapterStart < 0) return hr;
-    const dates = [
-      ...shabbatRows.filter(r => r.isReadPast && r.sefer === hr.sefer && partiallyOverlaps(r, hr)).map(r => r.orig),
-      ...occasionAliyot.filter(oa => oa.isReadPast && oa.sefer === hr.sefer && partiallyOverlaps(oa, hr)).map(oa => oa.orig),
-      ...weekdayAliyot.filter(wa => wa.isReadPast && wa.sefer === hr.sefer && partiallyOverlaps(wa, hr)).map(wa => wa.dateRead),
-    ];
-    if (!dates.length) return hr;
-    return { ...hr, partialOrig: earliestDate(dates) };
-  });
+  return enrichOverlapDates(hosafotReadings, hr => hr.isReadPast || hr.chapterStart < 0, hr => [
+    overlapSource(shabbatRows, r => r.isReadPast && r.sefer === hr.sefer, partiallyOverlaps, hr, r => r.orig),
+    overlapSource(occasionAliyot, oa => oa.isReadPast && oa.sefer === hr.sefer, partiallyOverlaps, hr, oa => oa.orig),
+    overlapSource(weekdayAliyot, wa => wa.isReadPast && wa.sefer === hr.sefer, partiallyOverlaps, hr, wa => wa.dateRead),
+  ]);
 }
 
 /**
@@ -331,7 +333,7 @@ export function computePairReadPseukim(pairRows: Record<number, MappedRow[]>, co
   }, 0);
 }
 
-export interface RingStats { total: number; read: number; commit: number; pct: number; cPct: number }
+interface RingStats { total: number; read: number; commit: number; pct: number; cPct: number }
 
 export function computeRing(
   items: { sefer: string; isReadPast: boolean; isCoveredPast: boolean; isReadFuture: boolean }[],
@@ -386,15 +388,17 @@ function creditSpecialKeys(
 }
 
 // Like creditSpecialKeys but for future-scheduled reads: credits verses not yet
-// past-read and not already credited to another future read, without adding to readVerseKeys.
+// past-read, not already committed by a standard row (e.g. a future special reading whose
+// coverage already set `orig` on the standard aliyah — see ALIYOT_SQL), and not already
+// credited to another future read, without adding to readVerseKeys.
 function creditFutureKeys(
   keys: string[], sefer: string,
-  futureVerseKeys: Set<string>, readVerseKeys: Set<string>, standardVerseKeys: Set<string>,
+  futureVerseKeys: Set<string>, readVerseKeys: Set<string>, committedVerseKeys: Set<string>, standardVerseKeys: Set<string>,
   bs: Record<string, SeferStats>,
 ): number {
   let credit = 0;
   for (const key of keys) {
-    if (!standardVerseKeys.has(key) || readVerseKeys.has(key) || futureVerseKeys.has(key)) continue;
+    if (!standardVerseKeys.has(key) || readVerseKeys.has(key) || committedVerseKeys.has(key) || futureVerseKeys.has(key)) continue;
     futureVerseKeys.add(key);
     credit++;
   }
@@ -409,11 +413,11 @@ type SpecialItem = { sefer: string; pseukim: number; isReadPast: boolean; isRead
 
 function creditSpecialOverlap(
   item: SpecialItem, verseKeys: string[],
-  readVerseKeys: Set<string>, futureVerseKeys: Set<string>, standardVerseKeys: Set<string>,
+  readVerseKeys: Set<string>, futureVerseKeys: Set<string>, committedVerseKeys: Set<string>, standardVerseKeys: Set<string>,
   bs: Record<string, SeferStats>,
 ): { read: number; future: number } {
   if (item.isReadPast)   return { read: creditSpecialKeys(verseKeys, item.sefer, readVerseKeys, standardVerseKeys, bs), future: 0 };
-  if (item.isReadFuture) return { read: 0, future: creditFutureKeys(verseKeys, item.sefer, futureVerseKeys, readVerseKeys, standardVerseKeys, bs) };
+  if (item.isReadFuture) return { read: 0, future: creditFutureKeys(verseKeys, item.sefer, futureVerseKeys, readVerseKeys, committedVerseKeys, standardVerseKeys, bs) };
   return { read: 0, future: 0 };
 }
 
@@ -437,13 +441,13 @@ function processSpecialItemStats(
   items: (SpecialItem & { chapterStart: number; verseStart: number; chapterEnd: number; verseEnd: number })[],
   ctx: StatsCtx,
 ): { specialReadPseukim: number; specialTotalPseukim: number; specialFuturePseukim: number } {
-  const { filters, standardVerseKeys, readVerseKeys, futureVerseKeys, bs, SEFER_MAP: seferMap } = ctx;
+  const { filters, standardVerseKeys, readVerseKeys, committedVerseKeys, futureVerseKeys, bs, SEFER_MAP: seferMap } = ctx;
   let specialReadPseukim = 0, specialTotalPseukim = 0, specialFuturePseukim = 0;
   for (const item of items) {
     if (!isSeferAllowed(item.sefer, filters)) continue;
     const verseKeys = verseKeysForRange(item, seferMap);
     if (hasAnyKey(verseKeys, standardVerseKeys)) {
-      const { read, future } = creditSpecialOverlap(item, verseKeys, readVerseKeys, futureVerseKeys, standardVerseKeys, bs);
+      const { read, future } = creditSpecialOverlap(item, verseKeys, readVerseKeys, futureVerseKeys, committedVerseKeys, standardVerseKeys, bs);
       specialReadPseukim += read; specialFuturePseukim += future;
     } else {
       const { read, future, total } = creditSpecialNonStandard(item, bs);
@@ -459,7 +463,7 @@ function processSpecialStats(
   hosafotReadings: MappedHosafah[],
   ctx: StatsCtx,
 ): { specialReadPseukim: number; specialTotalPseukim: number; specialFuturePseukim: number } {
-  const { filters, standardVerseKeys, readVerseKeys, futureVerseKeys, bs, SEFER_MAP: seferMap } = ctx;
+  const { filters, standardVerseKeys, readVerseKeys, committedVerseKeys, futureVerseKeys, bs, SEFER_MAP: seferMap } = ctx;
 
   // coversAliyahId items are sub-aliyot that live inside a standard aliyah; skip them here.
   const { specialReadPseukim: oaRead, specialTotalPseukim, specialFuturePseukim: oaFuture } =
@@ -473,7 +477,7 @@ function processSpecialStats(
     const verseKeys = verseKeysForRange(wa, seferMap);
     if (!hasAnyKey(verseKeys, standardVerseKeys)) continue;
     if (wa.isReadPast)        specialReadPseukim   += creditSpecialKeys(verseKeys, wa.sefer, readVerseKeys, standardVerseKeys, bs);
-    else if (wa.isReadFuture) specialFuturePseukim += creditFutureKeys(verseKeys, wa.sefer, futureVerseKeys, readVerseKeys, standardVerseKeys, bs);
+    else if (wa.isReadFuture) specialFuturePseukim += creditFutureKeys(verseKeys, wa.sefer, futureVerseKeys, readVerseKeys, committedVerseKeys, standardVerseKeys, bs);
   }
 
   const { specialReadPseukim: hrRead, specialTotalPseukim: hrTotal, specialFuturePseukim: hrFuture } =

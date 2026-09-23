@@ -270,7 +270,14 @@ function parseId(req: express.Request): number {
 // Strips control characters from user-supplied free text (occasion/location/note)
 // before it's stored and later echoed into the public ICS calendar feed.
 function cleanText(s: string): string {
+  // oxlint-disable-next-line no-control-regex -- intentional: stripping control chars is the point
   return s.replace(/[\x00-\x1F\x7F]/g, '').trim();
+}
+
+// Cleans an optional free-text field, collapsing missing/empty/control-only input to null
+// so it stores as NULL rather than ''.
+function cleanOrNull(s: string | undefined | null): string | null {
+  return s ? cleanText(s) || null : null;
 }
 
 function requireFields(res: express.Response, body: Record<string, unknown>, fields: string[]): boolean {
@@ -305,6 +312,38 @@ function existsOrNotFound(res: express.Response, query: { get(): unknown }, labe
 
 function isUniqueConstraint(e: unknown): boolean {
   return typeof e === 'object' && e !== null && (e as { code?: unknown }).code === 'SQLITE_CONSTRAINT_UNIQUE';
+}
+
+// Registers the DELETE (and, when `put` is given, PUT) routes shared by the special/weekday/
+// hosafot reading tables: parseId → existsOrNotFound → mutate → respond. `exists`/`del`/`put.set`
+// stay as small per-table closures so each keeps its own exact Drizzle table/column types.
+function crudRoutes<TSet>(app: express.Express, opts: {
+  path: string;
+  label: string;
+  exists: (id: number) => { get(): unknown };
+  del: (id: number) => void;
+  put?: {
+    buildSet: (body: Record<string, unknown>) => TSet;
+    set: (id: number, values: TSet) => void;
+  };
+}): void {
+  if (opts.put) {
+    const { buildSet, set } = opts.put;
+    app.put(`${opts.path}/:id`, (req, res) => {
+      const id = parseId(req);
+      if (!requireFields(res, req.body, ['date_read'])) return;
+      if (!existsOrNotFound(res, opts.exists(id), opts.label)) return;
+      set(id, buildSet(req.body));
+      res.json({ id });
+    });
+  }
+
+  app.delete(`${opts.path}/:id`, (req, res) => {
+    const id = parseId(req);
+    if (!existsOrNotFound(res, opts.exists(id), opts.label)) return;
+    opts.del(id);
+    res.status(204).send();
+  });
 }
 
 function findAliyahId(parsha: string, aliyahNum: number): number | null {
@@ -465,8 +504,8 @@ app.post('/api/readings', (req, res) => {
     const result = db.insert(readings).values({
       aliyahId,
       dateRead: date_read,
-      occasion: occasion ? cleanText(occasion) || null : null,
-      location: location ? cleanText(location) || null : null,
+      occasion: cleanOrNull(occasion),
+      location: cleanOrNull(location),
       readingType: reading_type,
       pairId: pair_id ?? null,
     }).run();
@@ -486,7 +525,7 @@ app.put('/api/readings/:id', (req, res) => {
 
   const { occasion = '', location = '' } = req.body;
   db.update(readings)
-    .set({ occasion: occasion ? cleanText(occasion) || null : null, location: location ? cleanText(location) || null : null })
+    .set({ occasion: cleanOrNull(occasion), location: cleanOrNull(location) })
     .where(eq(readings.id, id))
     .run();
   res.json({ id });
@@ -525,8 +564,8 @@ app.post('/api/readings/special', (req, res) => {
     const result = db.insert(specialReadings).values({
       occasionAliyahId: occasion_aliyah_id,
       dateRead: date_read,
-      note:     note ? cleanText(note) || null : null,
-      location: loc  ? cleanText(loc)  || null : null,
+      note:     cleanOrNull(note),
+      location: cleanOrNull(loc),
     }).run();
     id = Number(result.lastInsertRowid);
   } catch (e: unknown) {
@@ -537,11 +576,11 @@ app.post('/api/readings/special', (req, res) => {
   res.status(201).json({ id });
 });
 
-app.delete('/api/readings/special/:id', (req, res) => {
-  const id = parseId(req);
-  if (!existsOrNotFound(res, db.select({ id: specialReadings.id }).from(specialReadings).where(eq(specialReadings.id, id)), 'Special reading')) return;
-  db.delete(specialReadings).where(eq(specialReadings.id, id)).run();
-  res.status(204).send();
+crudRoutes(app, {
+  path: '/api/readings/special',
+  label: 'Special reading',
+  exists: id => db.select({ id: specialReadings.id }).from(specialReadings).where(eq(specialReadings.id, id)),
+  del: id => { db.delete(specialReadings).where(eq(specialReadings.id, id)).run(); },
 });
 
 // ── weekday readings ──────────────────────────────────────────────────────────
@@ -559,8 +598,8 @@ app.post('/api/readings/weekday', (req, res) => {
     const [inserted] = db.insert(weekdayReadings).values({
       weekdayAliyahId: weekday_aliyah_id,
       dateRead:        date_read,
-      note:            note  ? cleanText(note) || null : null,
-      location:        loc   ? cleanText(loc)  || null : null,
+      note:            cleanOrNull(note),
+      location:        cleanOrNull(loc),
     }).returning({ id: weekdayReadings.id }).all();
     if (!inserted) throw new Error('Insert returned no row');
     res.status(201).json({ id: inserted.id });
@@ -570,21 +609,15 @@ app.post('/api/readings/weekday', (req, res) => {
   }
 });
 
-app.put('/api/readings/weekday/:id', (req, res) => {
-  const id = parseId(req);
-  const { date_read, note = '', location: loc = '' } = req.body;
-  if (!requireFields(res, req.body, ['date_read'])) return;
-  if (!existsOrNotFound(res, db.select({ id: weekdayReadings.id }).from(weekdayReadings).where(eq(weekdayReadings.id, id)), 'Weekday reading')) return;
-  db.update(weekdayReadings).set({ dateRead: date_read, note: note ? cleanText(note) || null : null, location: loc ? cleanText(loc) || null : null })
-    .where(eq(weekdayReadings.id, id)).run();
-  res.json({ success: true });
-});
-
-app.delete('/api/readings/weekday/:id', (req, res) => {
-  const id = parseId(req);
-  if (!existsOrNotFound(res, db.select({ id: weekdayReadings.id }).from(weekdayReadings).where(eq(weekdayReadings.id, id)), 'Weekday reading')) return;
-  db.delete(weekdayReadings).where(eq(weekdayReadings.id, id)).run();
-  res.status(204).send();
+crudRoutes(app, {
+  path: '/api/readings/weekday',
+  label: 'Weekday reading',
+  exists: id => db.select({ id: weekdayReadings.id }).from(weekdayReadings).where(eq(weekdayReadings.id, id)),
+  del: id => { db.delete(weekdayReadings).where(eq(weekdayReadings.id, id)).run(); },
+  put: {
+    buildSet: body => ({ dateRead: body['date_read'] as string, note: cleanOrNull(body['note'] as string), location: cleanOrNull(body['location'] as string) }),
+    set: (id, values) => { db.update(weekdayReadings).set(values).where(eq(weekdayReadings.id, id)).run(); },
+  },
 });
 
 // ── hosafot readings ──────────────────────────────────────────────────────────
@@ -615,8 +648,8 @@ app.post('/api/readings/hosafot', (req, res) => {
       verseEnd:       ints['verse_end'],
       pseukim:        ints['pseukim'],
       dateRead:       date_read,
-      note:           note  ? cleanText(note) || null : null,
-      location:       loc   ? cleanText(loc)  || null : null,
+      note:           cleanOrNull(note),
+      location:       cleanOrNull(loc),
     };
     const [inserted] = db.insert(hosafotReadings).values(values).returning({ id: hosafotReadings.id }).all();
     if (!inserted) throw new Error('Insert returned no row');
@@ -629,26 +662,16 @@ app.post('/api/readings/hosafot', (req, res) => {
   res.status(201).json({ id });
 });
 
-app.put('/api/readings/hosafot/:id', (req, res) => {
-  const id = parseId(req);
-  if (!existsOrNotFound(res, db.select({ id: hosafotReadings.id }).from(hosafotReadings).where(eq(hosafotReadings.id, id)), 'Hosafah reading')) return;
-  const { date_read, note, location: loc } = req.body;
-  if (!date_read) { res.status(400).json({ detail: 'date_read is required.' }); return; }
-  db.update(hosafotReadings).set({
-    dateRead: date_read,
-    note:     note ? cleanText(note) || null : null,
-    location: loc  ? cleanText(loc)  || null : null,
-  }).where(eq(hosafotReadings.id, id)).run();
-  res.json({ id });
+crudRoutes(app, {
+  path: '/api/readings/hosafot',
+  label: 'Hosafah reading',
+  exists: id => db.select({ id: hosafotReadings.id }).from(hosafotReadings).where(eq(hosafotReadings.id, id)),
+  del: id => { db.delete(hosafotReadings).where(eq(hosafotReadings.id, id)).run(); },
+  put: {
+    buildSet: body => ({ dateRead: body['date_read'] as string, note: cleanOrNull(body['note'] as string), location: cleanOrNull(body['location'] as string) }),
+    set: (id, values) => { db.update(hosafotReadings).set(values).where(eq(hosafotReadings.id, id)).run(); },
+  },
 });
-
-app.delete('/api/readings/hosafot/:id', (req, res) => {
-  const id = parseId(req);
-  if (!existsOrNotFound(res, db.select({ id: hosafotReadings.id }).from(hosafotReadings).where(eq(hosafotReadings.id, id)), 'Hosafah reading')) return;
-  db.delete(hosafotReadings).where(eq(hosafotReadings.id, id)).run();
-  res.status(204).send();
-});
-
 
 // ── calendar feed ─────────────────────────────────────────────────────────────
 

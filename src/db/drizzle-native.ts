@@ -18,5 +18,3 @@ export function createNativeDb(getConn: () => Promise<CapacitorConn>) {
     return { rows: (method === 'get' ? rows[0] : rows) as unknown[] };
   }, { schema });
 }
-
-export type NativeDb = ReturnType<typeof createNativeDb>;

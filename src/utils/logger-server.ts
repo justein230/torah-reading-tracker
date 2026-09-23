@@ -57,7 +57,7 @@ function createRotatingDestination(logPath: string): { write(chunk: string): voi
 }
 
 /** Shallow-redacts known credential fields from a request body before it's logged. */
-export function redactBody(body: unknown): unknown {
+function redactBody(body: unknown): unknown {
   if (typeof body !== 'object' || body === null) return body;
   const out: Record<string, unknown> = { ...(body as Record<string, unknown>) };
   for (const key of Object.keys(out)) {

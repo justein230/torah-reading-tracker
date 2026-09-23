@@ -8,7 +8,7 @@ export function makeRow(overrides: Partial<MappedRow> = {}): MappedRow {
     chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 10,
     isRead: false, isReadPast: false, isReadFuture: false, isFuture: false,
     isReread: false, hasFuture: false, yearRead: null, futureYear: null, allYears: [],
-    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', futDates: [], occasion: '', location: '', rereadCount: 0,
+    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', isCoveredPast: false, futDates: [], occasion: '', location: '', rereadCount: 0,
     ...overrides,
   };
   // A genuinely-read standard aliyah has directOrig === orig; default to that unless a test
@@ -61,7 +61,7 @@ export function makeHosafah(overrides: Partial<MappedHosafah> = {}): MappedHosaf
     pseukim: 5, dateRead: '2024-01-15', note: '', location: '',
     parsha1: 'Bereishit', parsha1En: 'Bereishit', parsha2: null, parsha2En: null,
     occasion: null, occasionEn: null,
-    isReadPast: true, partialOrig: '',
+    isReadPast: true, partialOrig: '', isCoveredPast: false,
     ...overrides,
     isReadFuture: overrides.isReadFuture ?? false,
   };

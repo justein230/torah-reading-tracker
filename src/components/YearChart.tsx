@@ -3,7 +3,7 @@ import { Card, Text } from '@mantine/core';
 import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
 import type { ScriptableScaleContext } from 'chart.js';
 import { useApp } from '../context/AppContext.js';
-import { fmtPct } from '../utils.js';
+import { fmtPct } from '../utils/format.js';
 import type { Stats } from '../types/index.js';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend);

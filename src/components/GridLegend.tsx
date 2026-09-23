@@ -1,9 +1,9 @@
 import './GridLegend.css';
-import { futureBg, partialBg, partialBorder } from '../utils.js';
+import { futureBg, partialBg, partialBorder } from '../utils/format.js';
 
-export const EXAMPLE_COLOR = '#4a90d9';
+const EXAMPLE_COLOR = '#4a90d9';
 
-export type LegendKey = 'read' | 'scheduled' | 'reread' | 'partial' | 'unread' | 'na';
+type LegendKey = 'read' | 'scheduled' | 'reread' | 'partial' | 'unread' | 'na';
 
 interface LegendItemProps {
   label: string;

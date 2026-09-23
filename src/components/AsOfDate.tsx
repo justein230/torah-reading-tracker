@@ -4,7 +4,7 @@ import { DatePicker } from '@mantine/dates';
 import { useApp } from '../context/AppContext.js';
 import { computeStats, effectivePseukimOf } from '../compute.js';
 import { applyAsOfDate } from '../utils/asOfDate.js';
-import { fmtDate } from '../utils.js';
+import { fmtDate } from '../utils/format.js';
 import { TODAY_STR } from '../api.js';
 import type { Stats } from '../types/index.js';
 import './Overview.css';
@@ -16,7 +16,7 @@ export default function AsOfDate() {
 
   const asOfStats = useMemo<Stats | null>(() => {
     if (!date) return null;
-    const snap = applyAsOfDate(allRows, occasionAliyot, weekdayAliyot, hosafotReadings, date);
+    const snap = applyAsOfDate({ allRows, occasionAliyot, weekdayAliyot, hosafotReadings }, date);
     return computeStats(snap.allRows, snap.occasionAliyot, SEFER_ORDER, SEFER_MAP, filters, snap.weekdayAliyot, snap.hosafotReadings);
   }, [date, allRows, occasionAliyot, weekdayAliyot, hosafotReadings, SEFER_ORDER, SEFER_MAP, filters]);
 

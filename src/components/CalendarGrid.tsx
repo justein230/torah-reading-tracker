@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SeferDot } from './shared/SeferDot.js';
 import { ReadingStatusBadges } from './shared/ReadingStatusBadges.js';
 import { format as formatDate } from 'date-fns';
-import { fmtDate, futureBg, fmtAliyah } from '../utils.js';
+import { fmtDate, futureBg, fmtAliyah } from '../utils/format.js';
 import { positionTooltip } from '../utils/tooltip.js';
 import type { CalEntry, CalKind, SeferMeta } from '../types/index.js';
 

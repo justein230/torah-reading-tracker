@@ -1,4 +1,4 @@
-import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah } from '../types/index.js';
+import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, ReadingArrays } from '../types/index.js';
 
 /**
  * A hypothetical future reading the user is considering scheduling, identified
@@ -46,6 +46,8 @@ export function revertRow(r: MappedRow): MappedRow {
     isReadFuture: false,
     yearRead: null,
     allYears: r.futureYear === null ? [] : [r.futureYear],
+    partialOrig: '',
+    isCoveredPast: false,
   };
 }
 
@@ -65,22 +67,15 @@ export function withHypotheticalHosafahDate(hr: MappedHosafah, date: string): Ma
    unread, used when a real future reading is deliberately left out of a what-if pick list (the
    user "un-scheduled" it in the preview). Mirrors revertRow for standard aliyot. */
 export function revertOccasion(oa: MappedOccasionAliyah): MappedOccasionAliyah {
-  return { ...oa, orig: '', isRead: false, isReadPast: false, isReadFuture: false };
+  return { ...oa, orig: '', isRead: false, isReadPast: false, isReadFuture: false, partialOrig: '', isCoveredPast: false };
 }
 
 export function revertWeekday(wa: MappedWeekdayAliyah): MappedWeekdayAliyah {
-  return { ...wa, dateRead: '', isReadPast: false, isReadFuture: false };
+  return { ...wa, dateRead: '', isReadPast: false, isReadFuture: false, partialOrig: '', isCoveredPast: false };
 }
 
 export function revertHosafah(hr: MappedHosafah): MappedHosafah {
-  return { ...hr, dateRead: '', isReadPast: false, isReadFuture: false };
-}
-
-export interface WhatIfArrays {
-  allRows: MappedRow[];
-  occasionAliyot: MappedOccasionAliyah[];
-  weekdayAliyot: MappedWeekdayAliyah[];
-  hosafotReadings: MappedHosafah[];
+  return { ...hr, dateRead: '', isReadPast: false, isReadFuture: false, partialOrig: '', isCoveredPast: false };
 }
 
 /**
@@ -96,12 +91,9 @@ export interface WhatIfArrays {
  * un-scheduling them. Past-read rows are never touched.
  */
 export function applyWhatIfPicks(
-  allRows: MappedRow[],
-  occasionAliyot: MappedOccasionAliyah[],
-  weekdayAliyot: MappedWeekdayAliyah[],
-  hosafotReadings: MappedHosafah[],
+  { allRows, occasionAliyot, weekdayAliyot, hosafotReadings }: ReadingArrays,
   picks: WhatIfPick[],
-): WhatIfArrays {
+): ReadingArrays {
   const dateByKey: Record<WhatIfPick['kind'], Map<string, string>> = {
     standard: new Map(), occasion: new Map(), weekday: new Map(), hosafah: new Map(),
   };

@@ -204,6 +204,43 @@ The repository includes `Caddyfile.header-auth-test` and a Compose
 `header-auth` profile for validating this model locally. They are test aids,
 not a production proxy configuration.
 
+## Optional: restrict writes by network
+
+Any IP-based restriction (e.g. LAN-only write access) is the reverse proxy's
+job, not the app's — the app has no IP allowlist of its own. This applies
+regardless of which authentication model above you chose; it's an additional
+network-layer restriction on top. A generic Caddy example:
+
+```caddyfile
+http://your-domain.example.com {
+    # Block writes/exports from untrusted networks (adjust CIDRs to your LAN)
+    @blockedWrite {
+        method POST PUT DELETE
+        path /api/readings*
+        not { remote_ip 10.0.0.0/8 127.0.0.0/8 }
+    }
+    respond @blockedWrite 403
+
+    handle /api/* {
+        reverse_proxy localhost:3000
+    }
+
+    handle {
+        root * /path/to/dist
+        file_server
+        try_files {path} /index.html
+    }
+}
+```
+
+Traefik users can achieve the same with the `ipallowlist` middleware on the
+relevant router instead of a `@blockedWrite` matcher.
+
+Replace `your-domain.example.com`, the allowed CIDRs, and `/path/to/dist` with
+values for your own environment. (This example assumes a bare Node deployment,
+not the Dockerized one described above — adjust the `reverse_proxy`/`root`
+targets accordingly.)
+
 ## Production checklist
 
 Before handing either deployment over to users, confirm that:

@@ -119,7 +119,7 @@ for (const { id: parshaId, nameEn: parsha } of allParshiot) {
     .map(([key, aliyah]) => [Number.parseInt(key, 10), aliyah] as const)
     .filter(([num]) => !Number.isNaN(num)) // drop maftir 'M'; this script seeds aliyot 1-7
     .sort(([a], [b]) => a - b);
-  const first = aliyahEntries[0][1];
+  const first = aliyahEntries[0]![1];
   const last  = aliyahEntries.at(-1)![1];
   const [parshaChapterStart, parshaVerseStart] = first.b.split(':').map(Number);
   const [parshaChapterEnd,   parshaVerseEnd]   = last.e.split(':').map(Number);

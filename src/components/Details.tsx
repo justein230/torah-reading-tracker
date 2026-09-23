@@ -6,7 +6,7 @@ import { Box, Text } from '@mantine/core';
 import { SeferDot } from './shared/SeferDot.js';
 import { SortButtons } from './shared/ToggleButtons.js';
 import { useApp } from '../context/AppContext.js';
-import { fmtDate, hex } from '../utils.js';
+import { fmtDate, hex } from '../utils/format.js';
 import { useAliyahTooltip, AliyahTooltip, isTouch } from './AliyahTooltip.js';
 import type { MappedRow } from '../types/index.js';
 

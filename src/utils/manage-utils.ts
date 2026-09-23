@@ -1,5 +1,5 @@
 import { postReading, putReading, deleteReading, postSpecialReading, deleteSpecialReading } from '../api.js';
-import { toDateStr } from '../utils.js';
+import { toDateStr } from './format.js';
 import type { ManageForm, MappedRow, ParshaPair } from '../types/index.js';
 
 export function applyFieldChange(

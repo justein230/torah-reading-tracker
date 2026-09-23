@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import type { DbApi } from '../../src/types/index.js';
 
 // Web layer imports cleanly (no native deps).
 import * as webApi from '../../src/db/web.js';
@@ -21,30 +22,11 @@ vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => false }
 
 import * as nativeApi from '../../src/db/native.js';
 
-const EXPECTED_EXPORTS = [
-  'fetchCanWrite',
-  'fetchMeta',
-  'fetchAliyot',
-  'fetchReadings',
-  'fetchLocationStats',
-  'fetchHebcal',
-  'postReading',
-  'putReading',
-  'deleteReading',
-  'fetchOccasions',
-  'fetchOccasionAliyot',
-  'fetchSpecialReadings',
-  'postSpecialReading',
-  'deleteSpecialReading',
-  'fetchWeekdayAliyot',
-  'postWeekdayReading',
-  'putWeekdayReading',
-  'deleteWeekdayReading',
-  'fetchHosafotReadings',
-  'postHosafah',
-  'putHosafah',
-  'deleteHosafah',
-] as const;
+// Compile-time check: a missing or mistyped member on either platform fails typecheck here,
+// so drift is caught by `npm run typecheck` instead of relying on a hand-maintained name list.
+const _web: DbApi = webApi;
+const _native: DbApi = nativeApi;
+const EXPECTED_EXPORTS = Object.keys(_web) as (keyof DbApi)[];
 
 const web = webApi as Record<string, unknown>;
 const native = nativeApi as Record<string, unknown>;

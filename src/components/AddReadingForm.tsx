@@ -3,7 +3,7 @@ import { Text, Select, MultiSelect, Button, TextInput, Group, Switch, Radio, Car
 import { DateInput } from '@mantine/dates';
 import { useApp } from '../context/AppContext.js';
 import { countPseukim } from '../compute.js';
-import { fmtDate, toDateStr } from '../utils.js';
+import { fmtDate, toDateStr } from '../utils/format.js';
 import { buildGroupedOptions } from '../utils/form-options.js';
 import { CATEGORY_LABELS_FORM } from '../constants.js';
 import { ParshaField } from './shared/ParshaField.js';

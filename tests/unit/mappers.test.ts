@@ -88,7 +88,7 @@ describe('mapOccasionAliyahRow — flags and projection', () => {
   });
 
   it('defaults readCount to 0 when read_count is absent', () => {
-    const { read_count, ...rest } = OCCASION_BASE;
+    const { read_count: _read_count, ...rest } = OCCASION_BASE;
     expect(mapOccasionAliyahRow(rest as typeof OCCASION_BASE).readCount).toBe(0);
   });
 });

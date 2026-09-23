@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext.js';
-import { fmtDate, fmtAliyah } from '../../utils.js';
+import { fmtDate, fmtAliyah } from '../../utils/format.js';
 import type { LogEntry } from '../../types/index.js';
 
 interface ReadingRowProps {

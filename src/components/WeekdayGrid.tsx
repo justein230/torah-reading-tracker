@@ -3,7 +3,9 @@ import { useApp } from '../context/AppContext.js';
 import { useAliyahTooltip, AliyahTooltip, TouchAwareCell, type CellHandlers } from './AliyahTooltip.js';
 import { GridLegend } from './GridLegend.js';
 import { SeferSection } from './shared/SeferSection.js';
-import { versesOverlap, aliyahCellStyle, aliyahState, fmtPct } from '../utils.js';
+import { ParshaRow } from './shared/ParshaRow.js';
+import { aliyahCellStyle, aliyahState, fmtPct, groupBy } from '../utils/format.js';
+import { versesOverlap } from '../utils/verseRange.js';
 import type { MappedWeekdayAliyah } from '../types/index.js';
 import './Grid.css';
 
@@ -60,11 +62,7 @@ export default function WeekdayGrid() {
   const { weekdayAliyot, occasionAliyot, allRows, SEFER_ORDER, SEFER_MAP, parshaIndex } = useApp();
   const { tip, tipPos, showWeekdayTip, handlers } = useAliyahTooltip();
 
-  const waByParsha: Record<string, MappedWeekdayAliyah[]> = {};
-  for (const wa of weekdayAliyot) {
-    waByParsha[wa.parsha] ??= [];
-    waByParsha[wa.parsha]!.push(wa);
-  }
+  const waByParsha = groupBy(weekdayAliyot, wa => wa.parsha);
 
   const shabbatOrigByParsha: Record<string, string> = {};
   for (const row of allRows) {
@@ -81,7 +79,7 @@ export default function WeekdayGrid() {
       {SEFER_ORDER.map(sefer => {
         const parshas = parshaIndex[sefer] ?? [];
         const color   = SEFER_MAP[sefer]?.color ?? '#888';
-        const allWa      = parshas.flatMap(p => waByParsha[p] ?? []);
+        const allWa      = parshas.flatMap(p => waByParsha.get(p) ?? []);
         const totalCount = allWa.length;
         const readCount  = allWa.filter(wa => wa.isReadPast || holidayCoverById.has(wa.id) || shabbatOrigByParsha[wa.parsha] !== undefined).length;
         const aPct       = fmtPct(readCount, totalCount);
@@ -94,31 +92,28 @@ export default function WeekdayGrid() {
             columnKeys={[1, 2, 3]}
           >
             {parshas.map(parsha => {
-              const aliyot = waByParsha[parsha] ?? [];
+              const aliyot = waByParsha.get(parsha) ?? [];
               if (!aliyot.length) return null;
               const shabbatOrig = shabbatOrigByParsha[parsha];
               return (
-                <div key={parsha} className="parsha-row">
-                  <div className="parsha-label">
-                    <span className="heb">{parsha}</span>
-                    <span className="eng">{aliyot[0]!.parshaEn}</span>
-                  </div>
-                  <div className="aliyah-cells">
-                    {aliyot.map(wa => {
-                      const coveredBy = shabbatOrig
-                        ? { date: shabbatOrig, label: 'Read' }
-                        : holidayCoverById.get(wa.id);
-                      return (
-                        <WeekdayCell
-                          key={wa.id}
-                          wa={wa} coveredBy={coveredBy} color={color}
-                          showWeekdayTip={showWeekdayTip}
-                          handlers={handlers}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
+                <ParshaRow
+                  key={parsha}
+                  label={<><span className="heb">{parsha}</span><span className="eng">{aliyot[0]!.parshaEn}</span></>}
+                >
+                  {aliyot.map(wa => {
+                    const coveredBy = shabbatOrig
+                      ? { date: shabbatOrig, label: 'Read' }
+                      : holidayCoverById.get(wa.id);
+                    return (
+                      <WeekdayCell
+                        key={wa.id}
+                        wa={wa} coveredBy={coveredBy} color={color}
+                        showWeekdayTip={showWeekdayTip}
+                        handlers={handlers}
+                      />
+                    );
+                  })}
+                </ParshaRow>
               );
             })}
           </SeferSection>

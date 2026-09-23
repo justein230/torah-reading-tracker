@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import './ReadingLog.css';
 import { Box, Modal, ActionIcon, Group, Text } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
-import { fmtDate } from '../utils.js';
+import { fmtDate, groupBy } from '../utils/format.js';
 import { TODAY_STR } from '../api.js';
 import { EmptyState } from './shared/EmptyState.js';
 import { CollapsibleRow } from './shared/CollapsibleRow.js';
@@ -167,16 +167,8 @@ function CombinedAliyahCard({ group, rowActions }: Readonly<{ group: CombinedAli
   );
 }
 
-function groupReadingsByYear(readings: DisplayEntry[]): { yearOrder: number[]; byYear: Record<number, DisplayEntry[]> } {
-  const yearOrder: number[] = [];
-  const byYear: Record<number, DisplayEntry[]> = {};
-  for (const r of readings) {
-    const yr = r.displayYear ?? 0;
-    let arr = byYear[yr];
-    if (!arr) { arr = []; byYear[yr] = arr; yearOrder.push(yr); }
-    arr.push(r);
-  }
-  return { yearOrder, byYear };
+function groupReadingsByYear(readings: DisplayEntry[]): Map<number, DisplayEntry[]> {
+  return groupBy(readings, r => r.displayYear ?? 0);
 }
 
 interface DayGroup {
@@ -187,14 +179,8 @@ interface DayGroup {
 
 /** Group a year's entries by date, then split each day into double-parsha groups + singles. */
 function groupYearByDate(group: DisplayEntry[]): DayGroup[] {
-  const dateOrder: string[] = [];
-  const byDate: Record<string, DisplayEntry[]> = {};
-  for (const r of group) {
-    let dayArr = byDate[r.displayDate];
-    if (!dayArr) { dayArr = []; byDate[r.displayDate] = dayArr; dateOrder.push(r.displayDate); }
-    dayArr.push(r);
-  }
-  return dateOrder.map(dateStr => ({ dateStr, ...groupDoubleParsha(byDate[dateStr] ?? []) }));
+  const byDate = groupBy(group, r => r.displayDate);
+  return [...byDate.entries()].map(([dateStr, entries]) => ({ dateStr, ...groupDoubleParsha(entries) }));
 }
 
 interface YearGroupProps {
@@ -323,13 +309,15 @@ export default function ReadingLog() {
 
   const rowActions: RowActions | undefined = crud.canWrite ? rowActionsFor : undefined;
 
-  const upcoming = [...readings.filter(r => r.displayDate > TODAY_STR)]
+  const upcoming = readings.filter(r => r.displayDate > TODAY_STR)
     .sort((a, b) => new Date(a.displayDate).getTime() - new Date(b.displayDate).getTime());
-  const past = [...readings.filter(r => r.displayDate <= TODAY_STR)]
+  const past = readings.filter(r => r.displayDate <= TODAY_STR)
     .sort((a, b) => new Date(b.displayDate).getTime() - new Date(a.displayDate).getTime());
 
-  const { yearOrder: pastYears,     byYear: byYearPast }     = groupReadingsByYear(past);
-  const { yearOrder: upcomingYears, byYear: byYearUpcoming } = groupReadingsByYear(upcoming);
+  const byYearPast     = groupReadingsByYear(past);
+  const byYearUpcoming = groupReadingsByYear(upcoming);
+  const pastYears      = [...byYearPast.keys()];
+  const upcomingYears  = [...byYearUpcoming.keys()];
 
   return (
     <Box>
@@ -368,12 +356,12 @@ export default function ReadingLog() {
             <div className="upcoming-section">
               <div className="upcoming-hdr">Upcoming Readings</div>
               {upcomingYears.map(yr => (
-                <YearGroup key={yr} yr={yr} group={byYearUpcoming[yr]!} SEFER_MAP={SEFER_MAP} rowActions={rowActions} />
+                <YearGroup key={yr} yr={yr} group={byYearUpcoming.get(yr)!} SEFER_MAP={SEFER_MAP} rowActions={rowActions} />
               ))}
             </div>
           )}
           {pastYears.map(yr => (
-            <YearGroup key={yr} yr={yr} group={byYearPast[yr]!} SEFER_MAP={SEFER_MAP} rowActions={rowActions} />
+            <YearGroup key={yr} yr={yr} group={byYearPast.get(yr)!} SEFER_MAP={SEFER_MAP} rowActions={rowActions} />
           ))}
         </>
       )}

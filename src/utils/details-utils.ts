@@ -1,6 +1,6 @@
 import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, Filters, ParshaRow } from '../types/index.js';
 
-export interface PartialSources {
+interface PartialSources {
   oa: MappedOccasionAliyah[];
   wa: MappedWeekdayAliyah[];
   hr: MappedHosafah[];

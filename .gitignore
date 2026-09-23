@@ -57,6 +57,16 @@ sonar-project.properties
 
 plans/
 
+# Scratch / stray files that accumulate in the working tree (not project artifacts)
+*.zip
+tracker_icons/
+torah.code-workspace
+remote_caddyfile*
+license_stuff.md
+check_special_torah.mjs
+get_parshiyot.js
+code_cleanup.md
+
 # Wine prefix created inside the mounted project by the electronuserland/builder:wine
 # container when cross-building the Windows target from Linux.
 .wine/

@@ -29,7 +29,7 @@ function makeRow(overrides: Partial<MappedRow> = {}): MappedRow {
     chapterStart: chapter, verseStart: 1, chapterEnd: chapter, verseEnd: pseukim,
     isRead: false, isReadPast: false, isReadFuture: false, isFuture: false, isReread: false,
     hasFuture: false, yearRead: null, futureYear: null, allYears: [],
-    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', futDates: [], occasion: '', location: '', rereadCount: 0,
+    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', isCoveredPast: false, futDates: [], occasion: '', location: '', rereadCount: 0,
     ...overrides,
   };
 }
@@ -309,6 +309,32 @@ describe('remainingPseukim', () => {
     );
     expect(forecastResult!.remaining).toBe(remaining);
   });
+
+  // A0 regression: ALIYOT_SQL's `orig` COALESCE has no date filter on its holiday-coverage
+  // branches, so a *future*-dated occasion reading that fully covers a standard aliyah still
+  // sets that aliyah's `orig` — giving it isRead: true, isReadFuture: true (mapRow). Those
+  // verses then land in buildVerseKeySets' readKeys via r.isRead, AND get credited a second
+  // time to specialFuturePseukim by creditFutureKeys, which only skipped already-read keys.
+  // estimateCompletionFromStats sums specialReadPseukim + specialFuturePseukim into the same
+  // "already accounted for" bucket remainingPseukim subtracts, so the double credit silently
+  // halved the reported remaining pseukim while the reading was future-dated — and the
+  // estimate visibly "jumped" back to correct once the date passed and specialFuturePseukim
+  // stopped applying. remainingPseukim must report the same value regardless of which side of
+  // today the covering reading's date falls on.
+  it('does not double-count a future-dated occasion reading that fully covers a standard aliyah (A0)', () => {
+    const stdFuture = makeRow({ chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 10, pseukim: 10, isRead: true, isReadFuture: true, orig: '2999-01-01' });
+    const oaFuture  = makeOA({ chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 10, pseukim: 10, isRead: true, isReadFuture: true, orig: '2999-01-01' });
+    const statsFuture = computeStats([stdFuture], [oaFuture], SEFER_ORDER, SEFER_MAP, NO_FILTERS);
+    const remainingFuture = remainingPseukim([stdFuture], { specialTotalPseukim: 0, specialReadPseukim: statsFuture.specialReadPseukim + statsFuture.specialFuturePseukim });
+
+    const stdPast = makeRow({ chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 10, pseukim: 10, isRead: true, isReadPast: true, orig: '2020-01-01' });
+    const oaPast  = makeOA({ chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 10, pseukim: 10, isRead: true, isReadPast: true, orig: '2020-01-01' });
+    const statsPast = computeStats([stdPast], [oaPast], SEFER_ORDER, SEFER_MAP, NO_FILTERS);
+    const remainingPast = remainingPseukim([stdPast], { specialTotalPseukim: 0, specialReadPseukim: statsPast.specialReadPseukim + statsPast.specialFuturePseukim });
+
+    expect(remainingFuture).toBe(remainingPast);
+    expect(remainingFuture).toBe(0); // fully covered either way — nothing left in this aliyah
+  });
 });
 
 // ── maftir (aliyah 8) ─────────────────────────────────────────────────────────
@@ -521,7 +547,7 @@ function makeHR(overrides: Partial<MappedHosafah> = {}): MappedHosafah {
     note: '', location: '',
     parsha1: '', parsha1En: '', parsha2: null, parsha2En: null,
     occasion: null, occasionEn: null,
-    isReadPast: true, partialOrig: '',
+    isReadPast: true, partialOrig: '', isCoveredPast: false,
     ...overrides,
     isReadFuture: overrides.isReadFuture ?? false,
   };

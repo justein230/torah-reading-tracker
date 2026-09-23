@@ -25,6 +25,7 @@ const baseRow: MappedRow = {
   directOrig: '2024-01-01',
   readAsDouble: false,
   partialOrig: '',
+  isCoveredPast: false,
   futDates: [],
   isRead: true,
   isReadPast: true,

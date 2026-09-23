@@ -20,6 +20,7 @@ Torah reading tracker: React 19 + TypeScript frontend (Vite), Express/Node backe
 npm run build       # vite build → dist/
 npm test            # vitest run
 npm run typecheck   # tsc --noEmit
+npm run lint        # oxlint . (lint-only, no formatting — see Key Constraints)
 ```
 
 ## Terminology
@@ -42,7 +43,7 @@ Torah is the holy book of the Jewish people. It is divided into parshiot (singul
 
 **Utilities** for domain logic (parsha parsing, IP allowlisting, export, form reducers) live in `src/utils/`.
 
-**Tests:** Unit tests in `tests/unit/`, integration in `tests/integration/`, shared helpers in `tests/helpers/`. Coverage targets: `src/api.ts`, `src/compute.ts`, `src/utils/**/*.ts`, `server.ts`, `src/components/**/*.tsx`, `src/db/web.ts`, `src/context/AppContext.tsx`. Out of scope: `src/db/schema.ts`, `queries.ts`, `drizzle-server.ts`, `drizzle-native.ts`, `init.ts` (declarative/glue, exercised indirectly by integration tests), `src/db/native.ts` (Capacitor-only, not exercised by this app's test suite).
+**Tests:** Unit tests in `tests/unit/`, integration in `tests/integration/`, shared helpers in `tests/helpers/`. Coverage targets: `src/api.ts`, `src/compute.ts`, `src/utils/**/*.ts`, `server.ts`, `src/components/**/*.tsx`, `src/hooks/**/*.{ts,tsx}`, `src/db/web.ts`, `src/context/AppContext.tsx`. Out of scope: `src/db/schema.ts`, `queries.ts`, `drizzle-server.ts`, `drizzle-native.ts`, `init.ts` (declarative/glue, exercised indirectly by integration tests), `src/db/native.ts` (Capacitor-only, not exercised by this app's test suite).
 
 ## Database Schema
 
@@ -52,7 +53,7 @@ Tables: `sefarim` → `parshiot` → `aliyot` → `readings`. Also: `parsha_pair
 
 ## Key Constraints
 
-- **No Prettier** — code uses intentional column alignment that Prettier would destroy. Don't introduce it without explicit discussion.
+- **No Prettier** — code uses intentional column alignment that Prettier would destroy. Don't introduce it without explicit discussion. `oxlint` (`npm run lint`) is configured lint-only with its formatter untouched, for the same reason.
 - When adding a new API endpoint, add the SQL query string to `src/db/queries.ts`, not inline in `server.ts`.
 - New shared/pure logic should go in `src/utils/` with a corresponding unit test.
 

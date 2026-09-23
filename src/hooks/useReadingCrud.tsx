@@ -4,11 +4,11 @@ import { modals } from '@mantine/modals';
 import { useApp } from '../context/AppContext.js';
 import { fetchReadings, deleteReading, deleteSpecialReading, deleteWeekdayReading, postWeekdayReading, putWeekdayReading, postHosafah, deleteHosafah, putHosafah } from '../api.js';
 import { validateForm, submitReading, applyFieldChange } from '../utils/manage-utils.js';
-import { fmtAliyah, fmtLongDate, toDateStr } from '../utils.js';
+import { fmtAliyah, fmtLongDate, toDateStr } from '../utils/format.js';
 import { buildGroupedOptions } from '../utils/form-options.js';
 import type { ManageForm, MappedRow, ParshaPair, ReadingRecord, SpecialReadingRecord, MappedWeekdayAliyah, MappedHosafah } from '../types/index.js';
 
-export const EMPTY_FORM: ManageForm = {
+const EMPTY_FORM: ManageForm = {
   parsha: '', aliyah: [], date: null, occasion: '', location: '',
   readingType: 'standard', pairId: null,
   occasionId: null, occasionAliyahIds: [], isShabbatVariant: false,

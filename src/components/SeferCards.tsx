@@ -2,7 +2,7 @@ import React from 'react';
 import { isSeferAllowed, effectivePseukimOf, committedPseukimOf } from '../compute.js';
 import { Card, Group, Box, Text, Progress, SimpleGrid } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
-import { hex } from '../utils.js';
+import { hex } from '../utils/format.js';
 import type { Stats } from '../types/index.js';
 
 interface SeferCardsProps {

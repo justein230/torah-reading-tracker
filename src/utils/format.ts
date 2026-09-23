@@ -1,18 +1,3 @@
-/**
- * True when two verse ranges strictly overlap (touching endpoints don't count).
- * Uses chapter*1000+verse linear encoding, matching the partial-read query logic.
- */
-export function versesOverlap(
-  a: { chapterStart: number; verseStart: number; chapterEnd: number; verseEnd: number },
-  b: { chapterStart: number; verseStart: number; chapterEnd: number; verseEnd: number },
-): boolean {
-  const aStart = a.chapterStart * 1000 + a.verseStart;
-  const aEnd   = a.chapterEnd   * 1000 + a.verseEnd;
-  const bStart = b.chapterStart * 1000 + b.verseStart;
-  const bEnd   = b.chapterEnd   * 1000 + b.verseEnd;
-  return aStart < bEnd && aEnd > bStart;
-}
-
 /** Whole days between two 'YYYY-MM-DD' strings. Parses both via UTC so the result is the same regardless of the host machine's timezone. */
 export function daysBetween(fromStr: string, toStr: string): number {
   const toUTCms = (s: string): number => {
@@ -51,7 +36,7 @@ export function futureBg(color: string): string {
 export function partialBg(color: string): string     { return color + '44'; }
 export function partialBorder(color: string): string  { return color + 'aa'; }
 
-export type AliyahCellState = 'read' | 'future' | 'partial' | 'unread';
+type AliyahCellState = 'read' | 'future' | 'partial' | 'unread';
 
 /**
  * Reduces a cell's read/future/partial flags to a single AliyahCellState.
@@ -93,4 +78,16 @@ export function fmtAliyah(a: string | number, short = false): string {
 
 export function getCurrentYear(): number {
   return new Date().getFullYear();
+}
+
+/** Groups items by a derived key, preserving each item's relative order within its group. */
+export function groupBy<T, K>(items: T[], keyOf: (item: T) => K): Map<K, T[]> {
+  const map = new Map<K, T[]>();
+  for (const item of items) {
+    const key = keyOf(item);
+    const arr = map.get(key);
+    if (arr) arr.push(item);
+    else map.set(key, [item]);
+  }
+  return map;
 }

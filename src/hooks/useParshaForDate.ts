@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext.js';
 import { fetchHebcalOnDate } from '../api.js';
-import { toDateStr } from '../utils.js';
+import { toDateStr } from '../utils/format.js';
 
 const LIVE_LOOKUP_DEBOUNCE_MS = 400;
 

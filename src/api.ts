@@ -4,6 +4,14 @@ export const getTodayStr = (): string => { const d = new Date(); return `${d.get
 // Static snapshot used by components; mapRow calls getTodayStr() for fresh evaluation.
 export const TODAY_STR = getTodayStr();
 
+// Shared date arithmetic behind isRead/isReadPast/isReadFuture — every mapper below derives
+// these three the same way from a single date string; only hasFuture varies per record kind
+// (mapRow's comes from a separate "additional readings" column, the others from allDates).
+function deriveReadState(date: string, today: string): { isRead: boolean; isReadPast: boolean; isReadFuture: boolean } {
+  const isRead = date !== '';
+  return { isRead, isReadPast: isRead && date <= today, isReadFuture: isRead && date > today };
+}
+
 /**
  * Transforms a raw database row into the shape used throughout the app.
  * Key derived fields:
@@ -23,9 +31,7 @@ export function mapRow(r: RawRow): MappedRow {
   const partialOrig = '';
   const futDates  = r.fut ? r.fut.split(',') : [];
   const today        = getTodayStr();
-  const isRead       = orig !== '';
-  const isReadPast   = isRead && orig <= today;
-  const isReadFuture = isRead && orig > today;
+  const { isRead, isReadPast, isReadFuture } = deriveReadState(orig, today);
   const hasFuture    = futDates.length > 0;
   const yearRead     = isRead    ? Number(orig.slice(0, 4))                              : null;
   const futureYear   = hasFuture ? Number((futDates[0] as string).slice(0, 4))           : null;
@@ -36,7 +42,7 @@ export function mapRow(r: RawRow): MappedRow {
     pseukim: r.pseukim,
     chapterStart: r.chapter_start ?? -1, verseStart: r.verse_start ?? -1,
     chapterEnd: r.chapter_end ?? -1,     verseEnd: r.verse_end ?? -1,
-    orig, directOrig, readAsDouble, partialOrig, futDates, isRead, isReadPast, isReadFuture, hasFuture,
+    orig, directOrig, readAsDouble, partialOrig, isCoveredPast: false, futDates, isRead, isReadPast, isReadFuture, hasFuture,
     isFuture: isReadFuture, /* alias for isReadFuture; consistent with isFuture on calendar/log entries */
     isReread: false,        /* base rows are never re-reads; synthetic calendar/log entries override this */
     yearRead, futureYear, allYears,
@@ -57,7 +63,7 @@ export function enrichRows(rows: MappedRow[]): MappedRow[] {
 export function mapOccasionAliyahRow(r: RawOccasionAliyahRow): MappedOccasionAliyah {
   const today  = getTodayStr();
   const orig   = r.orig || '';
-  const isRead = orig !== '';
+  const { isRead, isReadPast, isReadFuture } = deriveReadState(orig, today);
   return {
     id: r.id, occasionId: r.occasion_id, occasion: r.occasion, occasionEn: r.occasion_en,
     category: r.category, aliyahKey: r.aliyah_key, isShabbatVariant: Boolean(r.is_shabbat_variant),
@@ -68,10 +74,8 @@ export function mapOccasionAliyahRow(r: RawOccasionAliyahRow): MappedOccasionAli
     chapterEnd: r.chapter_end, verseEnd: r.verse_end,
     coversAliyahId: r.covers_aliyah_id,
     orig, allDates: r.all_dates ? r.all_dates.split(',') : [],
-    readCount: r.read_count || 0, isRead,
-    isReadPast: isRead && orig <= today,
-    isReadFuture: isRead && orig > today,
-    hasFuture: isRead && orig <= today && (r.all_dates ? r.all_dates.split(',') : []).some(d => d > today),
+    readCount: r.read_count || 0, isRead, isReadPast, isReadFuture,
+    hasFuture: isReadPast && (r.all_dates ? r.all_dates.split(',') : []).some(d => d > today),
     partialOrig: '', isCoveredPast: false,
   };
 }
@@ -100,6 +104,7 @@ export function mapWeekdayAliyahRow(r: RawWeekdayAliyahRow): MappedWeekdayAliyah
   const today    = getTodayStr();
   const allDates = r.all_dates ? r.all_dates.split(',') : [];
   const dateRead = allDates[0] ?? '';
+  const { isReadPast, isReadFuture } = deriveReadState(dateRead, today);
   return {
     id: r.id,
     parshaId: r.parsha_id,
@@ -118,9 +123,8 @@ export function mapWeekdayAliyahRow(r: RawWeekdayAliyahRow): MappedWeekdayAliyah
     dateRead,
     allDates,
     readingId: r.reading_id,
-    isReadPast:   dateRead !== '' && dateRead <= today,
-    isReadFuture: dateRead !== '' && dateRead >  today,
-    hasFuture:    dateRead !== '' && dateRead <= today && allDates.some(d => d > today),
+    isReadPast, isReadFuture,
+    hasFuture: isReadPast && allDates.some(d => d > today),
     partialOrig: '', isCoveredPast: false,
     location: r.location,
     note: r.note,
@@ -129,6 +133,7 @@ export function mapWeekdayAliyahRow(r: RawWeekdayAliyahRow): MappedWeekdayAliyah
 
 export function mapHosafahRow(r: RawHosafahRow): MappedHosafah {
   const today = getTodayStr();
+  const { isReadPast, isReadFuture } = deriveReadState(r.date_read, today);
   return {
     id: r.id,
     sefer: r.sefer,
@@ -150,39 +155,10 @@ export function mapHosafahRow(r: RawHosafahRow): MappedHosafah {
     parsha2En: r.parsha2_en,
     occasion: r.occasion,
     occasionEn: r.occasion_en,
-    isReadPast:   r.date_read !== '' && r.date_read <= today,
-    isReadFuture: r.date_read !== '' && r.date_read >  today,
-    partialOrig: '',
+    isReadPast, isReadFuture,
+    partialOrig: '', isCoveredPast: false,
   };
 }
 
 
-export {
-  fetchCanWrite,
-  fetchAuthStatus,
-  login,
-  logout,
-  changePassword,
-  fetchMeta,
-  fetchAliyot,
-  fetchReadings,
-  fetchLocationStats,
-  fetchHebcal,
-  fetchHebcalOnDate,
-  postReading,
-  putReading,
-  deleteReading,
-  fetchOccasions,
-  fetchOccasionAliyot,
-  fetchSpecialReadings,
-  postSpecialReading,
-  deleteSpecialReading,
-  fetchWeekdayAliyot,
-  postWeekdayReading,
-  putWeekdayReading,
-  deleteWeekdayReading,
-  fetchHosafotReadings,
-  postHosafah,
-  putHosafah,
-  deleteHosafah,
-} from './db/index.js';
+export * from './db/index.js';

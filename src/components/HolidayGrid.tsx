@@ -4,7 +4,8 @@ import { useApp } from '../context/AppContext.js';
 import { useAliyahTooltip, AliyahTooltip, TouchAwareCell, type CellHandlers } from './AliyahTooltip.js';
 import { GridLegend } from './GridLegend.js';
 import { SeferSection } from './shared/SeferSection.js';
-import { aliyahCellStyle, aliyahState, fmtAliyah, fmtPct } from '../utils.js';
+import { ParshaRow } from './shared/ParshaRow.js';
+import { aliyahCellStyle, aliyahState, fmtAliyah, fmtPct, groupBy } from '../utils/format.js';
 import { CATEGORY_ORDER, CATEGORY_LABELS_GRID, CATEGORY_COLORS } from '../constants.js';
 import type { MappedOccasionAliyah } from '../types/index.js';
 import './Grid.css';
@@ -44,11 +45,7 @@ export default function HolidayGrid() {
   const [shabbatMode, setShabbatMode] = useState(false);
 
   // Group occasions by category preserving sort_order
-  const byCategory: Record<string, typeof occasions> = {};
-  for (const occ of occasions) {
-    byCategory[occ.category] ??= [];
-    byCategory[occ.category]!.push(occ);
-  }
+  const byCategory = groupBy(occasions, occ => occ.category);
 
   // Build a lookup: occasion_id → aliyah_key → occasion_aliyah (filtered by shabbat mode)
   const lookup: Record<number, Record<string, (typeof occasionAliyot)[0]>> = {};
@@ -76,9 +73,9 @@ export default function HolidayGrid() {
       </Box>
 
       <div className="sefer-grid">
-      {CATEGORY_ORDER.filter(cat => byCategory[cat]?.length).map(cat => {
+      {CATEGORY_ORDER.filter(cat => byCategory.get(cat)?.length).map(cat => {
         const color = CATEGORY_COLORS[cat] ?? '#888';
-        const catOccasions = byCategory[cat] ?? [];
+        const catOccasions = byCategory.get(cat) ?? [];
 
         const keysInCat = new Set<string>();
         for (const occ of catOccasions) {
@@ -106,24 +103,21 @@ export default function HolidayGrid() {
               if (!hasAny) return null;
 
               return (
-                <div key={occ.id} className="parsha-row">
-                  <div className="parsha-label">
-                    <span className="heb" style={{ fontSize: '0.75rem', textAlign: 'right' }}>{occ.name}</span>
-                    <span className="eng">{occ.nameEn}</span>
-                  </div>
-                  <div className="aliyah-cells">
-                    {visibleKeys.map(k => (
-                      <HolidayCell
-                        key={k}
-                        oa={oaMap[k]}
-                        color={color}
-                        occNameEn={occ.nameEn}
-                        showOccasionTip={showOccasionTip}
-                        handlers={handlers}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <ParshaRow
+                  key={occ.id}
+                  label={<><span className="heb" style={{ fontSize: '0.75rem', textAlign: 'right' }}>{occ.name}</span><span className="eng">{occ.nameEn}</span></>}
+                >
+                  {visibleKeys.map(k => (
+                    <HolidayCell
+                      key={k}
+                      oa={oaMap[k]}
+                      color={color}
+                      occNameEn={occ.nameEn}
+                      showOccasionTip={showOccasionTip}
+                      handlers={handlers}
+                    />
+                  ))}
+                </ParshaRow>
               );
             })}
           </SeferSection>

@@ -17,7 +17,7 @@ function makeRow(overrides: Partial<MappedRow> = {}): MappedRow {
     chapterStart: chapter, verseStart: 1, chapterEnd: chapter, verseEnd: pseukim,
     isRead: false, isReadPast: false, isReadFuture: false, isFuture: false, isReread: false,
     hasFuture: false, yearRead: null, futureYear: null, allYears: [],
-    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', futDates: [], occasion: '', location: '', rereadCount: 0,
+    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', isCoveredPast: false, futDates: [], occasion: '', location: '', rereadCount: 0,
     ...overrides,
   };
 }
@@ -52,7 +52,7 @@ function makeHR(overrides: Partial<MappedHosafah> = {}): MappedHosafah {
     id: 1, sefer: 'Genesis', parshaId1: null, parshaId2: null, occasionId: null, isDoubleParsha: false,
     chapterStart: 2, verseStart: 1, chapterEnd: 2, verseEnd: 10, pseukim: 10, dateRead: '',
     note: '', location: '', parsha1: '', parsha1En: '', parsha2: null, parsha2En: null,
-    occasion: null, occasionEn: null, isReadPast: false, isReadFuture: false, partialOrig: '',
+    occasion: null, occasionEn: null, isReadPast: false, isReadFuture: false, partialOrig: '', isCoveredPast: false,
     ...overrides,
   };
 }
@@ -60,7 +60,7 @@ function makeHR(overrides: Partial<MappedHosafah> = {}): MappedHosafah {
 describe('applyAsOfDate', () => {
   it('keeps a row read on or before the cutoff', () => {
     const row = makeRow({ isRead: true, isReadPast: true, orig: '2024-01-01', yearRead: 2024, allYears: [2024] });
-    const snap = applyAsOfDate([row], [], [], [], CUTOFF);
+    const snap = applyAsOfDate({ allRows: [row], occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] }, CUTOFF);
     expect(snap.allRows[0]?.isRead).toBe(true);
     expect(snap.allRows[0]?.isReadPast).toBe(true);
     expect(snap.allRows[0]?.orig).toBe('2024-01-01');
@@ -68,7 +68,7 @@ describe('applyAsOfDate', () => {
 
   it('reverts a row read after the cutoff to unread', () => {
     const row = makeRow({ isRead: true, isReadPast: true, orig: '2024-09-01', yearRead: 2024, allYears: [2024] });
-    const snap = applyAsOfDate([row], [], [], [], CUTOFF);
+    const snap = applyAsOfDate({ allRows: [row], occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] }, CUTOFF);
     expect(snap.allRows[0]?.isRead).toBe(false);
     expect(snap.allRows[0]?.isReadPast).toBe(false);
     expect(snap.allRows[0]?.orig).toBe('');
@@ -76,7 +76,7 @@ describe('applyAsOfDate', () => {
 
   it('reverts a scheduled-future row (relative to real today) to unread as of a past cutoff', () => {
     const row = makeRow({ isRead: true, isReadFuture: true, orig: '2099-01-01', yearRead: 2099, allYears: [2099] });
-    const snap = applyAsOfDate([row], [], [], [], CUTOFF);
+    const snap = applyAsOfDate({ allRows: [row], occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] }, CUTOFF);
     expect(snap.allRows[0]?.isRead).toBe(false);
     expect(snap.allRows[0]?.isReadFuture).toBe(false);
   });
@@ -85,7 +85,7 @@ describe('applyAsOfDate', () => {
     const oa = makeOA({ orig: '2024-09-01', isRead: true, isReadPast: true });
     const wa = makeWA({ dateRead: '2024-09-01', isReadPast: true });
     const hr = makeHR({ dateRead: '2024-09-01', isReadPast: true });
-    const snap = applyAsOfDate([], [oa], [wa], [hr], CUTOFF);
+    const snap = applyAsOfDate({ allRows: [], occasionAliyot: [oa], weekdayAliyot: [wa], hosafotReadings: [hr] }, CUTOFF);
     expect(snap.occasionAliyot[0]?.isRead).toBe(false);
     expect(snap.weekdayAliyot[0]?.isReadPast).toBe(false);
     expect(snap.hosafotReadings[0]?.isReadPast).toBe(false);
@@ -98,7 +98,7 @@ describe('applyAsOfDate', () => {
       chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 5, pseukim: 5,
       dateRead: '2024-09-01', isReadPast: true,
     });
-    const snap = applyAsOfDate([row], [], [waAfterCutoff], [], CUTOFF);
+    const snap = applyAsOfDate({ allRows: [row], occasionAliyot: [], weekdayAliyot: [waAfterCutoff], hosafotReadings: [] }, CUTOFF);
     // The weekday reading is reverted (after cutoff), so it can no longer partially cover the standard row.
     expect(snap.allRows[0]?.partialOrig).toBe('');
   });
@@ -108,7 +108,7 @@ describe('applyAsOfDate', () => {
       makeRow({ aliyah: 1, pseukim: 50, isRead: true, isReadPast: true, orig: '2024-01-01', yearRead: 2024, allYears: [2024] }),
       makeRow({ aliyah: 2, pseukim: 50, isRead: true, isReadPast: true, orig: '2024-09-01', yearRead: 2024, allYears: [2024] }),
     ];
-    const snap = applyAsOfDate(rows, [], [], [], CUTOFF);
+    const snap = applyAsOfDate({ allRows: rows, occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] }, CUTOFF);
     const s = computeStats(snap.allRows, snap.occasionAliyot, SEFER_ORDER, SEFER_MAP, NO_FILTERS, snap.weekdayAliyot, snap.hosafotReadings);
     expect(s.readPseukim).toBe(50);
   });

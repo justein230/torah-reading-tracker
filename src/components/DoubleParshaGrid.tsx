@@ -4,7 +4,8 @@ import { useApp } from '../context/AppContext.js';
 import { useAliyahTooltip, AliyahTooltip, TouchAwareCell, type CellHandlers } from './AliyahTooltip.js';
 import { GridLegend } from './GridLegend.js';
 import { SeferSection } from './shared/SeferSection.js';
-import { aliyahCellStyle, aliyahState, fmtPct } from '../utils.js';
+import { ParshaRow } from './shared/ParshaRow.js';
+import { aliyahCellStyle, aliyahState, fmtPct, groupBy } from '../utils/format.js';
 import { isAliyahRead, isAliyahPartial, countReadAliyot, computePairTotalPseukim, computePairReadPseukim } from '../compute.js';
 import type { MappedRow, ParshaPair } from '../types/index.js';
 import './Grid.css';
@@ -58,18 +59,12 @@ function buildPairsBySefer(
   pairs: ParshaPair[],
   parshaById: Record<number, string>,
   parshaToSefer: Record<string, string>,
-): Record<string, ParshaPair[]> {
-  const result: Record<string, ParshaPair[]> = {};
-  for (const pair of pairs) {
+): Map<string, ParshaPair[]> {
+  const seferOf = (pair: ParshaPair): string | undefined => {
     const parsha1 = parshaById[pair.parsha1_id];
-    if (!parsha1) continue;
-    const sefer = parshaToSefer[parsha1];
-    if (!sefer) continue;
-    let arr = result[sefer];
-    if (!arr) { arr = []; result[sefer] = arr; }
-    arr.push(pair);
-  }
-  return result;
+    return parsha1 ? parshaToSefer[parsha1] : undefined;
+  };
+  return groupBy(pairs.filter(pair => seferOf(pair) !== undefined), pair => seferOf(pair) as string);
 }
 
 export default function DoubleParshaGrid() {
@@ -86,11 +81,11 @@ export default function DoubleParshaGrid() {
     <Box>
       <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'unread']} />
       <div className="sefer-grid">
-        {SEFER_ORDER.filter(s => pairsBySefer[s]?.length).map(s => {
+        {SEFER_ORDER.filter(s => pairsBySefer.get(s)?.length).map(s => {
           const seferMeta = SEFER_MAP[s];
           if (!seferMeta) return null;
           const { en, color } = seferMeta;
-          const seferPairs = pairsBySefer[s] ?? [];
+          const seferPairs = pairsBySefer.get(s) ?? [];
 
           const totalAliyot  = seferPairs.length * ALIYOT.length;
           const readAliyot   = seferPairs.reduce((sum, pair) => sum + countReadAliyot(pairRows[pair.name] ?? {}, ALIYOT), 0);
@@ -111,30 +106,29 @@ export default function DoubleParshaGrid() {
                 const pairReadCount   = countReadAliyot(caMap, ALIYOT);
                 const pairPct         = fmtPct(pairReadCount, ALIYOT.length, 0);
                 return (
-                <div key={pair.id} className="parsha-row">
-                  <div className="parsha-label">
-                    <span className="hebrew heb">{pair.name}</span>
-                    <span className="eng">{TLIT[pair.name] ?? pair.name_en}</span>
-                  </div>
-                  <div className="aliyah-cells">
-                    {ALIYOT.map(ca => (
-                      <DoubleCell
-                        key={ca}
-                        rows={caMap[ca] ?? []}
-                        color={color}
-                        pairNameHeb={pair.name}
-                        pairNameEn={pair.name_en}
-                        aliyahNum={ca}
-                        pairTotalPseukim={pairTotalPs}
-                        showDoublePairTip={showDoublePairTip}
-                        handlers={handlers}
-                      />
-                    ))}
-                  </div>
-                  <span className="badge" style={{ color: 'var(--text)', fontSize: '0.625rem', whiteSpace: 'nowrap' }}>
-                    {pairReadCount}/7 ({pairPct}%)
-                  </span>
-                </div>
+                <ParshaRow
+                  key={pair.id}
+                  label={<><span className="hebrew heb">{pair.name}</span><span className="eng">{TLIT[pair.name] ?? pair.name_en}</span></>}
+                  trailing={
+                    <span className="badge" style={{ color: 'var(--text)', fontSize: '0.625rem', whiteSpace: 'nowrap' }}>
+                      {pairReadCount}/7 ({pairPct}%)
+                    </span>
+                  }
+                >
+                  {ALIYOT.map(ca => (
+                    <DoubleCell
+                      key={ca}
+                      rows={caMap[ca] ?? []}
+                      color={color}
+                      pairNameHeb={pair.name}
+                      pairNameEn={pair.name_en}
+                      aliyahNum={ca}
+                      pairTotalPseukim={pairTotalPs}
+                      showDoublePairTip={showDoublePairTip}
+                      handlers={handlers}
+                    />
+                  ))}
+                </ParshaRow>
                 );
               })}
             </SeferSection>

@@ -253,18 +253,8 @@ export const adminPassword = sqliteTable('admin_password', {
 
 // Inferred row types
 export type Sefer           = typeof sefarim.$inferSelect;
-export type TorahChapter    = typeof torahChapters.$inferSelect;
 export type Parsha          = typeof parshiot.$inferSelect;
 export type ParshaPair      = typeof parshaPairs.$inferSelect;
 export type Aliyah          = typeof aliyot.$inferSelect;
 export type Reading         = typeof readings.$inferSelect;
-export type VAliyah         = typeof vAliyot.$inferSelect;
-export type VReading        = typeof vReadings.$inferSelect;
 export type Occasion        = typeof occasions.$inferSelect;
-export type OccasionAliyah  = typeof occasionAliyot.$inferSelect;
-export type SpecialReading  = typeof specialReadings.$inferSelect;
-export type WeekdayAliyah   = typeof weekdayAliyot.$inferSelect;
-export type WeekdayReading  = typeof weekdayReadings.$inferSelect;
-export type HosafahReading  = typeof hosafotReadings.$inferSelect;
-export type AuthSession     = typeof authSessions.$inferSelect;
-export type AdminPassword   = typeof adminPassword.$inferSelect;

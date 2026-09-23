@@ -7,7 +7,7 @@ import { applyWhatIfPicks, standardRowKey } from '../utils/whatIf.js';
 import { buildGroupedOptions } from '../utils/form-options.js';
 import { ParshaField } from './shared/ParshaField.js';
 import { Ring } from './Ring.js';
-import { fmtAliyah, toDateStr, fmtDate } from '../utils.js';
+import { fmtAliyah, toDateStr, fmtDate } from '../utils/format.js';
 import { TODAY_STR } from '../api.js';
 import { RING_PSEUKIM, RING_ALIYOT } from '../constants.js';
 import './ReadingLog.css';
@@ -192,7 +192,7 @@ export function WhatIfPreview({ opened, onClose }: WhatIfPreviewProps) {
   }
 
   const computeWithPicks = (whatIfPicks: WhatIfPick[]): Stats => {
-    const merged = applyWhatIfPicks(allRows, occasionAliyot, weekdayAliyot, hosafotReadings, whatIfPicks);
+    const merged = applyWhatIfPicks({ allRows, occasionAliyot, weekdayAliyot, hosafotReadings }, whatIfPicks);
     return computeStats(merged.allRows, merged.occasionAliyot, SEFER_ORDER, SEFER_MAP, filters, merged.weekdayAliyot, merged.hosafotReadings);
   };
 
@@ -203,7 +203,7 @@ export function WhatIfPreview({ opened, onClose }: WhatIfPreviewProps) {
   // every real future standard aliyah gets reverted to unscheduled (see applyWhatIfPicks),
   // which is a real state change from the base `stats` and must not be skipped.
   const previewMerged = useMemo(
-    () => applyWhatIfPicks(allRows, occasionAliyot, weekdayAliyot, hosafotReadings, asWhatIfPicks(picks)),
+    () => applyWhatIfPicks({ allRows, occasionAliyot, weekdayAliyot, hosafotReadings }, asWhatIfPicks(picks)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [picks, allRows, occasionAliyot, weekdayAliyot, hosafotReadings],
   );

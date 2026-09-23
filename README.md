@@ -56,7 +56,6 @@ torah/
 │   └── meta/              # Drizzle Kit snapshot state (do not edit manually)
 ├── scripts/
 │   ├── db-init.ts             # Standalone script to initialize a fresh torah.db
-│   ├── db-migrate-user-data.ts  # One-off migration helper for existing reading data
 │   ├── gen-sedra-cache.ts     # Regenerates src/data/sedraCache.ts from Hebcal
 │   └── seed-verse-ranges.mts  # One-time seed of chapter/verse ranges from Hebcal
 ├── tests/
@@ -66,7 +65,6 @@ torah/
 │   └── main.cjs          # Electron main process (CommonJS — stays CJS even with "type":"module")
 ├── server.ts             # Express API server
 ├── drizzle.config.ts     # Drizzle Kit configuration
-├── schema.sql            # Legacy schema reference (superseded by Drizzle)
 ├── Dockerfile            # Multi-stage build for the Docker deployment
 ├── docker-compose.yml    # Local/self-host Compose config (builds the image)
 ├── torah-api.service     # systemd unit file (bare-Node deployment)

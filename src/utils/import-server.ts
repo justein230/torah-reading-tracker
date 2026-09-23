@@ -75,7 +75,7 @@ function replaceTableRows(dest: InstanceType<typeof Database>, table: string, ro
   for (const row of rows) insert.run(row);
 }
 
-export interface ImportResult {
+interface ImportResult {
   rawDb: InstanceType<typeof Database>;
   db: AppDb;
 }
