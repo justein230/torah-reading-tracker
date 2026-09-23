@@ -54,7 +54,7 @@ export function buildParshaRow(
   const readSet       = new Set(readRows.map(r => r.aliyah));
   const hasFutureSet  = new Set(rows.filter(r => r.hasFuture).map(r => r.aliyah));
   const dates         = readRows.map(r => r.orig).filter(Boolean).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-  const lastDate      = dates.length ? (dates[dates.length - 1] ?? null) : null;
+  const lastDate      = dates.length ? (dates.at(-1) ?? null) : null;
   const nextReadDate  = schedule[TLIT[parsha] ?? ''] ?? null;
 
   const partialPs    = partials ? sumPartialPseukim(parsha, filters, partials) : 0;

@@ -143,7 +143,7 @@ export default function Calendar() {
     () => buildDayMap(allRows, occasionAliyot, weekdayAliyot, hosafotReadings, filters),
     [allRows, occasionAliyot, weekdayAliyot, hosafotReadings, filters],
   );
-  const lastYear = filters.years[filters.years.length - 1] ?? null;
+  const lastYear = filters.years.at(-1) ?? null;
   const { isGrid, navMonth, navYear, onPrev, onNext, toggleView } = useCalendarNav(lastYear);
   const { copied, copy } = useCopyCalUrl();
 

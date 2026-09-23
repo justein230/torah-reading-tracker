@@ -87,7 +87,7 @@ export function useAliyahTooltip() {
     const aliyahPseukim = rows.reduce((s, r) => s + r.pseukim, 0);
     const doublePct     = pairTotalPseukim ? fmtPct(aliyahPseukim, pairTotalPseukim, 1) + '%' : '—';
     const firstRow      = rows[0];
-    const lastRow       = rows.length > 0 ? rows[rows.length - 1] : undefined;
+    const lastRow       = rows.length > 0 ? rows.at(-1) : undefined;
     const versesStr     = firstRow && lastRow ? `${firstRow.chapterStart}:${firstRow.verseStart}–${lastRow.chapterEnd}:${lastRow.verseEnd}` : '—';
     const tipRows: TipRow[] = [
       { k: 'Double Parsha',      hebrew: pairNameHeb, suffix: ` (${pairNameEn})` },

@@ -103,7 +103,7 @@ function buildFormOptions(
       const parts = allRows.filter(r => r.pairNameEn === activePair.name_en && r.combinedAliyah === n)
         .sort((a, b) => a.chapterStart - b.chapterStart || a.verseStart - b.verseStart);
       const pseukim = parts.reduce((s, r) => s + r.pseukim, 0);
-      const first = parts[0], last = parts[parts.length - 1];
+      const first = parts[0], last = parts.at(-1);
       const verses = first && last ? `  —  ${first.chapterStart}:${first.verseStart}–${last.chapterEnd}:${last.verseEnd} (${pseukim} v.)` : '';
       return { value: String(n), label: `Aliyah ${n}${verses}` };
     });

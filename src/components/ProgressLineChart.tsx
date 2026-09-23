@@ -41,7 +41,7 @@ export function ProgressLineChart({ stats }: Readonly<ProgressLineChartProps>) {
       newCounts.push(cumNew);
     }
 
-    const maxPct = newData[newData.length - 1] ?? 0;
+    const maxPct = newData.at(-1) ?? 0;
     /* Round up to the nearest 5% with ~25% headroom so the line isn't crammed at the top */
     const yMax  = Math.max(5, Math.ceil(maxPct * 1.25 / 5) * 5);
     const y1Max = Math.round(yMax / 100 * total);

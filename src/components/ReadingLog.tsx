@@ -50,7 +50,7 @@ function buildVerseRangeStr(entries: DisplayEntry[]): string {
 
   for (let i = 1; i < withVerses.length; i++) {
     const e    = withVerses[i]!;
-    const prev = merged[merged.length - 1]!;
+    const prev = merged.at(-1)!;
     const [, , pce, pve] = prev;
     const [ncs, nvs, nce, nve] = [e.chapterStart!, e.verseStart!, e.chapterEnd!, e.verseEnd!];
     const contiguous =
