@@ -1,4 +1,5 @@
 .sefer-grid { column-count: 2; column-gap: 40px; }
+.sefer-grid.sefer-grid-rows { column-count: auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 40px; align-items: start; }
 .sefer-section { margin-bottom: 28px; break-inside: avoid; }
 .sefer-hdr { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .sefer-hdr .heb { font-size: 1.125rem; font-weight: 600; }
@@ -20,6 +21,7 @@
 
 @media (max-width: 990px) {
   .sefer-grid { column-count: 1; }
+  .sefer-grid.sefer-grid-rows { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {

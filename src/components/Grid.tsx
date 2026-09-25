@@ -60,7 +60,7 @@ export default function Grid() {
   return (
     <Box>
       <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'unread']} />
-      <div className='sefer-grid'>
+      <div className='sefer-grid sefer-grid-rows'>
         {SEFER_ORDER.map(s => {
           const seferMeta = SEFER_MAP[s];
           if (!seferMeta) return null;

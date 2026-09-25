@@ -75,7 +75,7 @@ export default function WeekdayGrid() {
     <Box>
       <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'unread']} />
 
-      <div className="sefer-grid">
+      <div className="sefer-grid sefer-grid-rows">
       {SEFER_ORDER.map(sefer => {
         const parshas = parshaIndex[sefer] ?? [];
         const color   = SEFER_MAP[sefer]?.color ?? '#888';

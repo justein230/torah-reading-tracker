@@ -80,7 +80,7 @@ export default function DoubleParshaGrid() {
   return (
     <Box>
       <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'unread']} />
-      <div className="sefer-grid">
+      <div className="sefer-grid sefer-grid-rows">
         {SEFER_ORDER.filter(s => pairsBySefer.get(s)?.length).map(s => {
           const seferMeta = SEFER_MAP[s];
           if (!seferMeta) return null;
