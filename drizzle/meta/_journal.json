@@ -29,6 +29,13 @@
       "when": 1790133614176,
       "tag": "0003_fast_and_mincha_readings",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790649409555,
+      "tag": "0004_shmini_atzeret",
+      "breakpoints": true
     }
   ]
 }
