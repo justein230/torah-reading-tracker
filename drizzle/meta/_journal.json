@@ -36,6 +36,20 @@
       "when": 1790649409555,
       "tag": "0004_shmini_atzeret",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790731825176,
+      "tag": "0005_fix_holiday_definitions",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790731825942,
+      "tag": "0006_missing_holiday_variants",
+      "breakpoints": true
     }
   ]
 }
