@@ -44,6 +44,7 @@ export interface MappedRow {
   directOrig: string;
   readAsDouble: boolean;
   partialOrig: string;
+  futurePartialOrig: string;
   isCoveredPast: boolean;
   futDates: string[];
   isRead: boolean;
@@ -233,6 +234,7 @@ export interface MappedOccasionAliyah {
   isReadFuture: boolean;
   hasFuture: boolean;
   partialOrig: string;
+  futurePartialOrig: string;
   isCoveredPast: boolean;
 }
 
@@ -324,6 +326,7 @@ export interface MappedWeekdayAliyah {
   isReadFuture: boolean;
   hasFuture: boolean;
   partialOrig: string;
+  futurePartialOrig: string;
   isCoveredPast: boolean;
   location: string;
   note: string;
@@ -385,6 +388,7 @@ export interface MappedHosafah {
   isReadPast: boolean;
   isReadFuture: boolean;
   partialOrig: string;
+  futurePartialOrig: string;
   isCoveredPast: boolean;
 }
 

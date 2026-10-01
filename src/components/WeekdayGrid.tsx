@@ -13,7 +13,7 @@ type CoveredBy = { date: string; label: string };
 
 function cellColors(wa: MappedWeekdayAliyah, coveredBy: CoveredBy | undefined, color: string) {
   // coveredBy (a Shabbat/holiday reading that includes this weekday aliyah) counts as read.
-  const state = aliyahState({ isReadPast: wa.isReadPast || !!coveredBy, isReadFuture: wa.isReadFuture, partialOrig: wa.partialOrig });
+  const state = aliyahState({ isReadPast: wa.isReadPast || !!coveredBy, isReadFuture: wa.isReadFuture, partialOrig: wa.partialOrig, futurePartialOrig: wa.futurePartialOrig });
   return { ...aliyahCellStyle(state, color), op: 1 };
 }
 
@@ -73,7 +73,7 @@ export default function WeekdayGrid() {
 
   return (
     <Box>
-      <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'unread']} />
+      <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'partialFuture', 'unread']} />
 
       <div className="sefer-grid sefer-grid-rows">
       {SEFER_ORDER.map(sefer => {

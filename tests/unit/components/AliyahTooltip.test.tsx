@@ -25,6 +25,7 @@ const baseRow: MappedRow = {
   directOrig: '2024-01-01',
   readAsDouble: false,
   partialOrig: '',
+  futurePartialOrig: '',
   isCoveredPast: false,
   futDates: [],
   isRead: true,
@@ -47,7 +48,7 @@ const baseOccasion: MappedOccasionAliyah = {
   sefer: MOCK_SEFER, seferEn: 'Genesis', seferColor: '#4a7c59', pseukim: 15,
   chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 15,
   coversAliyahId: null, orig: '2024-03-01', allDates: ['2024-03-01'], readCount: 1,
-  isRead: true, isReadPast: true, isReadFuture: false, hasFuture: false, partialOrig: '', isCoveredPast: false,
+  isRead: true, isReadPast: true, isReadFuture: false, hasFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
 };
 
 const baseWeekday: MappedWeekdayAliyah = {
@@ -55,7 +56,7 @@ const baseWeekday: MappedWeekdayAliyah = {
   sefer: MOCK_SEFER, seferEn: 'Genesis', seferColor: '#4a7c59', pseukim: 8,
   chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 8,
   coversAliyahId: null, dateRead: '2024-01-04', allDates: ['2024-01-04'], readingId: 1,
-  isReadPast: true, isReadFuture: false, hasFuture: false, partialOrig: '', isCoveredPast: false,
+  isReadPast: true, isReadFuture: false, hasFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
   location: '', note: '',
 };
 

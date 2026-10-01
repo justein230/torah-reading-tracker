@@ -55,7 +55,7 @@ interface HeroProps {
 }
 
 export function Hero({ stats }: HeroProps) {
-  const { filters, forecastConfig, allRows, SEFER_MAP, occasionAliyot, weekdayAliyot } = useApp();
+  const { filters, forecastConfig, allRows, SEFER_MAP, occasionAliyot, weekdayAliyot, hosafotReadings } = useApp();
   const [whatIfOpen, setWhatIfOpen] = useState(false);
   const totalPseukim     = stats.totalPseukim;
   const readPseukim      = effectivePseukimOf(stats);
@@ -71,7 +71,7 @@ export function Hero({ stats }: HeroProps) {
   const ringSize   = getRingSize(isSmall, isMedium);
   const scopeTitle = formatScopeTitle(filters.sefarim, SEFER_MAP);
   const yearLabel  = formatYearLabel(filters.years);
-  const est        = estimateCompletionFromStats(allRows, filters, forecastConfig, stats, SEFER_MAP);
+  const est        = estimateCompletionFromStats(allRows, filters, forecastConfig, stats, SEFER_MAP, { occasionAliyot, weekdayAliyot, hosafotReadings });
   const paceSuffix = getPaceSuffix(forecastConfig.paceOverride, forecastConfig.lookbackYears);
   const loc        = (n: number) => n.toLocaleString();
   const pSubs      = ringSubLabels(readPseukim, committedPseukim, totalPseukim, loc);

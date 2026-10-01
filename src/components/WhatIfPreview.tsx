@@ -216,11 +216,11 @@ export function WhatIfPreview({ opened, onClose }: WhatIfPreviewProps) {
   // logic Hero.tsx shows, run once against the real rows and once against the merged
   // (hypothetical) rows, so scheduling/un-scheduling picks visibly pulls the estimate in or out.
   const currentEst = useMemo<ForecastResult | null>(
-    () => stats ? estimateCompletionFromStats(allRows, filters, forecastConfig, stats, SEFER_MAP) : null,
-    [allRows, filters, forecastConfig, stats, SEFER_MAP],
+    () => stats ? estimateCompletionFromStats(allRows, filters, forecastConfig, stats, SEFER_MAP, { occasionAliyot, weekdayAliyot, hosafotReadings }) : null,
+    [allRows, filters, forecastConfig, stats, SEFER_MAP, occasionAliyot, weekdayAliyot, hosafotReadings],
   );
   const previewEst = useMemo<ForecastResult | null>(
-    () => estimateCompletionFromStats(previewMerged.allRows, filters, forecastConfig, preview, SEFER_MAP),
+    () => estimateCompletionFromStats(previewMerged.allRows, filters, forecastConfig, preview, SEFER_MAP, previewMerged),
     [previewMerged, filters, forecastConfig, preview, SEFER_MAP],
   );
 

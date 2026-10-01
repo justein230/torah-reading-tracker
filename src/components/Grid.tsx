@@ -20,7 +20,7 @@ function cellStyle(r: MappedRow, filters: Filters, SEFER_MAP: Record<string, Sef
     if (match) return { bg: color, border: color, op: 1, dashed: false };
     return { bg: `repeating-linear-gradient(45deg,var(--surface),var(--surface) 4px,${color}88 4px,${color}88 8px)`, border: color + '88', op: 1, dashed: false };
   }
-  const state = aliyahState({ isReadPast: r.isReadPast, isReadFuture: r.isReadFuture || r.hasFuture, partialOrig: r.partialOrig });
+  const state = aliyahState({ isReadPast: r.isReadPast, isReadFuture: r.isReadFuture || r.hasFuture, partialOrig: r.partialOrig, futurePartialOrig: r.futurePartialOrig });
   return { ...aliyahCellStyle(state, color), op: 1 };
 }
 
@@ -59,7 +59,7 @@ export default function Grid() {
 
   return (
     <Box>
-      <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'unread']} />
+      <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'partialFuture', 'unread']} />
       <div className='sefer-grid sefer-grid-rows'>
         {SEFER_ORDER.map(s => {
           const seferMeta = SEFER_MAP[s];

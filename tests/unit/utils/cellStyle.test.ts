@@ -7,24 +7,24 @@ const COLOR = '#4a7c59';
 
 describe('aliyahState', () => {
   it('isReadPast wins over everything else', () => {
-    expect(aliyahState({ isReadPast: true, isReadFuture: true, partialOrig: 'x' })).toBe('read');
+    expect(aliyahState({ isReadPast: true, isReadFuture: true, partialOrig: 'x', futurePartialOrig: '' })).toBe('read');
   });
 
   it('isReadFuture wins over partialOrig', () => {
-    expect(aliyahState({ isReadPast: false, isReadFuture: true, partialOrig: 'x' })).toBe('future');
+    expect(aliyahState({ isReadPast: false, isReadFuture: true, partialOrig: 'x', futurePartialOrig: '' })).toBe('future');
   });
 
   it('partialOrig wins over unread', () => {
-    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: 'x' })).toBe('partial');
+    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: 'x', futurePartialOrig: '' })).toBe('partial');
   });
 
   it('falls back to unread when nothing is set', () => {
-    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: '' })).toBe('unread');
+    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: '', futurePartialOrig: '' })).toBe('unread');
   });
 
   it('accepts a boolean partialOrig (e.g. isAliyahPartial result)', () => {
-    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: true })).toBe('partial');
-    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: false })).toBe('unread');
+    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: true, futurePartialOrig: '' })).toBe('partial');
+    expect(aliyahState({ isReadPast: false, isReadFuture: false, partialOrig: false, futurePartialOrig: '' })).toBe('unread');
   });
 });
 

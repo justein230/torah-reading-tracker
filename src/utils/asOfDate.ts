@@ -13,10 +13,10 @@ export function applyAsOfDate(
   { allRows, occasionAliyot, weekdayAliyot, hosafotReadings }: ReadingArrays,
   cutoff: string,
 ): ReadingArrays {
-  const trimmedRows     = allRows.map(r => r.orig !== '' && r.orig <= cutoff ? { ...r, partialOrig: '' } : revertRow(r));
-  const trimmedOccasion = occasionAliyot.map(oa => oa.orig !== '' && oa.orig <= cutoff ? { ...oa, partialOrig: '' } : revertOccasion(oa));
-  const trimmedWeekday  = weekdayAliyot.map(wa => wa.dateRead !== '' && wa.dateRead <= cutoff ? { ...wa, partialOrig: '' } : revertWeekday(wa));
-  const trimmedHosafot  = hosafotReadings.map(hr => hr.dateRead !== '' && hr.dateRead <= cutoff ? { ...hr, partialOrig: '' } : revertHosafah(hr));
+  const trimmedRows     = allRows.map(r => r.orig !== '' && r.orig <= cutoff ? { ...r, partialOrig: '', futurePartialOrig: '' } : revertRow(r));
+  const trimmedOccasion = occasionAliyot.map(oa => oa.orig !== '' && oa.orig <= cutoff ? { ...oa, partialOrig: '', futurePartialOrig: '' } : revertOccasion(oa));
+  const trimmedWeekday  = weekdayAliyot.map(wa => wa.dateRead !== '' && wa.dateRead <= cutoff ? { ...wa, partialOrig: '', futurePartialOrig: '' } : revertWeekday(wa));
+  const trimmedHosafot  = hosafotReadings.map(hr => hr.dateRead !== '' && hr.dateRead <= cutoff ? { ...hr, partialOrig: '', futurePartialOrig: '' } : revertHosafah(hr));
 
   return {
     allRows:         enrichPartialOrig(trimmedRows, trimmedOccasion, trimmedWeekday, trimmedHosafot),

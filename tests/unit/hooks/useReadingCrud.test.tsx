@@ -156,7 +156,7 @@ const BASE_PAIR_ROW: MappedRow = {
   sefer: MOCK_SEFER, parsha: MOCK_PARSHA, aliyah: 1,
   pairName: 'ויקהל־פקודי', pairNameEn: 'Vayakhel-Pekudei', combinedAliyah: 1,
   pseukim: 5, pct: 0, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 5,
-  orig: '', directOrig: '', readAsDouble: true, partialOrig: '', isCoveredPast: false, futDates: [],
+  orig: '', directOrig: '', readAsDouble: true, partialOrig: '', futurePartialOrig: '', isCoveredPast: false, futDates: [],
   isRead: false, isReadPast: false, isReadFuture: false, hasFuture: false, isFuture: false,
   isReread: false, yearRead: null, futureYear: null, allYears: [], occasion: '', location: '',
   rereadCount: 0,
@@ -174,7 +174,7 @@ const WEEKDAY: MappedWeekdayAliyah = {
   sefer: MOCK_SEFER, seferEn: 'Genesis', seferColor: '#000', pseukim: 5,
   chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 5, coversAliyahId: null,
   dateRead: '2024-02-05', allDates: ['2024-02-05'], readingId: 31, isReadPast: true,
-  isReadFuture: false, hasFuture: false, partialOrig: '', isCoveredPast: false,
+  isReadFuture: false, hasFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
   location: 'Home', note: 'monday',
 };
 
@@ -183,7 +183,7 @@ const HOSAFAH: MappedHosafah = {
   isDoubleParsha: false, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 5,
   pseukim: 5, dateRead: '2024-03-10', note: 'extra', location: 'Shul',
   parsha1: MOCK_PARSHA, parsha1En: 'Bereishit', parsha2: null, parsha2En: null,
-  occasion: null, occasionEn: null, isReadPast: true, isReadFuture: false, partialOrig: '', isCoveredPast: false,
+  occasion: null, occasionEn: null, isReadPast: true, isReadFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
 };
 
 beforeEach(() => {
@@ -333,7 +333,7 @@ describe('useReadingCrud — weekday reading via add form', () => {
       sefer: MOCK_SEFER, seferEn: 'Genesis', seferColor: '#000', pseukim: 5,
       chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 5, coversAliyahId: null,
       dateRead: '', allDates: [], readingId: 0, isReadPast: false, isReadFuture: false,
-      hasFuture: false, partialOrig: '', isCoveredPast: false, location: '', note: '',
+      hasFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false, location: '', note: '',
     }];
     (useApp as Mock).mockReturnValue(makeCtx({ refreshWeekday, weekdayAliyot }));
     renderWithProviders(<Harness />);

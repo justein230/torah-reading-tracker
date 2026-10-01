@@ -26,6 +26,7 @@ function AliyahDot({ color, isRead, hasFut, row, showTip, moveTipPos, positionFr
   if (isRead)               { bg = color;                                                          border = color; }
   else if (hasFut)          { bg = 'transparent';                                                  border = hex(color, 0.7); }
   else if (row?.partialOrig){ bg = `linear-gradient(to right, ${color} 50%, ${color}44 50%)`;     border = color + 'aa'; }
+  else if (row?.futurePartialOrig){ bg = `${color}44`;                                            border = hex(color, 0.7); }
   else                      { bg = 'var(--surface)';                                               border = 'var(--border)'; }
 
   function handleTouchClick(e: React.MouseEvent<HTMLButtonElement>) {

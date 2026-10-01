@@ -29,6 +29,7 @@ export function mapRow(r: RawRow): MappedRow {
   const directOrig  = r.direct_orig || '';
   const readAsDouble = r.read_type === 'double_parsha';
   const partialOrig = '';
+  const futurePartialOrig = '';
   const futDates  = r.fut ? r.fut.split(',') : [];
   const today        = getTodayStr();
   const { isRead, isReadPast, isReadFuture } = deriveReadState(orig, today);
@@ -42,7 +43,7 @@ export function mapRow(r: RawRow): MappedRow {
     pseukim: r.pseukim,
     chapterStart: r.chapter_start ?? -1, verseStart: r.verse_start ?? -1,
     chapterEnd: r.chapter_end ?? -1,     verseEnd: r.verse_end ?? -1,
-    orig, directOrig, readAsDouble, partialOrig, isCoveredPast: false, futDates, isRead, isReadPast, isReadFuture, hasFuture,
+    orig, directOrig, readAsDouble, partialOrig, futurePartialOrig, isCoveredPast: false, futDates, isRead, isReadPast, isReadFuture, hasFuture,
     isFuture: isReadFuture, /* alias for isReadFuture; consistent with isFuture on calendar/log entries */
     isReread: false,        /* base rows are never re-reads; synthetic calendar/log entries override this */
     yearRead, futureYear, allYears,
@@ -76,7 +77,7 @@ export function mapOccasionAliyahRow(r: RawOccasionAliyahRow): MappedOccasionAli
     orig, allDates: r.all_dates ? r.all_dates.split(',') : [],
     readCount: r.read_count || 0, isRead, isReadPast, isReadFuture,
     hasFuture: isReadPast && (r.all_dates ? r.all_dates.split(',') : []).some(d => d > today),
-    partialOrig: '', isCoveredPast: false,
+    partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
   };
 }
 
@@ -125,7 +126,7 @@ export function mapWeekdayAliyahRow(r: RawWeekdayAliyahRow): MappedWeekdayAliyah
     readingId: r.reading_id,
     isReadPast, isReadFuture,
     hasFuture: isReadPast && allDates.some(d => d > today),
-    partialOrig: '', isCoveredPast: false,
+    partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
     location: r.location,
     note: r.note,
   };
@@ -156,7 +157,7 @@ export function mapHosafahRow(r: RawHosafahRow): MappedHosafah {
     occasion: r.occasion,
     occasionEn: r.occasion_en,
     isReadPast, isReadFuture,
-    partialOrig: '', isCoveredPast: false,
+    partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
   };
 }
 

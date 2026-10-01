@@ -8,7 +8,7 @@ export function makeRow(overrides: Partial<MappedRow> = {}): MappedRow {
     chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 10,
     isRead: false, isReadPast: false, isReadFuture: false, isFuture: false,
     isReread: false, hasFuture: false, yearRead: null, futureYear: null, allYears: [],
-    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', isCoveredPast: false, futDates: [], occasion: '', location: '', rereadCount: 0,
+    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false, futDates: [], occasion: '', location: '', rereadCount: 0,
     ...overrides,
   };
   // A genuinely-read standard aliyah has directOrig === orig; default to that unless a test
@@ -26,7 +26,7 @@ export function makeOA(overrides: Partial<MappedOccasionAliyah> = {}): MappedOcc
     pseukim: 5, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 5,
     coversAliyahId: null,
     orig: '2024-04-22', allDates: ['2024-04-22'], readCount: 1,
-    isRead: true, isReadPast: true, isReadFuture: false, hasFuture: false, partialOrig: '', isCoveredPast: false,
+    isRead: true, isReadPast: true, isReadFuture: false, hasFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
     ...overrides,
   };
 }
@@ -38,7 +38,7 @@ export function makeWA(overrides: Partial<MappedWeekdayAliyah> = {}): MappedWeek
     sefer: 'Genesis', seferEn: 'Genesis', seferColor: '#000',
     pseukim: 5, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 5,
     coversAliyahId: 1, dateRead: '2024-01-15', allDates: ['2024-01-15'], readingId: 1,
-    isReadPast: true, isReadFuture: false, hasFuture: false, partialOrig: '', isCoveredPast: false, location: '', note: '',
+    isReadPast: true, isReadFuture: false, hasFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false, location: '', note: '',
     ...overrides,
   };
 }
@@ -61,7 +61,7 @@ export function makeHosafah(overrides: Partial<MappedHosafah> = {}): MappedHosaf
     pseukim: 5, dateRead: '2024-01-15', note: '', location: '',
     parsha1: 'Bereishit', parsha1En: 'Bereishit', parsha2: null, parsha2En: null,
     occasion: null, occasionEn: null,
-    isReadPast: true, partialOrig: '', isCoveredPast: false,
+    isReadPast: true, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
     ...overrides,
     isReadFuture: overrides.isReadFuture ?? false,
   };

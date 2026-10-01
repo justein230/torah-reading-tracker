@@ -6,7 +6,7 @@ import { GridLegend } from './GridLegend.js';
 import { SeferSection } from './shared/SeferSection.js';
 import { ParshaRow } from './shared/ParshaRow.js';
 import { aliyahCellStyle, aliyahState, fmtPct, groupBy } from '../utils/format.js';
-import { isAliyahRead, isAliyahPartial, countReadAliyot, computePairTotalPseukim, computePairReadPseukim } from '../compute.js';
+import { isAliyahRead, isAliyahPartial, isAliyahFuturePartial, countReadAliyot, computePairTotalPseukim, computePairReadPseukim } from '../compute.js';
 import type { MappedRow, ParshaPair } from '../types/index.js';
 import './Grid.css';
 
@@ -28,7 +28,7 @@ function DoubleCell({ rows, color, pairNameHeb, pairNameEn, aliyahNum, pairTotal
   const isReadFuture = !isReadPast && rows.some(r => r.readAsDouble && r.isReadFuture);
   const hasReread    = isReadPast && rows.some(r => r.readAsDouble && r.hasFuture);
 
-  const state = aliyahState({ isReadPast, isReadFuture, partialOrig: isAliyahPartial(rows) });
+  const state = aliyahState({ isReadPast, isReadFuture, partialOrig: isAliyahPartial(rows), futurePartialOrig: isAliyahFuturePartial(rows) });
   const { bg, border, dashed } = aliyahCellStyle(state, color);
 
   return (
@@ -79,7 +79,7 @@ export default function DoubleParshaGrid() {
 
   return (
     <Box>
-      <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'unread']} />
+      <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'partialFuture', 'unread']} />
       <div className="sefer-grid sefer-grid-rows">
         {SEFER_ORDER.filter(s => pairsBySefer.get(s)?.length).map(s => {
           const seferMeta = SEFER_MAP[s];

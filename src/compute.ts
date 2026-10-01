@@ -34,33 +34,48 @@ function overlapSource<T extends VerseRange>(
   };
 }
 
+/** Which readings a pass of enrichOverlapDates treats as its overlap sources: done ('past') or scheduled ('future'). */
+type ReadState = { isReadPast: boolean; isReadFuture: boolean };
+type IsSourceRead = (item: ReadState) => boolean;
+
+const isReadInPast: IsSourceRead   = item => item.isReadPast;
+const isReadInFuture: IsSourceRead = item => item.isReadFuture && !item.isReadPast;
+
 /**
  * Shared assembly for the four enrich*PartialOrig functions: for each subject not already
  * fully read, gathers overlap dates and full-containment coverage from its cross-referenced
- * sources, then stamps partialOrig (earliest overlap date) and isCoveredPast (fully covered
- * by some past reading) onto it. Skips (returns unchanged) subjects the skip guard flags —
+ * sources, then stamps partialOrig (earliest past overlap date), isCoveredPast (fully covered
+ * by some past reading) and futurePartialOrig (earliest overlap date among scheduled,
+ * not-yet-read readings) onto it. Skips (returns unchanged) subjects the skip guard flags —
  * already read, or without a real verse range.
  */
-function enrichOverlapDates<S extends VerseRange & { partialOrig: string; isCoveredPast: boolean }>(
+function enrichOverlapDates<S extends VerseRange & { partialOrig: string; futurePartialOrig: string; isCoveredPast: boolean }>(
   subjects: S[],
   skip: (s: S) => boolean,
-  sourcesOf: (s: S) => OverlapSource[],
+  sourcesOf: (s: S, isSourceRead: IsSourceRead) => OverlapSource[],
 ): S[] {
   return subjects.map(s => {
     if (skip(s)) return s;
-    const sources = sourcesOf(s);
-    const isCoveredPast = sources.some(src => src.coversFully());
-    const dates = sources.flatMap(src => src.dates());
-    if (!dates.length && !isCoveredPast) return s;
-    return { ...s, partialOrig: dates.length ? earliestDate(dates) : '', isCoveredPast };
+    const pastSources   = sourcesOf(s, isReadInPast);
+    const isCoveredPast = pastSources.some(src => src.coversFully());
+    const pastDates     = pastSources.flatMap(src => src.dates());
+    const futureDates   = sourcesOf(s, isReadInFuture).flatMap(src => src.dates());
+    if (!pastDates.length && !futureDates.length && !isCoveredPast) return s;
+    return {
+      ...s,
+      partialOrig:       pastDates.length   ? earliestDate(pastDates)   : '',
+      futurePartialOrig: futureDates.length ? earliestDate(futureDates) : '',
+      isCoveredPast,
+    };
   });
 }
 
 /**
- * Computes partialOrig/isCoveredPast for each Shabbat aliyah: the earliest date a holiday or
- * weekday reading covered part (but not all) of the aliyah's verse range, and whether some
- * past reading covers it in full. Runs in TypeScript after all data is fetched so the overlap
- * logic is testable without a database.
+ * Computes partialOrig/futurePartialOrig/isCoveredPast for each Shabbat aliyah: the earliest
+ * date a holiday or weekday reading covered part (but not all) of the aliyah's verse range
+ * (past, and separately scheduled-future), and whether some past reading covers it in full.
+ * Runs in TypeScript after all data is fetched so the overlap logic is testable without a
+ * database.
  */
 export function enrichPartialOrig(
   rows: MappedRow[],
@@ -68,10 +83,10 @@ export function enrichPartialOrig(
   weekdayAliyot: MappedWeekdayAliyah[],
   hosafotReadings: MappedHosafah[] = [],
 ): MappedRow[] {
-  return enrichOverlapDates(rows, r => r.chapterStart < 0, r => [
-    overlapSource(occasionAliyot, oa => oa.isReadPast && oa.coversAliyahId == null && oa.parsha === r.parsha, partiallyOverlaps, r, oa => oa.orig),
-    overlapSource(weekdayAliyot, wa => wa.isReadPast && wa.parsha === r.parsha, versesOverlap, r, wa => wa.dateRead),
-    overlapSource(hosafotReadings, hr => hr.isReadPast && hr.sefer === r.sefer, partiallyOverlaps, r, hr => hr.dateRead),
+  return enrichOverlapDates(rows, r => r.chapterStart < 0, (r, isRead) => [
+    overlapSource(occasionAliyot, oa => isRead(oa) && oa.coversAliyahId == null && oa.parsha === r.parsha, partiallyOverlaps, r, oa => oa.orig),
+    overlapSource(weekdayAliyot, wa => isRead(wa) && wa.parsha === r.parsha, versesOverlap, r, wa => wa.dateRead),
+    overlapSource(hosafotReadings, hr => isRead(hr) && hr.sefer === r.sefer, partiallyOverlaps, r, hr => hr.dateRead),
   ]);
 }
 
@@ -81,10 +96,10 @@ export function enrichOccasionPartialOrig(
   weekdayAliyot: MappedWeekdayAliyah[],
   hosafotReadings: MappedHosafah[] = [],
 ): MappedOccasionAliyah[] {
-  return enrichOverlapDates(occasionAliyot, oa => oa.isReadPast || oa.chapterStart < 0, oa => [
-    overlapSource(shabbatRows, r => r.isReadPast && r.parsha === oa.parsha, partiallyOverlaps, oa, r => r.orig),
-    overlapSource(weekdayAliyot, wa => wa.isReadPast && wa.parsha === oa.parsha, versesOverlap, oa, wa => wa.dateRead),
-    overlapSource(hosafotReadings, hr => hr.isReadPast && hr.sefer === oa.sefer, versesOverlap, oa, hr => hr.dateRead),
+  return enrichOverlapDates(occasionAliyot, oa => oa.isReadPast || oa.chapterStart < 0, (oa, isRead) => [
+    overlapSource(shabbatRows, r => isRead(r) && r.parsha === oa.parsha, partiallyOverlaps, oa, r => r.orig),
+    overlapSource(weekdayAliyot, wa => isRead(wa) && wa.parsha === oa.parsha, versesOverlap, oa, wa => wa.dateRead),
+    overlapSource(hosafotReadings, hr => isRead(hr) && hr.sefer === oa.sefer, versesOverlap, oa, hr => hr.dateRead),
   ]);
 }
 
@@ -94,10 +109,10 @@ export function enrichWeekdayPartialOrig(
   occasionAliyot: MappedOccasionAliyah[],
   hosafotReadings: MappedHosafah[] = [],
 ): MappedWeekdayAliyah[] {
-  return enrichOverlapDates(weekdayAliyot, wa => wa.isReadPast || wa.chapterStart < 0, wa => [
-    overlapSource(shabbatRows, r => r.isReadPast && r.parsha === wa.parsha, partiallyOverlaps, wa, r => r.orig),
-    overlapSource(occasionAliyot, oa => oa.isReadPast && oa.parsha === wa.parsha, partiallyOverlaps, wa, oa => oa.orig),
-    overlapSource(hosafotReadings, hr => hr.isReadPast && hr.sefer === wa.sefer, versesOverlap, wa, hr => hr.dateRead),
+  return enrichOverlapDates(weekdayAliyot, wa => wa.isReadPast || wa.chapterStart < 0, (wa, isRead) => [
+    overlapSource(shabbatRows, r => isRead(r) && r.parsha === wa.parsha, partiallyOverlaps, wa, r => r.orig),
+    overlapSource(occasionAliyot, oa => isRead(oa) && oa.parsha === wa.parsha, partiallyOverlaps, wa, oa => oa.orig),
+    overlapSource(hosafotReadings, hr => isRead(hr) && hr.sefer === wa.sefer, versesOverlap, wa, hr => hr.dateRead),
   ]);
 }
 
@@ -107,10 +122,10 @@ export function enrichHosafotPartialOrig(
   occasionAliyot: MappedOccasionAliyah[],
   weekdayAliyot: MappedWeekdayAliyah[],
 ): MappedHosafah[] {
-  return enrichOverlapDates(hosafotReadings, hr => hr.isReadPast || hr.chapterStart < 0, hr => [
-    overlapSource(shabbatRows, r => r.isReadPast && r.sefer === hr.sefer, partiallyOverlaps, hr, r => r.orig),
-    overlapSource(occasionAliyot, oa => oa.isReadPast && oa.sefer === hr.sefer, partiallyOverlaps, hr, oa => oa.orig),
-    overlapSource(weekdayAliyot, wa => wa.isReadPast && wa.sefer === hr.sefer, partiallyOverlaps, hr, wa => wa.dateRead),
+  return enrichOverlapDates(hosafotReadings, hr => hr.isReadPast || hr.chapterStart < 0, (hr, isRead) => [
+    overlapSource(shabbatRows, r => isRead(r) && r.sefer === hr.sefer, partiallyOverlaps, hr, r => r.orig),
+    overlapSource(occasionAliyot, oa => isRead(oa) && oa.sefer === hr.sefer, partiallyOverlaps, hr, oa => oa.orig),
+    overlapSource(weekdayAliyot, wa => isRead(wa) && wa.sefer === hr.sefer, partiallyOverlaps, hr, wa => wa.dateRead),
   ]);
 }
 
@@ -137,7 +152,27 @@ function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function computeReadingRate(allRows: MappedRow[], forecastConfig: ForecastConfig, today: Date, seferMap: Record<string, SeferMeta>): number | null {
+// A holiday/weekday/hosafah reading reduced to what the pace calculation needs: its verse range
+// and the date it was read. Standard aliyot carry their own `orig`; these carry it under other names.
+export type SpecialRead = ReadableRange & { date: string };
+
+export interface SpecialReadings {
+  occasionAliyot: MappedOccasionAliyah[];
+  weekdayAliyot: MappedWeekdayAliyah[];
+  hosafotReadings: MappedHosafah[];
+}
+
+// Past-read special readings, mirroring processSpecialStats: coversAliyahId occasion items are
+// skipped because the standard aliyah they sit inside already carries the read date.
+export function pastSpecialReads({ occasionAliyot, weekdayAliyot, hosafotReadings }: SpecialReadings): SpecialRead[] {
+  return [
+    ...occasionAliyot.filter(oa => oa.isReadPast && oa.coversAliyahId == null && oa.orig).map(oa => ({ ...oa, date: oa.orig })),
+    ...weekdayAliyot.filter(wa => wa.isReadPast && wa.dateRead).map(wa => ({ ...wa, date: wa.dateRead })),
+    ...hosafotReadings.filter(hr => hr.isReadPast && hr.dateRead).map(hr => ({ ...hr, date: hr.dateRead })),
+  ];
+}
+
+function computeReadingRate(allRows: MappedRow[], forecastConfig: ForecastConfig, today: Date, seferMap: Record<string, SeferMeta>, specialReads: SpecialRead[] = []): number | null {
   const { lookbackYears, paceOverride } = forecastConfig;
   if (paceOverride && paceOverride > 0) return paceOverride;
 
@@ -146,13 +181,16 @@ function computeReadingRate(allRows: MappedRow[], forecastConfig: ForecastConfig
     ? `${today.getFullYear() - lookbackYears}-${todayStr.slice(5)}`
     : null;
   // string comparison works here: 'YYYY-MM-DD' sorts lexically in calendar order
-  const windowRows = allRows.filter(r => r.isRead && r.orig && (!cutoffStr || r.orig >= cutoffStr));
-  if (windowRows.length < 2) return null;
-  const dates          = windowRows.map(r => r.orig).sort((a, b) => new Date(a!).getTime() - new Date(b!).getTime());
+  const inWindow = (date: string) => !cutoffStr || date >= cutoffStr;
+  const windowRows    = allRows.filter(r => r.isRead && r.orig && inWindow(r.orig));
+  const windowSpecial = specialReads.filter(sr => inWindow(sr.date));
+  if (windowRows.length + windowSpecial.length < 2) return null;
+  const dates          = [...windowRows.map(r => r.orig as string), ...windowSpecial.map(sr => sr.date)].sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
   const daysSinceFirst = daysBetween(dates[0] as string, todayStr);
   if (daysSinceFirst <= 0) return null;
+  // one Set across both sources, so a pasuk read as a standard aliyah and again in a holiday reading counts once
   const windowKeys = new Set<string>();
-  for (const r of windowRows) for (const k of verseKeysForRange(r, seferMap)) windowKeys.add(k);
+  for (const r of [...windowRows, ...windowSpecial]) for (const k of verseKeysForRange(r, seferMap)) windowKeys.add(k);
   const rate = (windowKeys.size / daysSinceFirst) * 365.25;
   return rate > 0 ? rate : null;
 }
@@ -166,10 +204,10 @@ export function remainingPseukim(allRows: MappedRow[], stats: Pick<Stats, 'speci
   return totalPseukim - committedPseukim;
 }
 
-export function estimateCompletion(allRows: MappedRow[], _filters: Filters, forecastConfig: ForecastConfig, specialTotalPseukim = 0, specialReadPseukim = 0, seferMap: Record<string, SeferMeta> = {}): ForecastResult | null {
+export function estimateCompletion(allRows: MappedRow[], _filters: Filters, forecastConfig: ForecastConfig, specialTotalPseukim = 0, specialReadPseukim = 0, seferMap: Record<string, SeferMeta> = {}, specialReads: SpecialRead[] = []): ForecastResult | null {
   const today            = new Date();
   const remaining        = remainingPseukim(allRows, { specialTotalPseukim, specialReadPseukim }, seferMap);
-  const ratePerYear      = computeReadingRate(allRows, forecastConfig, today, seferMap);
+  const ratePerYear      = computeReadingRate(allRows, forecastConfig, today, seferMap, specialReads);
   if (ratePerYear === null) return null;
   const daysLeft   = (remaining / ratePerYear) * 365.25;
   const completion = new Date(today.getTime() + daysLeft * 86400000);
@@ -182,8 +220,10 @@ export function estimateCompletionFromStats(
   forecastConfig: ForecastConfig,
   stats: Pick<Stats, 'specialReadPseukim' | 'specialFuturePseukim'>,
   seferMap: Record<string, SeferMeta> = {},
+  specialReadings?: SpecialReadings,
 ): ForecastResult | null {
-  return estimateCompletion(allRows, filters, forecastConfig, 0, stats.specialReadPseukim + stats.specialFuturePseukim, seferMap);
+  const specialReads = specialReadings ? pastSpecialReads(specialReadings) : [];
+  return estimateCompletion(allRows, filters, forecastConfig, 0, stats.specialReadPseukim + stats.specialFuturePseukim, seferMap, specialReads);
 }
 
 function addToYear(
@@ -312,6 +352,10 @@ export function isAliyahRead(rows: MappedRow[]): boolean {
 
 export function isAliyahPartial(rows: MappedRow[]): boolean {
   return !isAliyahRead(rows) && rows.some(r => r.isReadPast || r.partialOrig);
+}
+
+export function isAliyahFuturePartial(rows: MappedRow[]): boolean {
+  return !isAliyahRead(rows) && rows.some(r => r.futurePartialOrig);
 }
 
 export function countReadAliyot(pairRows: Record<number, MappedRow[]>, combinedAliyot: number[]): number {

@@ -57,7 +57,7 @@ export default function HolidayGrid() {
 
   return (
     <Box>
-      <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'unread', 'na']} />
+      <GridLegend show={['read', 'scheduled', 'reread', 'partial', 'partialFuture', 'unread', 'na']} />
 
       <Box mb={16} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <Switch

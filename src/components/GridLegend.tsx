@@ -3,7 +3,7 @@ import { futureBg, partialBg, partialBorder } from '../utils/format.js';
 
 const EXAMPLE_COLOR = '#4a90d9';
 
-type LegendKey = 'read' | 'scheduled' | 'reread' | 'partial' | 'unread' | 'na';
+type LegendKey = 'read' | 'scheduled' | 'reread' | 'partial' | 'partialFuture' | 'unread' | 'na';
 
 interface LegendItemProps {
   label: string;
@@ -18,11 +18,12 @@ const LEGEND_DEFS: Record<LegendKey, LegendItemProps> = {
   scheduled: { label: 'Scheduled',               bg: futureBg(EXAMPLE_COLOR), border: EXAMPLE_COLOR,                dashed: true },
   reread:    { label: 'Read + upcoming re-read', bg: EXAMPLE_COLOR,           border: EXAMPLE_COLOR,                dot: true },
   partial:   { label: 'Partially read',          bg: partialBg(EXAMPLE_COLOR), border: partialBorder(EXAMPLE_COLOR) },
+  partialFuture: { label: 'Scheduled Partial', bg: futureBg(EXAMPLE_COLOR), border: partialBorder(EXAMPLE_COLOR) },
   unread:    { label: 'Not yet read',            bg: 'var(--cell-unread)',     border: 'var(--cell-unread-border)' },
   na:        { label: 'Not in this reading mode', bg: 'transparent',          border: 'var(--cell-unread-border)',  dashed: true },
 };
 
-const LEGEND_ORDER: LegendKey[] = ['read', 'scheduled', 'reread', 'partial', 'unread', 'na'];
+const LEGEND_ORDER: LegendKey[] = ['read', 'scheduled', 'reread', 'partial', 'partialFuture', 'unread', 'na'];
 
 function LegendSwatch({ bg, border, dashed, dot }: Readonly<Omit<LegendItemProps, 'label'>>) {
   return (

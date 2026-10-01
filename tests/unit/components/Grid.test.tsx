@@ -67,6 +67,16 @@ describe('Grid — cell colors via cellStyle', () => {
     expect(cell).toHaveClass('dashed');
   });
 
+  it('scheduled-partial aliyah gets a solid border', () => {
+    const row = makeRow({ sefer: MOCK_SEFER, parsha: MOCK_PARSHA, aliyah: 1, futurePartialOrig: '2099-01-01' });
+    (useApp as Mock).mockReturnValue(makeCtx({
+      allRows: [row], stats: makeStats(), parshaIndex: { [MOCK_SEFER]: [MOCK_PARSHA] },
+    }));
+    const { container } = renderWithProviders(<Grid />);
+    const cell = getCells(container)[0]!;
+    expect(cell).not.toHaveClass('dashed');
+  });
+
   it('aliyah excluded by the sefer filter is dimmed regardless of read state', () => {
     const row = makeRow({ sefer: MOCK_SEFER, parsha: MOCK_PARSHA, aliyah: 1, isRead: true, isReadPast: true, orig: '2024-01-01' });
     (useApp as Mock).mockReturnValue(makeCtx({

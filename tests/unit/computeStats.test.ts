@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { computeStats, estimateCompletion, countPseukim, computeRing, effectivePseukimOf, committedPseukimOf, remainingPseukim, isAliyahRead, isAliyahPartial, countReadAliyot, computePairTotalPseukim, computePairReadPseukim } from '../../src/compute.js';
+import { computeStats, estimateCompletion, countPseukim, computeRing, effectivePseukimOf, committedPseukimOf, remainingPseukim, pastSpecialReads, isAliyahRead, isAliyahPartial, countReadAliyot, computePairTotalPseukim, computePairReadPseukim } from '../../src/compute.js';
+import { makeWA, makeHosafah } from '../helpers/fixtures.js';
 import type { MappedRow, MappedOccasionAliyah, MappedHosafah, Filters } from '../../src/types/index.js';
 
 // ── shared fixtures ───────────────────────────────────────────────────────────
@@ -29,7 +30,7 @@ function makeRow(overrides: Partial<MappedRow> = {}): MappedRow {
     chapterStart: chapter, verseStart: 1, chapterEnd: chapter, verseEnd: pseukim,
     isRead: false, isReadPast: false, isReadFuture: false, isFuture: false, isReread: false,
     hasFuture: false, yearRead: null, futureYear: null, allYears: [],
-    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', isCoveredPast: false, futDates: [], occasion: '', location: '', rereadCount: 0,
+    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false, futDates: [], occasion: '', location: '', rereadCount: 0,
     ...overrides,
   };
 }
@@ -247,6 +248,56 @@ describe('estimateCompletion — lookback window', () => {
   });
 });
 
+describe('estimateCompletion — special readings count toward pace', () => {
+  const CONFIG = { lookbackYears: 1, paceOverride: null };
+  const NO_SPECIALS = { occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] };
+  const withFakeToday = (fn: () => void) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 13, 12, 0, 0));
+    try { fn(); } finally { vi.useRealTimers(); }
+  };
+  const base = () => [
+    makeRow({ isRead: true, orig: '2025-10-01', pseukim: 100 }),
+    makeRow({ aliyah: 2, isRead: true, orig: '2026-03-01', pseukim: 100 }),
+  ];
+
+  it('does not double count pseukim already read as a standard aliyah', () => {
+    withFakeToday(() => {
+      const oa = makeOA({ sefer: 'Genesis', chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 31, pseukim: 31, isReadPast: true, isRead: true, orig: '2026-02-01' });
+      const without = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      const withOA  = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, pastSpecialReads({ ...NO_SPECIALS, occasionAliyot: [oa] }));
+      expect(withOA!.ratePerYear).toBe(without!.ratePerYear);
+    });
+  });
+
+  it('ignores special readings older than the lookback window', () => {
+    withFakeToday(() => {
+      const wa = makeWA({ sefer: 'Genesis', chapterStart: 10, verseStart: 1, chapterEnd: 10, verseEnd: 6, pseukim: 6, isReadPast: true, dateRead: '2020-01-01' });
+      const without = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      const withWA  = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, pastSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [wa] }));
+      expect(withWA!.ratePerYear).toBe(without!.ratePerYear);
+    });
+  });
+});
+
+describe('pastSpecialReads', () => {
+  const NONE = { occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] };
+
+  it('keeps only past-read items, using orig for occasions and dateRead for weekday/hosafot', () => {
+    const past   = makeOA({ isReadPast: true, orig: '2026-01-01' });
+    const future = makeOA({ isReadPast: false, isReadFuture: true, orig: '2027-01-01' });
+    const wa     = makeWA({ isReadPast: true, dateRead: '2026-02-02' });
+    const hr     = makeHosafah({ isReadPast: true, dateRead: '2026-03-03' });
+    const out = pastSpecialReads({ occasionAliyot: [past, future], weekdayAliyot: [wa], hosafotReadings: [hr] });
+    expect(out.map(x => x.date)).toEqual(['2026-01-01', '2026-02-02', '2026-03-03']);
+  });
+
+  it('skips coversAliyahId occasion items (the standard aliyah already carries their date)', () => {
+    const covered = makeOA({ isReadPast: true, orig: '2026-01-01', coversAliyahId: 327 });
+    expect(pastSpecialReads({ ...NONE, occasionAliyot: [covered] })).toEqual([]);
+  });
+});
+
 describe('estimateCompletion — maftir pseukim deduplication', () => {
   it('does not double-count overlapping maftir pseukim in the reading rate', () => {
     // aliyah 7: ch7:v1-30; aliyah 2: ch2:v1-100; maftir: ch7:v21-30 (subset of aliyah 7)
@@ -395,7 +446,7 @@ function makeOA(overrides: Partial<MappedOccasionAliyah> = {}): MappedOccasionAl
     sefer: 'Genesis', seferEn: 'Genesis', seferColor: '#000',
     pseukim: 10, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 10,
     coversAliyahId: null, orig: '', allDates: [], readCount: 0,
-    isRead: false, isReadPast: false, isReadFuture: false, hasFuture: false, partialOrig: '', isCoveredPast: false,
+    isRead: false, isReadPast: false, isReadFuture: false, hasFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
     ...overrides,
   };
 }
@@ -532,6 +583,14 @@ describe('computeStats — special/occasion pseukim', () => {
     const result = estimateCompletion([r1, r2], NO_FILTERS, { lookbackYears: null, paceOverride: 200 }, specialTotalPseukim, specialReadPseukim);
     expect(result).not.toBeNull();
     expect(result!.remaining).toBe(0);
+
+    // Same special pseukim must also feed the pace (no paceOverride, which would bypass
+    // computeReadingRate): 200 standard + 50 special verses read, vs 200 standard alone.
+    const oaRead = { ...oa, orig: '2024-06-01' };
+    const config = { lookbackYears: null, paceOverride: null };
+    const paceWithout = estimateCompletion([r1, r2], NO_FILTERS, config, 0, 0, SEFER_MAP, []);
+    const paceWith    = estimateCompletion([r1, r2], NO_FILTERS, config, 0, 0, SEFER_MAP, pastSpecialReads({ occasionAliyot: [oaRead], weekdayAliyot: [], hosafotReadings: [] }));
+    expect(paceWith!.ratePerYear).toBeGreaterThan(paceWithout!.ratePerYear);
   });
 });
 
@@ -547,7 +606,7 @@ function makeHR(overrides: Partial<MappedHosafah> = {}): MappedHosafah {
     note: '', location: '',
     parsha1: '', parsha1En: '', parsha2: null, parsha2En: null,
     occasion: null, occasionEn: null,
-    isReadPast: true, partialOrig: '', isCoveredPast: false,
+    isReadPast: true, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
     ...overrides,
     isReadFuture: overrides.isReadFuture ?? false,
   };

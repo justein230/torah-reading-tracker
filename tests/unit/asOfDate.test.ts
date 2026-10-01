@@ -17,7 +17,7 @@ function makeRow(overrides: Partial<MappedRow> = {}): MappedRow {
     chapterStart: chapter, verseStart: 1, chapterEnd: chapter, verseEnd: pseukim,
     isRead: false, isReadPast: false, isReadFuture: false, isFuture: false, isReread: false,
     hasFuture: false, yearRead: null, futureYear: null, allYears: [],
-    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', isCoveredPast: false, futDates: [], occasion: '', location: '', rereadCount: 0,
+    orig: '', directOrig: '', readAsDouble: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false, futDates: [], occasion: '', location: '', rereadCount: 0,
     ...overrides,
   };
 }
@@ -30,7 +30,7 @@ function makeOA(overrides: Partial<MappedOccasionAliyah> = {}): MappedOccasionAl
     sefer: 'Genesis', seferEn: 'Genesis', seferColor: '#000',
     pseukim: 10, chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 10,
     coversAliyahId: null, orig: '', allDates: [], readCount: 0,
-    isRead: false, isReadPast: false, isReadFuture: false, hasFuture: false, partialOrig: '', isCoveredPast: false,
+    isRead: false, isReadPast: false, isReadFuture: false, hasFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
     ...overrides,
   };
 }
@@ -41,7 +41,7 @@ function makeWA(overrides: Partial<MappedWeekdayAliyah> = {}): MappedWeekdayAliy
     sefer: 'Genesis', seferEn: 'Genesis', seferColor: '#000', pseukim: 5,
     chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 5, coversAliyahId: null,
     dateRead: '', allDates: [], readingId: 1,
-    isReadPast: false, isReadFuture: false, hasFuture: false, partialOrig: '', isCoveredPast: false,
+    isReadPast: false, isReadFuture: false, hasFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
     location: '', note: '',
     ...overrides,
   };
@@ -52,7 +52,7 @@ function makeHR(overrides: Partial<MappedHosafah> = {}): MappedHosafah {
     id: 1, sefer: 'Genesis', parshaId1: null, parshaId2: null, occasionId: null, isDoubleParsha: false,
     chapterStart: 2, verseStart: 1, chapterEnd: 2, verseEnd: 10, pseukim: 10, dateRead: '',
     note: '', location: '', parsha1: '', parsha1En: '', parsha2: null, parsha2En: null,
-    occasion: null, occasionEn: null, isReadPast: false, isReadFuture: false, partialOrig: '', isCoveredPast: false,
+    occasion: null, occasionEn: null, isReadPast: false, isReadFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false,
     ...overrides,
   };
 }

@@ -47,6 +47,7 @@ export function revertRow(r: MappedRow): MappedRow {
     yearRead: null,
     allYears: r.futureYear === null ? [] : [r.futureYear],
     partialOrig: '',
+    futurePartialOrig: '',
     isCoveredPast: false,
   };
 }
@@ -67,15 +68,15 @@ export function withHypotheticalHosafahDate(hr: MappedHosafah, date: string): Ma
    unread, used when a real future reading is deliberately left out of a what-if pick list (the
    user "un-scheduled" it in the preview). Mirrors revertRow for standard aliyot. */
 export function revertOccasion(oa: MappedOccasionAliyah): MappedOccasionAliyah {
-  return { ...oa, orig: '', isRead: false, isReadPast: false, isReadFuture: false, partialOrig: '', isCoveredPast: false };
+  return { ...oa, orig: '', isRead: false, isReadPast: false, isReadFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false };
 }
 
 export function revertWeekday(wa: MappedWeekdayAliyah): MappedWeekdayAliyah {
-  return { ...wa, dateRead: '', isReadPast: false, isReadFuture: false, partialOrig: '', isCoveredPast: false };
+  return { ...wa, dateRead: '', isReadPast: false, isReadFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false };
 }
 
 export function revertHosafah(hr: MappedHosafah): MappedHosafah {
-  return { ...hr, dateRead: '', isReadPast: false, isReadFuture: false, partialOrig: '', isCoveredPast: false };
+  return { ...hr, dateRead: '', isReadPast: false, isReadFuture: false, partialOrig: '', futurePartialOrig: '', isCoveredPast: false };
 }
 
 /**

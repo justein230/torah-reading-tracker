@@ -36,17 +36,18 @@ export function futureBg(color: string): string {
 export function partialBg(color: string): string     { return color + '44'; }
 export function partialBorder(color: string): string  { return color + 'aa'; }
 
-type AliyahCellState = 'read' | 'future' | 'partial' | 'unread';
+type AliyahCellState = 'read' | 'future' | 'partial' | 'partialFuture' | 'unread';
 
 /**
  * Reduces a cell's read/future/partial flags to a single AliyahCellState.
  * Callers fold any grid-specific extras (e.g. "covered by a holiday reading" counting as
  * read, or hasFuture counting as future) into isReadPast/isReadFuture before calling this.
  */
-export function aliyahState(item: { isReadPast: boolean; isReadFuture: boolean; partialOrig: string | boolean }): AliyahCellState {
+export function aliyahState(item: { isReadPast: boolean; isReadFuture: boolean; partialOrig: string | boolean; futurePartialOrig: string | boolean }): AliyahCellState {
   if (item.isReadPast)   return 'read';
   if (item.isReadFuture) return 'future';
   if (item.partialOrig)  return 'partial';
+  if (item.futurePartialOrig) return 'partialFuture';
   return 'unread';
 }
 
@@ -56,6 +57,7 @@ export function aliyahCellStyle(state: AliyahCellState, color: string): { bg: st
     case 'read':    return { bg: color,                     border: color,                        dashed: false };
     case 'future':  return { bg: futureBg(color),           border: color,                        dashed: true  };
     case 'partial': return { bg: partialBg(color),          border: partialBorder(color),         dashed: false };
+    case 'partialFuture': return { bg: futureBg(color),     border: partialBorder(color),         dashed: false };
     default:        return { bg: 'var(--cell-unread)',       border: 'var(--cell-unread-border)',  dashed: false };
   }
 }
