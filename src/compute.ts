@@ -152,9 +152,9 @@ function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// A holiday/weekday/hosafah reading reduced to what the pace calculation needs: its verse range
-// and the date it was read. Standard aliyot carry their own `orig`; these carry it under other names.
-export type SpecialRead = ReadableRange & { date: string };
+// A reading of any kind reduced to what the pace calculation needs: its verse range and its date
+// (done or scheduled). Standard aliyot carry their date as `orig`; special readings carry it under other names.
+export type DatedReading = ReadableRange & { date: string };
 
 export interface SpecialReadings {
   occasionAliyot: MappedOccasionAliyah[];
@@ -162,17 +162,26 @@ export interface SpecialReadings {
   hosafotReadings: MappedHosafah[];
 }
 
-// Past-read special readings, mirroring processSpecialStats: coversAliyahId occasion items are
-// skipped because the standard aliyah they sit inside already carries the read date.
-export function pastSpecialReads({ occasionAliyot, weekdayAliyot, hosafotReadings }: SpecialReadings): SpecialRead[] {
+export function datedStandardReads(allRows: MappedRow[]): DatedReading[] {
+  return allRows.filter(r => r.isRead && r.orig).map(r => ({ ...r, date: r.orig }));
+}
+
+// Dated (done or scheduled) special readings, mirroring processSpecialStats: coversAliyahId occasion
+// items are skipped because the standard aliyah they sit inside already carries the date.
+export function datedSpecialReads({ occasionAliyot, weekdayAliyot, hosafotReadings }: SpecialReadings): DatedReading[] {
   return [
-    ...occasionAliyot.filter(oa => oa.isReadPast && oa.coversAliyahId == null && oa.orig).map(oa => ({ ...oa, date: oa.orig })),
-    ...weekdayAliyot.filter(wa => wa.isReadPast && wa.dateRead).map(wa => ({ ...wa, date: wa.dateRead })),
-    ...hosafotReadings.filter(hr => hr.isReadPast && hr.dateRead).map(hr => ({ ...hr, date: hr.dateRead })),
+    ...occasionAliyot.filter(oa => oa.coversAliyahId == null && oa.orig).map(oa => ({ ...oa, date: oa.orig })),
+    ...weekdayAliyot.filter(wa => wa.dateRead).map(wa => ({ ...wa, date: wa.dateRead })),
+    ...hosafotReadings.filter(hr => hr.dateRead).map(hr => ({ ...hr, date: hr.dateRead })),
   ];
 }
 
-function computeReadingRate(allRows: MappedRow[], forecastConfig: ForecastConfig, today: Date, seferMap: Record<string, SeferMeta>, specialReads: SpecialRead[] = []): number | null {
+/**
+ * Pseukim/year over the lookback window, counting every kind of reading the same way, done or
+ * scheduled. The span always runs from the first reading in the window to today: scheduled readings
+ * add their pseukim without adding days, which smooths over gaps and errs toward an earlier completion.
+ */
+function computeReadingRate(readings: DatedReading[], forecastConfig: ForecastConfig, today: Date, seferMap: Record<string, SeferMeta>): number | null {
   const { lookbackYears, paceOverride } = forecastConfig;
   if (paceOverride && paceOverride > 0) return paceOverride;
 
@@ -181,16 +190,14 @@ function computeReadingRate(allRows: MappedRow[], forecastConfig: ForecastConfig
     ? `${today.getFullYear() - lookbackYears}-${todayStr.slice(5)}`
     : null;
   // string comparison works here: 'YYYY-MM-DD' sorts lexically in calendar order
-  const inWindow = (date: string) => !cutoffStr || date >= cutoffStr;
-  const windowRows    = allRows.filter(r => r.isRead && r.orig && inWindow(r.orig));
-  const windowSpecial = specialReads.filter(sr => inWindow(sr.date));
-  if (windowRows.length + windowSpecial.length < 2) return null;
-  const dates          = [...windowRows.map(r => r.orig as string), ...windowSpecial.map(sr => sr.date)].sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-  const daysSinceFirst = daysBetween(dates[0] as string, todayStr);
+  const windowReadings = readings.filter(r => !cutoffStr || r.date >= cutoffStr);
+  if (windowReadings.length < 2) return null;
+  const firstDate      = windowReadings.map(r => r.date).sort((a, b) => a.localeCompare(b))[0] as string;
+  const daysSinceFirst = daysBetween(firstDate, todayStr);
   if (daysSinceFirst <= 0) return null;
-  // one Set across both sources, so a pasuk read as a standard aliyah and again in a holiday reading counts once
+  // one Set across all kinds, so a pasuk read as a standard aliyah and again in a holiday reading counts once
   const windowKeys = new Set<string>();
-  for (const r of [...windowRows, ...windowSpecial]) for (const k of verseKeysForRange(r, seferMap)) windowKeys.add(k);
+  for (const r of windowReadings) for (const k of verseKeysForRange(r, seferMap)) windowKeys.add(k);
   const rate = (windowKeys.size / daysSinceFirst) * 365.25;
   return rate > 0 ? rate : null;
 }
@@ -204,10 +211,10 @@ export function remainingPseukim(allRows: MappedRow[], stats: Pick<Stats, 'speci
   return totalPseukim - committedPseukim;
 }
 
-export function estimateCompletion(allRows: MappedRow[], _filters: Filters, forecastConfig: ForecastConfig, specialTotalPseukim = 0, specialReadPseukim = 0, seferMap: Record<string, SeferMeta> = {}, specialReads: SpecialRead[] = []): ForecastResult | null {
+export function estimateCompletion(allRows: MappedRow[], _filters: Filters, forecastConfig: ForecastConfig, specialTotalPseukim = 0, specialReadPseukim = 0, seferMap: Record<string, SeferMeta> = {}, specialReads: DatedReading[] = []): ForecastResult | null {
   const today            = new Date();
   const remaining        = remainingPseukim(allRows, { specialTotalPseukim, specialReadPseukim }, seferMap);
-  const ratePerYear      = computeReadingRate(allRows, forecastConfig, today, seferMap, specialReads);
+  const ratePerYear      = computeReadingRate([...datedStandardReads(allRows), ...specialReads], forecastConfig, today, seferMap);
   if (ratePerYear === null) return null;
   const daysLeft   = (remaining / ratePerYear) * 365.25;
   const completion = new Date(today.getTime() + daysLeft * 86400000);
@@ -222,7 +229,7 @@ export function estimateCompletionFromStats(
   seferMap: Record<string, SeferMeta> = {},
   specialReadings?: SpecialReadings,
 ): ForecastResult | null {
-  const specialReads = specialReadings ? pastSpecialReads(specialReadings) : [];
+  const specialReads = specialReadings ? datedSpecialReads(specialReadings) : [];
   return estimateCompletion(allRows, filters, forecastConfig, 0, stats.specialReadPseukim + stats.specialFuturePseukim, seferMap, specialReads);
 }
 
@@ -316,7 +323,7 @@ function addChapterKeys(keys: string[], sefer: string, chapter: number, startVer
     keys.push(verseKey(sefer, chapter, verse));
 }
 
-function verseKeysForRange(range: ReadableRange, seferMap: Record<string, SeferMeta>): string[] {
+export function verseKeysForRange(range: ReadableRange, seferMap: Record<string, SeferMeta>): string[] {
   if (range.chapterStart < 0 || range.verseStart < 0 || range.chapterEnd < 0 || range.verseEnd < 0)
     return [];
 

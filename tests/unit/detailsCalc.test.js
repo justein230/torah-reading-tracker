@@ -5,13 +5,19 @@ const NO_FILTERS = { sefarim: [], years: [], includeFutureDates: false };
 const TLIT = { 'בְּרֵאשִׁית': 'Bereishit' };
 const SCHEDULE = { Bereishit: '2026-10-03' };
 
+const SEFER_MAP = { Genesis: { en: 'Genesis', color: '#000', chapterVerses: [] } };
+const LOOKUP    = { TLIT, schedule: SCHEDULE, seferMap: SEFER_MAP };
+
+// Each aliyah gets its own non-overlapping verse range (chapter 1) so pseukim are counted by pasuk.
 function makeRow(overrides) {
-  return {
-    parsha: 'בְּרֵאשִׁית', aliyah: 1, pseukim: 100, pct: 1.5, parshaPct: 100,
+  const row = {
+    sefer: 'Genesis', parsha: 'בְּרֵאשִׁית', aliyah: 1, pseukim: 100, pct: 1.5, parshaPct: 100,
     isReadPast: false, isRead: false, hasFuture: false,
     orig: '', yearRead: null, allYears: [],
     ...overrides,
   };
+  const start = (row.aliyah - 1) * 1000 + 1;
+  return { chapterStart: 1, verseStart: start, chapterEnd: 1, verseEnd: start + row.pseukim - 1, ...row };
 }
 
 // ── buildParshaRow ────────────────────────────────────────────────────────────
@@ -19,7 +25,7 @@ function makeRow(overrides) {
 describe('buildParshaRow — unread parsha', () => {
   it('reports zero read aliyot and pseukim', () => {
     const rows = [makeRow({ aliyah: 1 }), makeRow({ aliyah: 2 })];
-    const p = buildParshaRow(rows, 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, { TLIT, schedule: SCHEDULE }, 1);
+    const p = buildParshaRow(rows, 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, LOOKUP, 1);
     expect(p.readAliyot).toBe(0);
     expect(p.readPseukim).toBe(0);
     expect(p.lastDate).toBeNull();
@@ -27,7 +33,7 @@ describe('buildParshaRow — unread parsha', () => {
 
   it('sums total pseukim across all rows', () => {
     const rows = [makeRow({ pseukim: 60 }), makeRow({ aliyah: 2, pseukim: 40 })];
-    const p = buildParshaRow(rows, 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, { TLIT, schedule: SCHEDULE }, 1);
+    const p = buildParshaRow(rows, 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, LOOKUP, 1);
     expect(p.totalPseukim).toBe(100);
   });
 });
@@ -38,7 +44,7 @@ describe('buildParshaRow — fully read parsha', () => {
       makeRow({ aliyah: 1, isReadPast: true, orig: '2023-01-01', pseukim: 60, parshaPct: 60 }),
       makeRow({ aliyah: 2, isReadPast: true, orig: '2023-02-01', pseukim: 40, parshaPct: 40 }),
     ];
-    const p = buildParshaRow(rows, 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, { TLIT, schedule: SCHEDULE }, 1);
+    const p = buildParshaRow(rows, 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, LOOKUP, 1);
     expect(p.parshaReadPct).toBeCloseTo(100);
     expect(p.readAliyot).toBe(2);
   });
@@ -48,7 +54,7 @@ describe('buildParshaRow — fully read parsha', () => {
       makeRow({ aliyah: 1, isReadPast: true, orig: '2023-01-01' }),
       makeRow({ aliyah: 2, isReadPast: true, orig: '2023-06-15' }),
     ];
-    const p = buildParshaRow(rows, 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, { TLIT, schedule: SCHEDULE }, 1);
+    const p = buildParshaRow(rows, 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, LOOKUP, 1);
     expect(p.lastDate).toBe('2023-06-15');
   });
 });
@@ -60,19 +66,19 @@ describe('buildParshaRow — year filter', () => {
       makeRow({ aliyah: 2, isReadPast: true, orig: '2023-06-01', yearRead: 2023, allYears: [2023] }),
     ];
     const p = buildParshaRow(rows, 'בְּרֵאשִׁית', 'Genesis', true,
-      { ...NO_FILTERS, years: [2023] }, { TLIT, schedule: SCHEDULE }, 1);
+      { ...NO_FILTERS, years: [2023] }, LOOKUP, 1);
     expect(p.readAliyot).toBe(1);
   });
 });
 
 describe('buildParshaRow — nextReadDate from schedule', () => {
   it('looks up next reading date via TLIT transliteration', () => {
-    const p = buildParshaRow([], 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, { TLIT, schedule: SCHEDULE }, 1);
+    const p = buildParshaRow([], 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, LOOKUP, 1);
     expect(p.nextReadDate).toBe('2026-10-03');
   });
 
   it('returns null when parsha not in schedule', () => {
-    const p = buildParshaRow([], 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, { TLIT: {}, schedule: SCHEDULE }, 1);
+    const p = buildParshaRow([], 'בְּרֵאשִׁית', 'Genesis', true, NO_FILTERS, { ...LOOKUP, TLIT: {} }, 1);
     expect(p.nextReadDate).toBeNull();
   });
 });

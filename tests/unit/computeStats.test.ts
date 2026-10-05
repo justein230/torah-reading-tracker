@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { computeStats, estimateCompletion, countPseukim, computeRing, effectivePseukimOf, committedPseukimOf, remainingPseukim, pastSpecialReads, isAliyahRead, isAliyahPartial, countReadAliyot, computePairTotalPseukim, computePairReadPseukim } from '../../src/compute.js';
+import { computeStats, estimateCompletion, countPseukim, computeRing, effectivePseukimOf, committedPseukimOf, remainingPseukim, datedSpecialReads, isAliyahRead, isAliyahPartial, countReadAliyot, computePairTotalPseukim, computePairReadPseukim } from '../../src/compute.js';
 import { makeWA, makeHosafah } from '../helpers/fixtures.js';
 import type { MappedRow, MappedOccasionAliyah, MappedHosafah, Filters } from '../../src/types/index.js';
 
@@ -265,7 +265,7 @@ describe('estimateCompletion — special readings count toward pace', () => {
     withFakeToday(() => {
       const oa = makeOA({ sefer: 'Genesis', chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 31, pseukim: 31, isReadPast: true, isRead: true, orig: '2026-02-01' });
       const without = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
-      const withOA  = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, pastSpecialReads({ ...NO_SPECIALS, occasionAliyot: [oa] }));
+      const withOA  = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, occasionAliyot: [oa] }));
       expect(withOA!.ratePerYear).toBe(without!.ratePerYear);
     });
   });
@@ -274,27 +274,100 @@ describe('estimateCompletion — special readings count toward pace', () => {
     withFakeToday(() => {
       const wa = makeWA({ sefer: 'Genesis', chapterStart: 10, verseStart: 1, chapterEnd: 10, verseEnd: 6, pseukim: 6, isReadPast: true, dateRead: '2020-01-01' });
       const without = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
-      const withWA  = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, pastSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [wa] }));
+      const withWA  = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [wa] }));
       expect(withWA!.ratePerYear).toBe(without!.ratePerYear);
     });
   });
 });
 
-describe('pastSpecialReads', () => {
+describe('datedSpecialReads', () => {
   const NONE = { occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] };
 
-  it('keeps only past-read items, using orig for occasions and dateRead for weekday/hosafot', () => {
+  it('keeps done and scheduled items, using orig for occasions and dateRead for weekday/hosafot', () => {
     const past   = makeOA({ isReadPast: true, orig: '2026-01-01' });
     const future = makeOA({ isReadPast: false, isReadFuture: true, orig: '2027-01-01' });
     const wa     = makeWA({ isReadPast: true, dateRead: '2026-02-02' });
     const hr     = makeHosafah({ isReadPast: true, dateRead: '2026-03-03' });
-    const out = pastSpecialReads({ occasionAliyot: [past, future], weekdayAliyot: [wa], hosafotReadings: [hr] });
-    expect(out.map(x => x.date)).toEqual(['2026-01-01', '2026-02-02', '2026-03-03']);
+    const out = datedSpecialReads({ occasionAliyot: [past, future], weekdayAliyot: [wa], hosafotReadings: [hr] });
+    expect(out.map(x => x.date)).toEqual(['2026-01-01', '2027-01-01', '2026-02-02', '2026-03-03']);
+  });
+
+  it('skips unread items', () => {
+    const unread = makeOA({ orig: '' });
+    expect(datedSpecialReads({ ...NONE, occasionAliyot: [unread] })).toEqual([]);
   });
 
   it('skips coversAliyahId occasion items (the standard aliyah already carries their date)', () => {
     const covered = makeOA({ isReadPast: true, orig: '2026-01-01', coversAliyahId: 327 });
-    expect(pastSpecialReads({ ...NONE, occasionAliyot: [covered] })).toEqual([]);
+    expect(datedSpecialReads({ ...NONE, occasionAliyot: [covered] })).toEqual([]);
+  });
+});
+
+describe('estimateCompletion — scheduled readings count toward pace', () => {
+  const CONFIG = { lookbackYears: 1, paceOverride: null };
+  const NO_SPECIALS = { occasionAliyot: [], weekdayAliyot: [], hosafotReadings: [] };
+  const withToday = (date: Date, fn: () => void) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(date);
+    try { fn(); } finally { vi.useRealTimers(); }
+  };
+  const TODAY = new Date(2026, 8, 13, 12, 0, 0); // 2026-09-13, 347 days after 2025-10-01
+  // Two done aliyot (100 pseukim each), first on 2025-10-01.
+  const done = () => [
+    makeRow({ isRead: true, isReadPast: true, orig: '2025-10-01', pseukim: 100 }),
+    makeRow({ aliyah: 2, isRead: true, isReadPast: true, orig: '2026-03-01', pseukim: 100 }),
+  ];
+  const scheduledRow = (date: string, aliyah = 3) => makeRow({ aliyah, isRead: true, isReadFuture: true, orig: date, pseukim: 100 });
+  const scheduledWA  = (date: string, chapter = 3) => makeWA({ sefer: 'Genesis', chapterStart: chapter, verseStart: 1, chapterEnd: chapter, verseEnd: 100, pseukim: 100, isReadFuture: true, dateRead: date });
+
+  it('credits the scheduled pseukim over the days from the first reading to today', () => {
+    withToday(TODAY, () => {
+      const result = estimateCompletion([...done(), scheduledRow('2026-10-13')], NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      expect(result!.ratePerYear).toBe(Math.round(300 / 347 * 365.25));
+    });
+  });
+
+  it('treats a scheduled special reading exactly like a scheduled standard aliyah', () => {
+    withToday(TODAY, () => {
+      const viaStandard = estimateCompletion([...done(), scheduledRow('2026-10-13')], NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      const viaSpecial  = estimateCompletion(done(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [scheduledWA('2026-10-13')] }));
+      expect(viaSpecial!.ratePerYear).toBe(viaStandard!.ratePerYear);
+    });
+  });
+
+  it('a far-future scheduled reading adds only its own pseukim; it does not stretch the span', () => {
+    withToday(TODAY, () => {
+      const result = estimateCompletion([...done(), scheduledRow('2027-09-15')], NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      expect(result!.ratePerYear).toBe(Math.round(300 / 347 * 365.25));
+    });
+  });
+
+  it('gives the same pace whether a reading is scheduled or already done (so nothing jumps when its day arrives)', () => {
+    withToday(TODAY, () => {
+      const asScheduled = estimateCompletion([...done(), scheduledRow('2026-09-13')], NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      const asDone      = estimateCompletion([...done(), { ...scheduledRow('2026-09-13'), isReadFuture: false, isReadPast: true }], NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      expect(asDone!.ratePerYear).toBe(asScheduled!.ratePerYear);
+
+      const specialScheduled = estimateCompletion(done(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [scheduledWA('2026-09-13')] }));
+      const specialDone      = estimateCompletion(done(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [{ ...scheduledWA('2026-09-13'), isReadFuture: false, isReadPast: true }] }));
+      expect(specialDone!.ratePerYear).toBe(specialScheduled!.ratePerYear);
+    });
+  });
+
+  it('does not double count a scheduled special reading over pseukim already read as a standard aliyah', () => {
+    withToday(TODAY, () => {
+      const overlapping = makeWA({ sefer: 'Genesis', chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 50, pseukim: 50, isReadFuture: true, dateRead: '2026-10-13' });
+      const without = estimateCompletion(done(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      const withWA  = estimateCompletion(done(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [overlapping] }));
+      expect(withWA!.ratePerYear).toBe(without!.ratePerYear);
+    });
+  });
+
+  it('returns null when every reading in the window is still scheduled', () => {
+    withToday(TODAY, () => {
+      const rows = [scheduledRow('2026-10-13'), scheduledRow('2026-11-13', 4)];
+      expect(estimateCompletion(rows, NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, [])).toBeNull();
+    });
   });
 });
 
@@ -589,7 +662,7 @@ describe('computeStats — special/occasion pseukim', () => {
     const oaRead = { ...oa, orig: '2024-06-01' };
     const config = { lookbackYears: null, paceOverride: null };
     const paceWithout = estimateCompletion([r1, r2], NO_FILTERS, config, 0, 0, SEFER_MAP, []);
-    const paceWith    = estimateCompletion([r1, r2], NO_FILTERS, config, 0, 0, SEFER_MAP, pastSpecialReads({ occasionAliyot: [oaRead], weekdayAliyot: [], hosafotReadings: [] }));
+    const paceWith    = estimateCompletion([r1, r2], NO_FILTERS, config, 0, 0, SEFER_MAP, datedSpecialReads({ occasionAliyot: [oaRead], weekdayAliyot: [], hosafotReadings: [] }));
     expect(paceWith!.ratePerYear).toBeGreaterThan(paceWithout!.ratePerYear);
   });
 });

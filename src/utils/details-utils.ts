@@ -1,4 +1,5 @@
-import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, Filters, ParshaRow } from '../types/index.js';
+import { computeStats, effectivePseukimOf, verseKeysForRange } from '../compute.js';
+import type { MappedRow, SeferMeta, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, Filters, ParshaRow } from '../types/index.js';
 
 interface PartialSources {
   oa: MappedOccasionAliyah[];
@@ -7,25 +8,46 @@ interface PartialSources {
   totalTorahPseukim: number;
 }
 
-type Lookup = { TLIT: Record<string, string>; schedule: Record<string, string>; partials?: PartialSources };
+type Lookup = {
+  TLIT: Record<string, string>;
+  schedule: Record<string, string>;
+  seferMap: Record<string, SeferMeta>;
+  partials?: PartialSources;
+};
 
-function sumPartialPseukim(parsha: string, filters: Filters, partials: PartialSources): number {
+type SpecialReadings = Pick<PartialSources, 'oa' | 'wa' | 'hr'>;
+
+function isReadInYears<T extends { isReadPast: boolean }>(item: T, dateOf: (item: T) => string, years: number[]): boolean {
+  if (!item.isReadPast) return false;
+  const date = dateOf(item);
+  if (!years.length || !date) return true;
+  return years.includes(new Date(date + 'T00:00:00').getFullYear());
+}
+
+/**
+ * The special readings that count toward one parsha: read within the selected years and either
+ * touching the parsha's standard verses (so a reading that straddles two parshiot reaches both;
+ * computeStats then credits each only for the pseukim inside it) or, for a hosafah outside every
+ * standard verse, attributed to its first parsha.
+ */
+function specialReadingsForParsha(parsha: string, rows: MappedRow[], filters: Filters, seferMap: Record<string, SeferMeta>, partials: SpecialReadings): SpecialReadings {
   const { years } = filters;
-  function yearOk(dateStr: string): boolean {
-    if (!years.length || !dateStr) return true;
-    return years.includes(new Date(dateStr + 'T00:00:00').getFullYear());
-  }
-  let sum = 0;
-  for (const o of partials.oa) {
-    if (o.parsha === parsha && o.isReadPast && yearOk(o.orig)) sum += o.pseukim;
-  }
-  for (const w of partials.wa) {
-    if (w.parsha === parsha && w.isReadPast && yearOk(w.dateRead)) sum += w.pseukim;
-  }
-  for (const h of partials.hr) {
-    if (h.parsha1 === parsha && h.isReadPast && yearOk(h.dateRead)) sum += h.pseukim;
-  }
-  return sum;
+  const standardKeys = new Set(rows.flatMap(r => verseKeysForRange(r, seferMap)));
+  const touches = (item: Parameters<typeof verseKeysForRange>[0]): boolean =>
+    verseKeysForRange(item, seferMap).some(k => standardKeys.has(k));
+  return {
+    oa: partials.oa.filter(o => isReadInYears(o, x => x.orig,     years) && (o.parsha  === parsha || touches(o))),
+    wa: partials.wa.filter(w => isReadInYears(w, x => x.dateRead, years) && (w.parsha  === parsha || touches(w))),
+    hr: partials.hr.filter(h => isReadInYears(h, x => x.dateRead, years) && (h.parsha1 === parsha || touches(h))),
+  };
+}
+
+// Rows that count as read under the page's own year rule stay read; every other row is treated as
+// unread so computeStats still sees its verses as standard (and so credits overlapping special
+// readings only for pasuk not yet covered) without counting it as read.
+function withReadStateOf(rows: MappedRow[], readRows: MappedRow[]): MappedRow[] {
+  const read = new Set(readRows);
+  return rows.map(r => read.has(r) ? r : { ...r, isRead: false, isReadPast: false });
 }
 
 export function buildParshaRow(
@@ -37,7 +59,7 @@ export function buildParshaRow(
   lookup: Lookup,
   idx: number,
 ): ParshaRow {
-  const { TLIT, schedule, partials } = lookup;
+  const { TLIT, schedule, seferMap, partials } = lookup;
   const readRows = rows.filter(r => {
     if (!r.isReadPast) return false;
     if (!filters.years.length) return true;
@@ -46,9 +68,16 @@ export function buildParshaRow(
       : filters.years.includes(r.yearRead as number);
   });
 
-  const totalPseukim  = rows.reduce((sum, r) => sum + r.pseukim, 0);
+  // Pseukim come from computeStats, the single place that de-duplicates by pasuk, so this page can
+  // never disagree with the Hero/cards. Year and sefer rules are already applied above.
+  const special = specialReadingsForParsha(parsha, rows, filters, seferMap, partials ?? { oa: [], wa: [], hr: [] });
+  const stats = computeStats(
+    withReadStateOf(rows, readRows), special.oa, [sefer], seferMap,
+    { ...filters, years: [], sefarim: [] }, special.wa, special.hr,
+  );
+  const totalPseukim  = stats.totalPseukim;
+  const readPseukim   = effectivePseukimOf(stats);
   const totalPct      = rows.reduce((sum, r) => sum + r.pct, 0);
-  const readPseukim   = readRows.reduce((sum, r) => sum + r.pseukim, 0);
   const readPct       = readRows.reduce((sum, r) => sum + r.pct, 0);
   const parshaReadPct = readRows.reduce((sum, r) => sum + (r.parshaPct ?? 0), 0);
   const readSet       = new Set(readRows.map(r => r.aliyah));
@@ -57,14 +86,15 @@ export function buildParshaRow(
   const lastDate      = dates.length ? (dates.at(-1) ?? null) : null;
   const nextReadDate  = schedule[TLIT[parsha] ?? ''] ?? null;
 
-  const partialPs    = partials ? sumPartialPseukim(parsha, filters, partials) : 0;
-  const partialPct   = partials && partials.totalTorahPseukim > 0 ? partialPs / partials.totalTorahPseukim * 100 : 0;
-  const partialPPct  = totalPseukim > 0 ? partialPs / totalPseukim * 100 : 0;
+  // Pseukim credited by special readings on top of the standard aliyot, as a share of the Torah / this parsha.
+  const specialPs    = stats.specialReadPseukim;
+  const partialPct   = partials && partials.totalTorahPseukim > 0 ? specialPs / partials.totalTorahPseukim * 100 : 0;
+  const partialPPct  = totalPseukim > 0 ? specialPs / totalPseukim * 100 : 0;
 
   return {
     idx, parsha, sefer, seferOk,
     readAliyot: readRows.length,
-    readPseukim: readPseukim + partialPs,
+    readPseukim,
     readPct: readPct + partialPct,
     parshaReadPct: parshaReadPct + partialPPct,
     totalPseukim, totalPct,

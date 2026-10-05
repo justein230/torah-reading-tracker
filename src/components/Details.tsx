@@ -74,7 +74,7 @@ export default function Details() {
     for (const p of (parshaIndex[s] ?? [])) {
       const rows    = allRows.filter(r => r.parsha === p);
       const seferOk = isSeferAllowed(s, filters);
-      parshas.push(buildParshaRow(rows, p, s, seferOk, filters, { TLIT, schedule, partials }, idx++));
+      parshas.push(buildParshaRow(rows, p, s, seferOk, filters, { TLIT, schedule, partials, seferMap: SEFER_MAP }, idx++));
     }
   }
 
