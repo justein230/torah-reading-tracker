@@ -49,7 +49,7 @@ let rawDb = new Database(DB_PATH);
 rawDb.pragma('journal_mode = DELETE');
 rawDb.pragma('foreign_keys = OFF'); // must be off during migrations (table recreations need it)
 let db = createDb(rawDb);
-initDb(rawDb, db, MIGRATIONS_DIR);
+initDb(rawDb, MIGRATIONS_DIR);
 rawDb.pragma('foreign_keys = ON');
 
 // ── express app ───────────────────────────────────────────────────────────────

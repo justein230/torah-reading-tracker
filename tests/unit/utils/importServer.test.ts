@@ -4,18 +4,21 @@ import fs   from 'node:fs';
 import path from 'node:path';
 import os   from 'node:os';
 import Database from 'better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { createDb } from '../../../src/db/drizzle-server';
+import { initDb } from '../../../src/db/init';
 import { importDatabase, ImportValidationError } from '../../../src/utils/import-server';
-
-const MIGRATIONS_DIR = path.join(process.cwd(), 'drizzle');
+import { MIGRATIONS_DIR, STEPS, drizzleMigratedDb } from '../../helpers/migrations';
 
 function migratedDb(filePath: string): InstanceType<typeof Database> {
   const rawDb = new Database(filePath);
   rawDb.pragma('foreign_keys = OFF');
-  migrate(createDb(rawDb), { migrationsFolder: MIGRATIONS_DIR });
+  initDb(rawDb, MIGRATIONS_DIR);
   rawDb.pragma('foreign_keys = ON');
   return rawDb;
+}
+
+function addReading(rawDb: InstanceType<typeof Database>): void {
+  const aliyah = rawDb.prepare('SELECT id FROM aliyot LIMIT 1').get() as { id: number };
+  rawDb.prepare("INSERT INTO readings (aliyah_id, date_read, reading_type) VALUES (?, '2020-01-01', 'standard')").run(aliyah.id);
 }
 
 let tmpDir: string;
@@ -108,5 +111,71 @@ describe('importDatabase', () => {
     const backupDir = path.join(tmpDir, 'backups');
     const files = fs.readdirSync(backupDir);
     expect(files).toHaveLength(3);
+  });
+});
+
+describe('importDatabase across schema versions', () => {
+  // Imports the file `build` creates and checks its reading came through at the latest version.
+  function expectImported(build: (uploadPath: string) => InstanceType<typeof Database>) {
+    const { currentPath, currentRawDb } = setup();
+    const uploadPath = path.join(tmpDir, 'upload.db');
+    const upload = build(uploadPath);
+    addReading(upload);
+    upload.close();
+    const { rawDb } = importDatabase(fs.readFileSync(uploadPath), currentRawDb, currentPath, MIGRATIONS_DIR);
+    expect((rawDb.prepare('SELECT COUNT(*) AS n FROM readings').get() as { n: number }).n).toBe(1);
+    expect(rawDb.pragma('user_version', { simple: true })).toBe(STEPS.length);
+    rawDb.close();
+  }
+
+  // Runs `attempt` and checks the live db's file and open handle came through untouched.
+  function expectLiveDbUntouched(attempt: (currentRawDb: InstanceType<typeof Database>, currentPath: string) => void) {
+    const { currentPath, currentRawDb } = setup();
+    const before = fs.readFileSync(currentPath);
+    attempt(currentRawDb, currentPath);
+    expect(fs.readFileSync(currentPath).equals(before)).toBe(true);
+    expect(fs.existsSync(`${currentPath}.import-tmp`)).toBe(false);
+    expect(currentRawDb.prepare('SELECT COUNT(*) AS n FROM aliyot').get()).toBeTruthy();
+    currentRawDb.close();
+  }
+
+  it('upgrades an older export made by the old Drizzle setup (user_version 0)', () => {
+    expectImported(uploadPath => drizzleMigratedDb(uploadPath, 3));
+  });
+
+  it('accepts a native file whose device ran upgrades (stale Drizzle table)', () => {
+    expectImported(uploadPath => {
+      const upload = drizzleMigratedDb(uploadPath, 3);
+      initDb(upload, MIGRATIONS_DIR); // stands in for the plugin running steps 4..N
+      upload.prepare('DELETE FROM __drizzle_migrations WHERE id > 3').run();
+      return upload;
+    });
+  });
+
+  it('rejects a file from a newer app version without touching the live db', () => {
+    expectLiveDbUntouched((currentRawDb, currentPath) => {
+      const candidate = buildCandidate();
+      candidate.db.pragma(`user_version = ${STEPS.length + 1}`);
+      candidate.db.close();
+      expect(() => importDatabase(fs.readFileSync(candidate.path), currentRawDb, currentPath, MIGRATIONS_DIR))
+        .toThrow(/newer version of the app/);
+    });
+  });
+
+  it('leaves the live db untouched when a migration step fails', () => {
+    expectLiveDbUntouched((currentRawDb, currentPath) => {
+      const brokenDir = path.join(tmpDir, 'drizzle-broken');
+      fs.cpSync(MIGRATIONS_DIR, brokenDir, { recursive: true });
+      const journalPath = path.join(brokenDir, 'meta/_journal.json');
+      const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
+      journal.entries.push({ idx: journal.entries.length, tag: '9999_broken' });
+      fs.writeFileSync(journalPath, JSON.stringify(journal));
+      fs.writeFileSync(path.join(brokenDir, '9999_broken.sql'), 'SELECT * FROM no_such_table;');
+
+      const candidate = buildCandidate();
+      candidate.db.close();
+      expect(() => importDatabase(fs.readFileSync(candidate.path), currentRawDb, currentPath, brokenDir))
+        .toThrow(/no such table/);
+    });
   });
 });

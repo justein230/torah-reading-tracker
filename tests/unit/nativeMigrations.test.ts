@@ -2,8 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
 import { NATIVE_DB_VERSION, NATIVE_UPGRADE_STATEMENTS } from '../../src/db/nativeMigrations.generated.js';
-import { createDb } from '../../src/db/drizzle-server.js';
 import { initDb } from '../../src/db/init.js';
+import { readMigrationSteps } from '../../src/utils/migrationSteps.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,7 +30,11 @@ describe('nativeMigrations.generated.ts', () => {
     }
   });
 
-  it('replaying all upgrade-statement steps in order reproduces the same tables as running drizzle migrate()', () => {
+  it('is up to date with drizzle/ (re-run `npm run build:native-migrations` if this fails)', () => {
+    expect(NATIVE_UPGRADE_STATEMENTS).toEqual(readMigrationSteps(MIGRATIONS_FOLDER));
+  });
+
+  it('replaying all upgrade-statement steps in order reproduces the same tables as the server runner', () => {
     const upgraded = new Database(':memory:');
     upgraded.pragma('foreign_keys = OFF');
     for (const step of NATIVE_UPGRADE_STATEMENTS) {
@@ -42,13 +46,9 @@ describe('nativeMigrations.generated.ts', () => {
 
     const migrated = new Database(':memory:');
     migrated.pragma('foreign_keys = OFF');
-    initDb(migrated, createDb(migrated), MIGRATIONS_FOLDER);
+    initDb(migrated, MIGRATIONS_FOLDER);
     migrated.pragma('foreign_keys = ON');
 
-    // drizzle's own migrate() also creates its internal bookkeeping table — exclude it,
-    // since the native upgrade path (which runs the raw migration SQL directly) has no
-    // equivalent and doesn't need one.
-    const migratedTables = tableNames(migrated).filter(n => n !== '__drizzle_migrations');
-    expect(tableNames(upgraded)).toEqual(migratedTables);
+    expect(tableNames(upgraded)).toEqual(tableNames(migrated));
   });
 });

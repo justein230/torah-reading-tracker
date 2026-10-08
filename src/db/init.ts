@@ -1,11 +1,11 @@
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type Database from 'better-sqlite3';
-import type { AppDb } from './drizzle-server.js';
+import { migrateDatabase, readMigrationSteps } from '../utils/migrationSteps.js';
 
+// Throws NewerSchemaError for a database made by a newer app version, so the server refuses to
+// run against a schema it doesn't know rather than silently misreading it.
 export function initDb(
   rawDb: InstanceType<typeof Database>,
-  db: AppDb,
   migrationsFolder: string
 ): void {
-  migrate(db, { migrationsFolder });
+  migrateDatabase(rawDb, readMigrationSteps(migrationsFolder));
 }

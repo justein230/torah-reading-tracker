@@ -2,6 +2,7 @@ import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import { and, eq, inArray } from 'drizzle-orm';
 import { createNativeDb } from './drizzle-native.js';
 import { NATIVE_DB_VERSION, NATIVE_UPGRADE_STATEMENTS } from './nativeMigrations.generated.js';
+import { NewerSchemaError, switchOverVersion } from '../utils/schemaVersion.js';
 import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, hosafotReadings as hosafotReadingsTable, torahChapters } from './schema.js';
 import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './queries.js';
 import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
@@ -22,7 +23,12 @@ function getConn() {
     const conn = await sqlite.createConnection('torah', false, 'no-encryption', NATIVE_DB_VERSION, false);
     await conn.open();
     return conn;
-  })();
+  })().catch(async err => {
+    // Don't cache the failure: drop the half-made connection so the next call can retry.
+    dbPromise = null;
+    await sqlite.closeConnection('torah', false).catch(() => {});
+    throw err;
+  });
   return dbPromise;
 }
 
@@ -53,9 +59,47 @@ export async function changePassword(_currentPassword: string, _newPassword: str
 const REQUIRED_IMPORT_TABLES = ['sefarim', 'parshiot', 'aliyot', 'readings'];
 const SQLITE_MAGIC = 'SQLite format 3\0';
 
-// Writes the upload into a scratch db (so getUrl() tells us its real path) and opens it there,
-// to check it's valid before it ever touches the live database. Always tears the scratch db down.
-async function validateImportedDb(base64: string): Promise<string | null> {
+type ImportResult = { ok: true } | { ok: false; error: string };
+
+// Opens the scratch copy read-only — the plugin never runs upgrade steps on a read-only
+// connection — and checks it's a Torah Tracker database no newer than this app. Returns its
+// effective schema version (see switchOverVersion), or an error message.
+async function checkImportedDb(checkDb: string): Promise<{ version: number } | { error: string }> {
+  let checkConn;
+  try {
+    checkConn = await sqlite.createConnection(checkDb, false, 'no-encryption', 1, true);
+    await checkConn.open();
+  } catch {
+    return { error: 'Could not open file as a SQLite database.' };
+  }
+  try {
+    const integrity = await checkConn.query('PRAGMA integrity_check');
+    if (integrity.values?.[0]?.integrity_check !== 'ok') return { error: 'Database failed integrity check.' };
+
+    const tables = await checkConn.query("SELECT name FROM sqlite_master WHERE type = 'table'");
+    const tableNames = new Set((tables.values ?? []).map((r: { name: string }) => r.name));
+    const missing = REQUIRED_IMPORT_TABLES.filter(t => !tableNames.has(t));
+    if (missing.length) {
+      return { error: `Doesn't look like a Torah Tracker database (missing table${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}).` };
+    }
+
+    const userVersion = (await checkConn.query('PRAGMA user_version')).values?.[0]?.user_version ?? 0;
+    const drizzleRows = tableNames.has('__drizzle_migrations')
+      ? (await checkConn.query('SELECT COUNT(*) AS n FROM __drizzle_migrations')).values?.[0]?.n ?? 0
+      : 0;
+    const version = switchOverVersion(userVersion, drizzleRows);
+    if (version > NATIVE_DB_VERSION) return { error: new NewerSchemaError(version, NATIVE_DB_VERSION).message };
+    return { version };
+  } finally {
+    await checkConn.close();
+    await sqlite.closeConnection(checkDb, true).catch(() => {});
+  }
+}
+
+// Checks the upload in a scratch db (so getUrl() tells us its real path) and upgrades that copy to
+// the current schema with the same plugin mechanism getConn() uses. Returns the upgraded file as
+// base64; the live database is never touched here. Always tears the scratch db down.
+async function prepareImportedDb(bytes: Uint8Array): Promise<{ ok: true; data: string } | { ok: false; error: string }> {
   const CHECK_DB = 'torah_import_check';
   const { Filesystem } = await import('@capacitor/filesystem');
 
@@ -63,53 +107,57 @@ async function validateImportedDb(base64: string): Promise<string | null> {
   await sqlite.createConnection(CHECK_DB, false, 'no-encryption', 1, false);
   const { url: checkUrl } = await CapacitorSQLite.getUrl({ database: CHECK_DB });
   await sqlite.closeConnection(CHECK_DB, false);
-  if (!checkUrl) return 'Could not locate scratch database on device.';
-  await Filesystem.writeFile({ path: checkUrl, data: base64 });
+  if (!checkUrl) return { ok: false, error: 'Could not locate scratch database on device.' };
+  await Filesystem.writeFile({ path: checkUrl, data: Buffer.from(bytes).toString('base64') });
 
   try {
-    const checkConn = await sqlite.createConnection(CHECK_DB, false, 'no-encryption', 1, false);
-    await checkConn.open();
-    try {
-      const integrity = await checkConn.query('PRAGMA integrity_check');
-      if (integrity.values?.[0]?.integrity_check !== 'ok') return 'Database failed integrity check.';
+    const checked = await checkImportedDb(CHECK_DB);
+    if ('error' in checked) return { ok: false, error: checked.error };
 
-      const tables = await checkConn.query("SELECT name FROM sqlite_master WHERE type = 'table'");
-      const tableNames = new Set((tables.values ?? []).map((r: { name: string }) => r.name));
-      const missing = REQUIRED_IMPORT_TABLES.filter(t => !tableNames.has(t));
-      if (missing.length) {
-        return `Doesn't look like a Torah Tracker database (missing table${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}).`;
-      }
-      return null;
-    } finally {
-      await checkConn.close();
+    // Write the effective version straight into the file's header (user_version is the 4-byte
+    // big-endian field at offset 60), so the upgrade below starts from the right step. Doing it
+    // over a connection isn't safe: any read-write open with a version number can itself trigger
+    // the plugin's upgrade from the file's stale version.
+    new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint32(60, checked.version);
+    await Filesystem.writeFile({ path: checkUrl, data: Buffer.from(bytes).toString('base64') });
+
+    try {
+      await sqlite.addUpgradeStatement(CHECK_DB, NATIVE_UPGRADE_STATEMENTS);
+      const upgradeConn = await sqlite.createConnection(CHECK_DB, false, 'no-encryption', NATIVE_DB_VERSION, false);
+      await upgradeConn.open();
+      await upgradeConn.close();
+    } catch {
+      return { ok: false, error: 'Could not upgrade the file to this app version.' };
     }
-  } catch {
-    return 'Could not open file as a SQLite database.';
+    await sqlite.closeConnection(CHECK_DB, false).catch(() => {});
+    const { data } = await Filesystem.readFile({ path: checkUrl });
+    return { ok: true, data: data as string };
   } finally {
     await sqlite.closeConnection(CHECK_DB, false).catch(() => {});
     await CapacitorSQLite.deleteDatabase({ database: CHECK_DB }).catch(() => {});
   }
 }
 
-// Native equivalent of importDatabase in utils/import-server.ts, minus migration/auth-row
-// preservation (native has neither) — validates, then overwrites the live db file in place.
-export async function importDatabase(file: File): Promise<{ ok: true } | { ok: false; error: string }> {
+// Native equivalent of importDatabase in utils/import-server.ts, minus auth-row preservation
+// (native has no auth). Validates and upgrades a scratch copy, then overwrites the live db file
+// in place; if the result won't open, the previous file is restored.
+export async function importDatabase(file: File): Promise<ImportResult> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const header = new TextDecoder('latin1').decode(bytes.slice(0, 16));
   if (header !== SQLITE_MAGIC) return { ok: false, error: 'Not a valid SQLite database file.' };
 
-  const base64 = Buffer.from(bytes).toString('base64');
-  const validationError = await validateImportedDb(base64);
-  if (validationError) return { ok: false, error: validationError };
+  const prepared = await prepareImportedDb(bytes);
+  if (!prepared.ok) return prepared;
 
   const { Filesystem } = await import('@capacitor/filesystem');
   const { url: mainUrl } = await CapacitorSQLite.getUrl({ database: 'torah' });
   if (!mainUrl) return { ok: false, error: 'Could not locate the database on device.' };
 
   // Best-effort backup, not surfaced in the UI — shouldn't block the import if it fails.
+  let previous: string | null = null;
   try {
-    const current = await Filesystem.readFile({ path: mainUrl });
-    await Filesystem.writeFile({ path: `${mainUrl}.bak`, data: current.data as string });
+    previous = (await Filesystem.readFile({ path: mainUrl })).data as string;
+    await Filesystem.writeFile({ path: `${mainUrl}.bak`, data: previous });
   } catch {
     // ignore
   }
@@ -117,9 +165,17 @@ export async function importDatabase(file: File): Promise<{ ok: true } | { ok: f
   const conn = await getConn();
   await conn.close();
   await sqlite.closeConnection('torah', false);
-  await Filesystem.writeFile({ path: mainUrl, data: base64 });
+  await Filesystem.writeFile({ path: mainUrl, data: prepared.data });
   dbPromise = null; // next getConn() reopens against the file just written
 
+  try {
+    await getConn();
+  } catch {
+    if (previous === null) return { ok: false, error: 'The imported database could not be opened.' };
+    await sqlite.closeConnection('torah', false).catch(() => {});
+    await Filesystem.writeFile({ path: mainUrl, data: previous });
+    return { ok: false, error: 'The imported database could not be opened; your previous data was restored.' };
+  }
   return { ok: true };
 }
 
