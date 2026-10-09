@@ -60,6 +60,6 @@ export async function deleteBackup(name: string): Promise<void> {
 // The backup as a File, for the normal import path to validate, upgrade and swap in.
 export async function readBackupFile(name: string): Promise<File> {
   const { data } = await Filesystem.readFile({ path: backupPath(name), directory: Directory.Data });
-  const bytes = Uint8Array.from(atob(data as string), c => c.charCodeAt(0));
+  const bytes = Uint8Array.from(atob(data as string), c => c.codePointAt(0) ?? 0);
   return new File([bytes], name, { type: 'application/vnd.sqlite3' });
 }
