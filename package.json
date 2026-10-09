@@ -21,7 +21,7 @@
     "build": "vite build",
     "serve": "tsx server.ts",
     "electron": "node scripts/build-electron.mjs && npx electron-rebuild && electron .",
-    "electron:dev": "npx electron-rebuild && concurrently -n api,vite,electron -c cyan,magenta,yellow \"cross-env PORT=3000 nodemon --exec tsx server.ts\" \"vite\" \"wait-on http://localhost:8000 && cross-env ELECTRON_DEV=true electron .\"",
+    "electron:dev": "npx electron-rebuild && concurrently -n api,vite,electron -c cyan,magenta,yellow \"cross-env PORT=3000 ELECTRON_DEV=true nodemon --exec tsx server.ts\" \"vite\" \"wait-on http://localhost:8000 && cross-env ELECTRON_DEV=true electron .\"",
     "electron:build": "node scripts/build-electron.mjs && npx electron-rebuild && electron-builder",
     "release:dev": "npm version prerelease --preid=dev && git push --follow-tags",
     "release:qa": "npm version prerelease --preid=qa && git push --follow-tags",

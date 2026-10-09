@@ -91,7 +91,11 @@ const REQUIRE_PROXY_HEADER = process.env.TORAH_REQUIRE_PROXY_HEADER
 // True only when this process is actually running inside the Electron runtime
 // (server.ts is imported in-process by electron/main.cjs, not spawned as a plain
 // Node subprocess) — not a flag any deployment config could set by accident.
-const IS_ELECTRON = !!(process.versions as NodeJS.ProcessVersions & { electron?: string }).electron;
+// The one exception is `npm run electron:dev`, which runs this server as a separate Node
+// process (nodemon + tsx) next to the Electron window; it sets ELECTRON_DEV so the window
+// sees the same no-auth behaviour as the packaged app. Ignored in production.
+const IS_ELECTRON = !!(process.versions as NodeJS.ProcessVersions & { electron?: string }).electron
+  || (process.env.ELECTRON_DEV === 'true' && process.env.NODE_ENV !== 'production');
 
 function resolveAuthMode(): 'none' | 'header' | 'password' {
   if (IS_ELECTRON) return 'none';
