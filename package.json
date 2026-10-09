@@ -34,6 +34,7 @@
     "cap:ios": "npm run cap:db && npm run build && rm -rf public/assets && npx cap sync && npx cap open ios",
     "cap:android": "npm run cap:db && npm run build && rm -rf public/assets && npx cap sync && npx cap open android",
     "db:init": "tsx scripts/db-init.ts",
+    "db:rollback": "tsx scripts/db-rollback.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

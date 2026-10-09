@@ -1,4 +1,4 @@
-// BACKUP — not wired in; see import-readings-server.ts.
+// BACKUP — not wired into the app (scripts/db-rollback.ts uses it); see import-readings-server.ts.
 //
 // "Import readings into a fresh database": the fallback for a file the normal import can't take
 // (made by a newer app version, or its migration fails). The upload is ATTACHed as `up` to a

@@ -5,9 +5,10 @@ import { migrateDatabase, readMigrationSteps } from '../utils/migrationSteps.js'
 import { COPY_READINGS_SQL, columnsSql, countRowsSql, summarizeReadingsImport, type ReadingsImportSummary } from './importReadings.js';
 import { errText } from '../utils/errText.js';
 
-// BACKUP — not wired in: nothing in the app imports this file. Kept as a ready-made fallback for
-// a file the normal import can't take. To use it, add a route in server.ts that calls
-// importReadingsOnly() and a UI prompt in SettingsDrawer.tsx; native would need its own version.
+// BACKUP for the app — not wired in: only the dev script scripts/db-rollback.ts uses this. Kept as
+// a ready-made fallback for a file the normal import can't take. To use it in the app, add a route
+// in server.ts that calls importReadingsOnly() and a UI prompt in SettingsDrawer.tsx; native would
+// need its own version.
 //
 // Builds a fresh database from the migrations, copies just the upload's readings into it (see
 // importReadings.ts), then hands that fresh file to the normal importDatabase(), which validates
