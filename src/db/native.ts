@@ -1,27 +1,81 @@
-import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
+import { CapacitorSQLite, SQLiteConnection, type SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { and, eq, inArray } from 'drizzle-orm';
 import { createNativeDb } from './drizzle-native.js';
 import { NATIVE_DB_VERSION, NATIVE_UPGRADE_STATEMENTS } from './nativeMigrations.generated.js';
 import { NewerSchemaError, switchOverVersion } from '../utils/schemaVersion.js';
 import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, hosafotReadings as hosafotReadingsTable, torahChapters } from './schema.js';
-import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './queries.js';
+import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL, APP_META_GET_SQL, APP_META_UPSERT_SQL } from './queries.js';
 import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
 import { scheduleFromEntries, datesByParshaFromEntries, fetchLiveHebcalItemsForDate, entriesFromHebcalItems } from '../utils/sedra.js';
 import { SEDRA_CACHE, SEDRA_YEARS } from '../data/sedraCache.js';
 import { logEvent } from '../utils/logger-client/index.js';
+import { APP_VERSION_KEY, UNKNOWN_APP_VERSION, formatBackupName } from '../utils/dbBackupName.js';
+import { errText } from '../utils/errText.js';
+import { saveBackup } from './nativeBackups.js';
 
 const sqlite = new SQLiteConnection(CapacitorSQLite);
-let dbPromise: Promise<Awaited<ReturnType<typeof sqlite.createConnection>>> | null = null;
+let dbPromise: Promise<SQLiteDBConnection> | null = null;
+
+async function readTableNames(conn: SQLiteDBConnection): Promise<Set<string>> {
+  const tables = await conn.query("SELECT name FROM sqlite_master WHERE type = 'table'");
+  return new Set((tables.values ?? []).map((r: { name: string }) => r.name));
+}
+
+// The db's effective schema version: native counterpart of effectiveSchemaVersion in
+// utils/migrationSteps.ts.
+async function readSchemaVersion(conn: SQLiteDBConnection, tableNames: Set<string>): Promise<number> {
+  const userVersion = (await conn.query('PRAGMA user_version')).values?.[0]?.user_version ?? 0;
+  const drizzleRows = tableNames.has('__drizzle_migrations')
+    ? (await conn.query('SELECT COUNT(*) AS n FROM __drizzle_migrations')).values?.[0]?.n ?? 0
+    : 0;
+  return switchOverVersion(userVersion, drizzleRows);
+}
+
+// Copies the on-device db into the backups folder (see nativeBackups.ts) when the upgrade in
+// getConn() is about to run, so a migration that succeeds but mangles data can be undone from
+// Settings → Backups. The plugin's own backup-<db> copy only covers a failed upgrade and is
+// deleted after a successful one. Inspects the db read-only, which never triggers the upgrade.
+// Failures are logged, not thrown: refusing to open the db would lock the user out of the app.
+async function backupBeforeUpgrade(): Promise<void> {
+  try {
+    if (!(await sqlite.isDatabase('torah')).result) return;
+    const roConn = await sqlite.createConnection('torah', false, 'no-encryption', 1, true);
+    let schemaVersion: number;
+    let appVersion: string;
+    let url: string | undefined;
+    try {
+      await roConn.open();
+      const tableNames = await readTableNames(roConn);
+      schemaVersion = await readSchemaVersion(roConn, tableNames);
+      appVersion    = tableNames.has('app_meta')
+        ? (await roConn.query(APP_META_GET_SQL, [APP_VERSION_KEY])).values?.[0]?.value ?? UNKNOWN_APP_VERSION
+        : UNKNOWN_APP_VERSION;
+      ({ url } = await CapacitorSQLite.getUrl({ database: 'torah', readonly: true }));
+    } finally {
+      await roConn.close().catch(() => {});
+      await sqlite.closeConnection('torah', true).catch(() => {});
+    }
+    if (schemaVersion === 0 || schemaVersion >= NATIVE_DB_VERSION || !url) return;
+
+    const name = formatBackupName({ dbBase: 'torah', date: new Date(), schemaVersion, appVersion });
+    await saveBackup(url, name);
+    logEvent('info', 'db', `Backed up schema version ${schemaVersion} to ${name} before upgrading to ${NATIVE_DB_VERSION}`);
+  } catch (e: unknown) {
+    logEvent('warn', 'db', 'Pre-upgrade backup failed; upgrading anyway', { detail: errText(e) });
+  }
+}
 
 function getConn() {
   dbPromise ??= (async () => {
     await sqlite.copyFromAssets(false);
+    await backupBeforeUpgrade();
     // Applies any drizzle migrations added since the on-device db's PRAGMA user_version was
     // last stamped (see scripts/build-native-migrations.ts and src/db/init.ts's server-side
     // equivalent) — a no-op for a freshly-copied asset db, which is already at NATIVE_DB_VERSION.
     await sqlite.addUpgradeStatement('torah', NATIVE_UPGRADE_STATEMENTS);
     const conn = await sqlite.createConnection('torah', false, 'no-encryption', NATIVE_DB_VERSION, false);
     await conn.open();
+    await conn.run(APP_META_UPSERT_SQL, [APP_VERSION_KEY, __APP_VERSION__]);
     return conn;
   })().catch(async err => {
     // Don't cache the failure: drop the half-made connection so the next call can retry.
@@ -76,18 +130,13 @@ async function checkImportedDb(checkDb: string): Promise<{ version: number } | {
     const integrity = await checkConn.query('PRAGMA integrity_check');
     if (integrity.values?.[0]?.integrity_check !== 'ok') return { error: 'Database failed integrity check.' };
 
-    const tables = await checkConn.query("SELECT name FROM sqlite_master WHERE type = 'table'");
-    const tableNames = new Set((tables.values ?? []).map((r: { name: string }) => r.name));
+    const tableNames = await readTableNames(checkConn);
     const missing = REQUIRED_IMPORT_TABLES.filter(t => !tableNames.has(t));
     if (missing.length) {
       return { error: `Doesn't look like a Torah Tracker database (missing table${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}).` };
     }
 
-    const userVersion = (await checkConn.query('PRAGMA user_version')).values?.[0]?.user_version ?? 0;
-    const drizzleRows = tableNames.has('__drizzle_migrations')
-      ? (await checkConn.query('SELECT COUNT(*) AS n FROM __drizzle_migrations')).values?.[0]?.n ?? 0
-      : 0;
-    const version = switchOverVersion(userVersion, drizzleRows);
+    const version = await readSchemaVersion(checkConn, tableNames);
     if (version > NATIVE_DB_VERSION) return { error: new NewerSchemaError(version, NATIVE_DB_VERSION).message };
     return { version };
   } finally {
