@@ -14,6 +14,7 @@ import { SEDRA_CACHE, SEDRA_YEARS } from './src/data/sedraCache.js';
 import { hashPassword, verifyPassword, generateSessionToken, hashSessionToken, parseSessionCookie, serializeSessionCookie, clearSessionCookie, isHeaderAuthenticated, generateBootstrapPassword } from './src/utils/auth.js';
 import { buildExportBuffer } from './src/utils/export-server.js';
 import { importDatabase, ImportValidationError } from './src/utils/import-server.js';
+import { stampAppVersion } from './src/utils/backup-server.js';
 import { buildCalendarFeed } from './src/utils/calendar-feed.js';
 import { errText } from './src/utils/errText.js';
 import { createLogger, createHttpLogger, allLogFiles } from './src/utils/logger-server.js';
@@ -31,6 +32,8 @@ const PORT    = process.env.PORT || 3000;
 const HOST    = process.env.TORAH_HOST || '127.0.0.1';
 const DB_PATH = process.env.TORAH_DB_PATH || path.join(PROJECT_ROOT, 'torah.db');
 const MIGRATIONS_DIR = path.join(PROJECT_ROOT, 'drizzle');
+// package.json ships alongside the server in every deployment (dev, Docker image, Electron asar).
+const APP_VERSION: string = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf8')).version;
 
 // ── logging ───────────────────────────────────────────────────────────────────
 // Log path follows DB_PATH's directory (not PROJECT_ROOT) so it lands in Electron's
@@ -49,7 +52,10 @@ let rawDb = new Database(DB_PATH);
 rawDb.pragma('journal_mode = DELETE');
 rawDb.pragma('foreign_keys = OFF'); // must be off during migrations (table recreations need it)
 let db = createDb(rawDb);
-initDb(rawDb, MIGRATIONS_DIR);
+// Printed (so `docker logs` shows it) and kept in the log file, to check what a deploy migrated.
+const logMigration = (message: string) => { console.log(message); logger.info(message); };
+// Backs the db up beside itself first if a migration is pending (see backupBeforeMigrating).
+initDb(rawDb, MIGRATIONS_DIR, logMigration, { appVersion: APP_VERSION, backupDbPath: DB_PATH });
 rawDb.pragma('foreign_keys = ON');
 
 // ── express app ───────────────────────────────────────────────────────────────
@@ -439,7 +445,8 @@ app.post('/api/import/db', privateOnly, express.raw({ type: 'application/vnd.sql
     return res.status(400).json({ detail: 'No file uploaded.' });
   }
   try {
-    ({ rawDb, db } = importDatabase(req.body, rawDb, DB_PATH, MIGRATIONS_DIR));
+    ({ rawDb, db } = importDatabase(req.body, rawDb, DB_PATH, MIGRATIONS_DIR, message => logMigration(`DB import: ${message}`)));
+    stampAppVersion(rawDb, APP_VERSION);
     res.json({ success: true });
   } catch (err: unknown) {
     if (err instanceof ImportValidationError) return res.status(400).json({ detail: err.message });
