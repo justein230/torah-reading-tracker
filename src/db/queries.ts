@@ -296,3 +296,8 @@ export const LOCATION_STATS_SQL = `
   GROUP BY location
   ORDER BY count DESC, location
 `;
+
+// app_meta (see schema.ts): one row per key. Both platforms use these to read and stamp
+// 'last_app_version'.
+export const APP_META_GET_SQL    = `SELECT value FROM app_meta WHERE key = ?`;
+export const APP_META_UPSERT_SQL = `INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`;

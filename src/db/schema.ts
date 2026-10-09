@@ -251,6 +251,14 @@ export const adminPassword = sqliteTable('admin_password', {
   updatedAt:    text('updated_at').notNull().default(sql`(datetime('now'))`),
 });
 
+// Small key/value facts about the database file itself. 'last_app_version' is stamped on every
+// startup, so a pre-migration backup can be named after the app version that last used the file
+// (see src/utils/dbBackupName.ts) — a full version string won't fit in a SQLite header pragma.
+export const appMeta = sqliteTable('app_meta', {
+  key:   text('key').primaryKey(),
+  value: text('value').notNull(),
+});
+
 // Inferred row types
 export type Sefer           = typeof sefarim.$inferSelect;
 export type Parsha          = typeof parshiot.$inferSelect;

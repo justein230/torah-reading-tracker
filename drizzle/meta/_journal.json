@@ -50,6 +50,13 @@
       "when": 1790731825942,
       "tag": "0006_missing_holiday_variants",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1791516399805,
+      "tag": "0007_app_meta",
+      "breakpoints": true
     }
   ]
 }
