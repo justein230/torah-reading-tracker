@@ -3,6 +3,9 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'));
+// The schema version this build migrates databases to: one step per drizzle journal entry (see
+// readMigrationSteps in src/utils/migrationSteps.ts). A running app's db is always at it.
+const { entries: migrationEntries } = JSON.parse(readFileSync(new URL('./drizzle/meta/_journal.json', import.meta.url), 'utf-8'));
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -18,6 +21,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     define: {
       __APP_VERSION__: JSON.stringify(version),
+      __SCHEMA_VERSION__: JSON.stringify(migrationEntries.length),
     },
     test: {
       globals: true,

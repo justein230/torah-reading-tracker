@@ -13,5 +13,5 @@
     "outDir":                  "dist-server",
     "rootDir":                 "."
   },
-  "include": ["server.ts"]
+  "include": ["server.ts", "src/vite-env.d.ts"]
 }
