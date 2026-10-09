@@ -13,9 +13,14 @@ import { importReadingsOnly } from '../src/fallback/import-readings-server.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = process.env.TORAH_DB_PATH ?? path.join(__dirname, '../torah.db');
 
+// Absolute path plus a fixed PATH, so a writable directory on the caller's PATH can't substitute
+// its own pgrep. /usr/bin holds pgrep on both Linux and macOS.
+const PGREP = '/usr/bin/pgrep';
+const SAFE_PATH = '/usr/bin:/bin';
+
 // A running server keeps the old file open and would carry on writing to it after the swap.
 function serverIsRunning(): boolean {
-  try { execFileSync('pgrep', ['-f', 'tsx server.ts']); return true; } catch { return false; }
+  try { execFileSync(PGREP, ['-f', 'tsx server.ts'], { env: { PATH: SAFE_PATH } }); return true; } catch { return false; }
 }
 if (serverIsRunning()) {
   console.error('Stop the dev server first: pkill -f "concurrently -n api,vite"');
