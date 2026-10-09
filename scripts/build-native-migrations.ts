@@ -11,8 +11,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DRIZZLE_DIR = path.join(__dirname, '../drizzle');
 const OUT_FILE = path.join(__dirname, '../src/db/nativeMigrations.generated.ts');
 
-// The same steps the server's runner applies (src/utils/migrationSteps.ts).
-const upgradeSteps = readMigrationSteps(DRIZZLE_DIR);
+// The same steps the server's runner applies (src/utils/migrationSteps.ts), minus the file name
+// it logs, which the plugin's capSQLiteVersionUpgrade type has no room for.
+const upgradeSteps = readMigrationSteps(DRIZZLE_DIR).map(({ toVersion, statements }) => ({ toVersion, statements }));
 
 const NATIVE_DB_VERSION = upgradeSteps.length;
 

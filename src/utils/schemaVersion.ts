@@ -4,6 +4,7 @@
 
 export interface MigrationStep {
   toVersion:  number;
+  name:       string; // the drizzle file's tag, e.g. 0005_fix_holiday_definitions
   statements: string[];
 }
 

@@ -27,6 +27,17 @@ export function drizzleMigratedDb(filePath: string, count = STEPS.length): Insta
   return rawDb;
 }
 
+// A copy of drizzle/ in `dir` with one extra step on the end, as `drizzle-kit generate` would add it.
+export function migrationsWithExtraStep(dir: string, sql: string): string {
+  fs.cpSync(MIGRATIONS_DIR, dir, { recursive: true });
+  const journalPath = path.join(dir, 'meta/_journal.json');
+  const journal     = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
+  journal.entries.push({ idx: journal.entries.length, tag: '9999_extra' });
+  fs.writeFileSync(journalPath, JSON.stringify(journal));
+  fs.writeFileSync(path.join(dir, '9999_extra.sql'), sql);
+  return dir;
+}
+
 export function schemaOf(rawDb: InstanceType<typeof Database>): unknown[] {
   return rawDb.prepare("SELECT type, name, sql FROM sqlite_master WHERE tbl_name NOT IN ('__drizzle_migrations', 'sqlite_sequence') ORDER BY type, name").all();
 }

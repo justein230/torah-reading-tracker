@@ -31,7 +31,8 @@ describe('nativeMigrations.generated.ts', () => {
   });
 
   it('is up to date with drizzle/ (re-run `npm run build:native-migrations` if this fails)', () => {
-    expect(NATIVE_UPGRADE_STATEMENTS).toEqual(readMigrationSteps(MIGRATIONS_FOLDER));
+    const steps = readMigrationSteps(MIGRATIONS_FOLDER).map(({ toVersion, statements }) => ({ toVersion, statements }));
+    expect(NATIVE_UPGRADE_STATEMENTS).toEqual(steps);
   });
 
   it('replaying all upgrade-statement steps in order reproduces the same tables as the server runner', () => {

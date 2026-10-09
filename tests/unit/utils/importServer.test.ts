@@ -6,7 +6,7 @@ import os   from 'node:os';
 import Database from 'better-sqlite3';
 import { initDb } from '../../../src/db/init';
 import { importDatabase, ImportValidationError } from '../../../src/utils/import-server';
-import { MIGRATIONS_DIR, STEPS, drizzleMigratedDb } from '../../helpers/migrations';
+import { MIGRATIONS_DIR, STEPS, drizzleMigratedDb, migrationsWithExtraStep } from '../../helpers/migrations';
 
 function migratedDb(filePath: string): InstanceType<typeof Database> {
   const rawDb = new Database(filePath);
@@ -164,14 +164,7 @@ describe('importDatabase across schema versions', () => {
 
   it('leaves the live db untouched when a migration step fails', () => {
     expectLiveDbUntouched((currentRawDb, currentPath) => {
-      const brokenDir = path.join(tmpDir, 'drizzle-broken');
-      fs.cpSync(MIGRATIONS_DIR, brokenDir, { recursive: true });
-      const journalPath = path.join(brokenDir, 'meta/_journal.json');
-      const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
-      journal.entries.push({ idx: journal.entries.length, tag: '9999_broken' });
-      fs.writeFileSync(journalPath, JSON.stringify(journal));
-      fs.writeFileSync(path.join(brokenDir, '9999_broken.sql'), 'SELECT * FROM no_such_table;');
-
+      const brokenDir = migrationsWithExtraStep(path.join(tmpDir, 'drizzle-broken'), 'SELECT * FROM no_such_table;');
       const candidate = buildCandidate();
       candidate.db.close();
       expect(() => importDatabase(fs.readFileSync(candidate.path), currentRawDb, currentPath, brokenDir))

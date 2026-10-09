@@ -85,13 +85,19 @@ interface ImportResult {
 // a real upgrade for an older backup) and carries this deployment's own admin_password/
 // auth_sessions rows into it — an import restores reading data, not who's allowed to write it,
 // so the current login must keep working. Works on the copy only; the live db is untouched.
-function prepareUpload(tempPath: string, migrationsFolder: string, authRows: Record<string, unknown>[], sessionRows: Record<string, unknown>[]): void {
+function prepareUpload(
+  tempPath: string,
+  migrationsFolder: string,
+  authRows: Record<string, unknown>[],
+  sessionRows: Record<string, unknown>[],
+  log?: (message: string) => void,
+): void {
   const tempDb = new Database(tempPath);
   try {
     tempDb.pragma('journal_mode = DELETE');
     tempDb.pragma('foreign_keys = OFF'); // must be off during migrations (table recreations need it)
     try {
-      migrateDatabase(tempDb, readMigrationSteps(migrationsFolder));
+      migrateDatabase(tempDb, readMigrationSteps(migrationsFolder), log);
     } catch (err) {
       if (err instanceof NewerSchemaError) throw new ImportValidationError(err.message);
       throw err;
@@ -114,6 +120,7 @@ export function importDatabase(
   currentRawDb: InstanceType<typeof Database>,
   dbPath: string,
   migrationsFolder: string,
+  log?: (message: string) => void,
 ): ImportResult {
   const authRows    = currentRawDb.prepare('SELECT * FROM admin_password').all() as Record<string, unknown>[];
   const sessionRows = currentRawDb.prepare('SELECT * FROM auth_sessions').all()  as Record<string, unknown>[];
@@ -122,7 +129,7 @@ export function importDatabase(
   fs.writeFileSync(tempPath, uploadBuffer);
   try {
     assertValidTorahDb(tempPath);
-    prepareUpload(tempPath, migrationsFolder, authRows, sessionRows);
+    prepareUpload(tempPath, migrationsFolder, authRows, sessionRows, log);
   } catch (err) {
     fs.rmSync(tempPath, { force: true });
     throw err;

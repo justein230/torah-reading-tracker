@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
-import { migrateDatabase } from '../../../src/utils/migrationSteps';
+import { effectiveSchemaVersion, migrateDatabase } from '../../../src/utils/migrationSteps';
 import { NewerSchemaError } from '../../../src/utils/schemaVersion';
 import { STEPS, drizzleMigratedDb, schemaOf } from '../../helpers/migrations';
 
@@ -70,11 +70,51 @@ describe('migrateDatabase', () => {
     expect(userVersion(byDrizzle)).toBe(0);
   });
 
+  it('logs the switch-over and each step it applies', () => {
+    const rawDb    = drizzleMigratedDb(':memory:', 3);
+    const messages: string[] = [];
+    migrateDatabase(rawDb, STEPS, message => messages.push(message));
+    expect(messages).toEqual([
+      'Database schema: version 0 -> 3, read from the old __drizzle_migrations table',
+      `Database schema: at version 3, applying ${LATEST - 3} migration(s) to reach ${LATEST}`,
+      ...STEPS.slice(3).map(step => expect.stringMatching(
+        new RegExp(`^Database schema: applied migration ${step.toVersion} \\(${step.name}\\), ${step.statements.length} statement\\(s\\) in \\d+ ms$`))),
+    ]);
+
+    const again: string[] = [];
+    migrateDatabase(rawDb, STEPS, message => again.push(message));
+    expect(again).toEqual([`Database schema: at version ${LATEST}, up to date`]);
+  });
+
   it('rolls back a failing step and stays at the previous version', () => {
-    const rawDb   = freshDb();
-    const broken  = { toVersion: LATEST + 1, statements: ['CREATE TABLE half_done (x)', 'SELECT * FROM no_such_table'] };
-    expect(() => migrateDatabase(rawDb, [...STEPS, broken])).toThrow();
+    const rawDb    = freshDb();
+    const broken   = { toVersion: LATEST + 1, name: '9999_broken', statements: ['CREATE TABLE half_done (x)', 'SELECT * FROM no_such_table'] };
+    const messages: string[] = [];
+    expect(() => migrateDatabase(rawDb, [...STEPS, broken], message => messages.push(message))).toThrow();
+    expect(messages.at(-1)).toBe(`Database schema: migration ${LATEST + 1} (9999_broken) failed and was rolled back; staying at version ${LATEST}`);
     expect(userVersion(rawDb)).toBe(LATEST);
     expect(rawDb.prepare("SELECT 1 FROM sqlite_master WHERE name = 'half_done'").get()).toBeUndefined();
+  });
+});
+
+describe('effectiveSchemaVersion', () => {
+  it('is 0 for a fresh, empty database', () => {
+    expect(effectiveSchemaVersion(freshDb())).toBe(0);
+  });
+
+  it('is user_version for a database our runner migrated', () => {
+    const rawDb = freshDb();
+    migrateDatabase(rawDb, STEPS.slice(0, 3));
+    expect(effectiveSchemaVersion(rawDb)).toBe(3);
+  });
+
+  it('is the Drizzle row count for an old-setup database with user_version 0', () => {
+    expect(effectiveSchemaVersion(drizzleMigratedDb(':memory:', 3))).toBe(3);
+  });
+
+  it('never lowers user_version to a stale Drizzle row count', () => {
+    const rawDb = drizzleMigratedDb(':memory:', 3);
+    rawDb.pragma(`user_version = ${LATEST}`);
+    expect(effectiveSchemaVersion(rawDb)).toBe(LATEST);
   });
 });
