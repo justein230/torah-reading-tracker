@@ -2,11 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Drawer, Stack, MultiSelect, Switch, SegmentedControl, Text, Box, Button, Divider, PasswordInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { modals } from '@mantine/modals';
+import { Capacitor } from '@capacitor/core';
 import { useApp } from '../context/AppContext.js';
 import { fetchAuthStatus, login, logout, changePassword } from '../api.js';
 import { exportExcel, exportDb } from '../utils/export.js';
 import { importDb } from '../utils/import.js';
 import { exportLogs } from '../utils/logger-client/index.js';
+import { electronBridge } from '../utils/electronBridge.js';
+import BackupsModal from './BackupsModal.js';
 import type { AuthStatus } from '../types/index.js';
 
 interface SettingsDrawerProps {
@@ -20,6 +23,7 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
   const [exporting, setExporting] = useState<'excel' | 'db' | 'logs' | null>(null);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const [backupsOpen, setBackupsOpen] = useState(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [password, setPassword]     = useState('');
   const [loginError, setLoginError] = useState('');
@@ -123,6 +127,12 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
       confirmProps: { color: 'red' },
       onConfirm: () => void runImport(file),
     });
+  }
+
+  // Desktop app: backups are plain files beside the db, so just show that folder.
+  async function handleOpenBackupsFolder() {
+    const error = await electronBridge()?.openBackupsFolder();
+    if (error) notifications.show({ message: `Couldn't open the backups folder: ${error}`, color: 'red' });
   }
 
   async function runImport(file: File) {
@@ -280,6 +290,20 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
               loading={importing} onClick={handleImportClick}>
               Import DB (.sqlite)
             </Button>
+            {Capacitor.isNativePlatform() && (
+              <>
+                <Button variant="light" color="gray" fullWidth onClick={() => setBackupsOpen(true)}>
+                  Backups
+                </Button>
+                <BackupsModal opened={backupsOpen} onClose={() => setBackupsOpen(false)}
+                  onRestore={file => void runImport(file)} />
+              </>
+            )}
+            {electronBridge() && (
+              <Button variant="light" color="gray" fullWidth onClick={() => void handleOpenBackupsFolder()}>
+                Open backups folder
+              </Button>
+            )}
             {authStatus?.authMode === 'password' && (
               <>
                 <Box component="form" onSubmit={e => void handleChangePassword(e)}>
@@ -314,7 +338,8 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
       </Stack>
 
       <Text c="dimmed" ta="right" px={6} pb={4} style={{ fontSize: '0.75rem' }}>
-        v{__APP_VERSION__}
+        v{__APP_VERSION__}<br />
+        DB v{__SCHEMA_VERSION__}
       </Text>
     </Drawer>
   );

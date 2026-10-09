@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 import { makeCtx } from '../../helpers/appContextMock.js';
 import type { AuthStatus } from '../../../src/types/index.js';
+import { STEPS } from '../../helpers/migrations.js';
 
 vi.mock('../../../src/context/AppContext.js', () => ({ useApp: vi.fn() }));
 import { useApp } from '../../../src/context/AppContext.js';
@@ -42,7 +43,11 @@ vi.mock('@mantine/modals', () => ({
 const notificationsShow = vi.fn();
 vi.mock('@mantine/notifications', () => ({ notifications: { show: (...a: unknown[]) => notificationsShow(...a) } }));
 
-vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => false } }));
+const platform = vi.hoisted(() => ({ native: false }));
+vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => platform.native } }));
+
+const listBackups = vi.fn();
+vi.mock('../../../src/db/nativeBackups.js', () => ({ listBackups: () => listBackups() }));
 
 import SettingsDrawer from '../../../src/components/SettingsDrawer.js';
 
@@ -59,6 +64,8 @@ const originalReload = globalThis.location.reload;
 
 beforeEach(() => {
   confirmCallback = null;
+  platform.native = false;
+  notificationsShow.mockClear();
   fetchAuthStatus.mockResolvedValue({ authMode: 'password', insecureConfig: false } satisfies AuthStatus);
   Object.defineProperty(globalThis, 'location', {
     value: { ...globalThis.location, reload: vi.fn() },
@@ -90,6 +97,14 @@ describe('SettingsDrawer — filters', () => {
 
     fireEvent.click(screen.getByRole('switch', { name: 'Show re-reads Show additional readings in Reading Log' }));
     expect(setFilters).toHaveBeenCalled();
+  });
+});
+
+describe('SettingsDrawer — version line', () => {
+  it('shows the app version and the schema version this build migrates to', () => {
+    setCtx({ canWrite: false });
+    renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
+    expect(screen.getByText(`v${__APP_VERSION__}`, { exact: false })).toHaveTextContent(`v${__APP_VERSION__}DB v${STEPS.length}`);
   });
 });
 
@@ -148,6 +163,52 @@ describe('SettingsDrawer — writable actions', () => {
     expect(screen.getByText('Import DB (.sqlite)')).toBeInTheDocument();
     expect(screen.getByText('Change password')).toBeInTheDocument();
     expect(screen.getByText('Log out')).toBeInTheDocument();
+  });
+
+  it('offers the Backups list only in the native app', async () => {
+    setCtx({ canWrite: true });
+    renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
+    await waitFor(() => expect(fetchAuthStatus).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: 'Backups' })).not.toBeInTheDocument();
+  });
+
+  describe('in the desktop app', () => {
+    const openBackupsFolder = vi.fn();
+    beforeEach(() => { (globalThis as { torahElectron?: unknown }).torahElectron = { isElectron: true, log: vi.fn(), openBackupsFolder }; });
+    afterEach(() => { delete (globalThis as { torahElectron?: unknown }).torahElectron; });
+
+    it('opens the backups folder', async () => {
+      openBackupsFolder.mockResolvedValue('');
+      setCtx({ canWrite: true });
+      renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Open backups folder' }));
+      await waitFor(() => expect(openBackupsFolder).toHaveBeenCalled());
+      expect(notificationsShow).not.toHaveBeenCalled();
+    });
+
+    it('reports a folder that could not be opened', async () => {
+      openBackupsFolder.mockResolvedValue('No such directory');
+      setCtx({ canWrite: true });
+      renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Open backups folder' }));
+      await waitFor(() => expect(notificationsShow).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('No such directory') })));
+    });
+  });
+
+  it('shows no backups folder button outside the desktop app', async () => {
+    setCtx({ canWrite: true });
+    renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
+    await waitFor(() => expect(fetchAuthStatus).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: 'Open backups folder' })).not.toBeInTheDocument();
+  });
+
+  it('opens the Backups list from its button on native', async () => {
+    platform.native = true;
+    listBackups.mockResolvedValue([]);
+    setCtx({ canWrite: true });
+    renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Backups' }));
+    expect(await screen.findByText('No backups yet.')).toBeInTheDocument();
   });
 
   it('triggers exportExcel when "Export to Excel" is clicked', async () => {
