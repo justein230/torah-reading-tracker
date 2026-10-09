@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const net  = require('node:net');
 const path = require('node:path');
 const fs   = require('node:fs');
@@ -19,6 +19,15 @@ ipcMain.on('torah:log', (_event, { level, category, message, meta } = {}) => {
   const fn = LOG_LEVELS.has(level) ? level : 'info';
   log[fn](`[${category}] ${message}`, meta ?? '');
 });
+
+// Pre-migration backups sit beside the live db (see src/utils/backup-server.ts): userData in the
+// packaged app (start() sets TORAH_DB_PATH there), the repo root under electron:dev, where the
+// separately-run dev server uses the repo's torah.db. Resolves to '' on success, else an error.
+function dbDir() {
+  if (process.env.TORAH_DB_PATH) return path.dirname(path.resolve(process.env.TORAH_DB_PATH));
+  return process.env.ELECTRON_DEV ? process.cwd() : app.getPath('userData');
+}
+ipcMain.handle('torah:open-backups-folder', () => shell.openPath(dbDir()));
 
 let mainWindow = null;
 let serverPort = null;

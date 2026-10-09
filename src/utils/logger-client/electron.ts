@@ -1,10 +1,6 @@
 import type { LogLevel } from './types.js';
 import { redact, isDebugEnabled } from './types.js';
-
-interface TorahElectronBridge {
-  isElectron: true;
-  log(level: LogLevel, category: string, message: string, meta?: unknown): void;
-}
+import { electronBridge } from '../electronBridge.js';
 
 /**
  * Relays to the main process over the bridge electron/preload.cjs exposes via
@@ -16,7 +12,7 @@ interface TorahElectronBridge {
  */
 export function logEvent(level: LogLevel, category: string, message: string, meta?: unknown): void {
   if (level === 'debug' && !isDebugEnabled()) return;
-  (window as unknown as { torahElectron: TorahElectronBridge }).torahElectron.log(level, category, message, redact(meta));
+  electronBridge()?.log(level, category, message, redact(meta));
 }
 
 // Electron's embedded server serves the same /api/export/logs endpoint plain web does —

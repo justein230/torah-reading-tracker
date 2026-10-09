@@ -11,4 +11,8 @@ contextBridge.exposeInMainWorld('torahElectron', {
   log(level, category, message, meta) {
     ipcRenderer.send('torah:log', { level, category, message, meta });
   },
+  // Resolves to '' on success, else an error message (see main.cjs).
+  openBackupsFolder() {
+    return ipcRenderer.invoke('torah:open-backups-folder');
+  },
 });
