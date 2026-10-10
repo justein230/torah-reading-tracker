@@ -150,18 +150,34 @@ describe('Calendar — subscription controls', () => {
 // ── legend ────────────────────────────────────────────────────────────────────
 
 describe('Calendar — legend', () => {
-  it('names all four reading kinds', () => {
+  const ACCENTED = ['occasion', 'weekday', 'hosafah'] as const;
+
+  it('names the three accented reading kinds', () => {
     renderWithProviders(<Calendar />);
-    for (const { label: kindLabel } of Object.values(KIND_META)) {
-      expect(screen.getAllByText(new RegExp(kindLabel)).length).toBeGreaterThan(0);
+    for (const kind of ACCENTED) {
+      expect(screen.getAllByText(new RegExp(KIND_META[kind].label)).length).toBeGreaterThan(0);
     }
   });
 
-  it('gives a swatch to the three accented kinds only — parsha chips are colored by sefer', () => {
+  it('gives a stripe swatch to each accented kind, in the kind\'s own accent color', () => {
     const { container } = renderWithProviders(<Calendar />);
-    const swatches = Array.from(container.querySelectorAll('.cal-legend-swatch')) as HTMLElement[];
+    const stripes = Array.from(container.querySelectorAll('.cal-legend-swatch.stripe')) as HTMLElement[];
 
-    expect(swatches).toHaveLength(3);
-    expect(screen.getByText(/colored by sefer/)).toBeInTheDocument();
+    expect(stripes).toHaveLength(ACCENTED.length);
+    ACCENTED.forEach((kind, i) => {
+      expect(stripes[i]!.style.boxShadow).toContain(KIND_META[kind].accent);
+    });
+  });
+
+  it('gives a solid swatch to each sefer — parsha chips are colored by sefer', () => {
+    const ctx = makeCtx({ allRows: [] });
+    (useApp as Mock).mockReturnValue(ctx);
+    const { container } = renderWithProviders(<Calendar />);
+    const solid = container.querySelectorAll('.cal-legend-swatch:not(.stripe)');
+
+    expect(solid).toHaveLength(ctx.SEFER_ORDER.length);
+    for (const sefer of ctx.SEFER_ORDER) {
+      expect(screen.getByText(ctx.SEFER_MAP[sefer]!.en)).toBeInTheDocument();
+    }
   });
 });

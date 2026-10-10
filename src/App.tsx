@@ -172,7 +172,7 @@ export default function App() {
 
       <AppShell.Main ref={mainRef} className="app-main" style={{ WebkitOverflowScrolling: 'touch' }}>
         <PullToRefreshIndicator pullDistance={pullDistance} phase={pullPhase} />
-        <div className="app-main-inner">
+        <div className={`app-main-inner${activeTab === 'calendar' ? ' wide' : ''}`}>
           <ErrorBoundary>
             {ready ? tabPanel() : (
               <Text c="dimmed" ta="center" mt="xl">Loading…</Text>

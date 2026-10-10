@@ -5,7 +5,7 @@ import { Box, Text, Group, ActionIcon } from '@mantine/core';
 import { format as formatDate } from 'date-fns';
 import { useApp } from '../context/AppContext.js';
 import { isTouch } from './AliyahTooltip.js';
-import { MonthGrid, KIND_META } from './CalendarGrid.js';
+import { MonthGrid, KIND_META, stripeShadow } from './CalendarGrid.js';
 import { AgendaView } from './CalendarAgenda.js';
 import { TODAY_STR } from '../api.js';
 import type {
@@ -138,7 +138,7 @@ function useCopyCalUrl() {
 }
 
 export default function Calendar() {
-  const { allRows, occasionAliyot, weekdayAliyot, hosafotReadings, SEFER_MAP, filters } = useApp();
+  const { allRows, occasionAliyot, weekdayAliyot, hosafotReadings, SEFER_ORDER, SEFER_MAP, filters } = useApp();
   const dayMap = useMemo(
     () => buildDayMap(allRows, occasionAliyot, weekdayAliyot, hosafotReadings, filters),
     [allRows, occasionAliyot, weekdayAliyot, hosafotReadings, filters],
@@ -152,7 +152,7 @@ export default function Calendar() {
   const toggleIcon  = isGrid ? '☰' : '⊞';
 
   return (
-    <Box>
+    <Box className="cal-root">
       <Group justify="space-between" mb={16} align="center">
         <Group gap={8}>
           <ActionIcon variant="subtle" style={{ color: 'var(--muted)' }} onClick={onPrev}>‹</ActionIcon>
@@ -184,12 +184,15 @@ export default function Calendar() {
       </Group>
 
       <div className="cal-legend">
-        <span className="cal-legend-item">
-          {KIND_META.standard.label} <span className="cal-legend-note">(colored by sefer)</span>
-        </span>
+        {SEFER_ORDER.map(sefer => (
+          <span key={sefer} className="cal-legend-item">
+            <span className="cal-legend-swatch" style={{ background: SEFER_MAP[sefer]?.color }} />
+            {SEFER_MAP[sefer]?.en ?? sefer}
+          </span>
+        ))}
         {(['occasion', 'weekday', 'hosafah'] as const).map(kind => (
           <span key={kind} className="cal-legend-item">
-            <span className="cal-legend-swatch" style={{ background: KIND_META[kind].accent }} />
+            <span className="cal-legend-swatch stripe" style={{ boxShadow: stripeShadow(KIND_META[kind].accent) }} />
             {KIND_META[kind].label}
           </span>
         ))}

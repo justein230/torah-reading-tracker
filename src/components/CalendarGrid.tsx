@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SeferDot } from './shared/SeferDot.js';
 import { ReadingStatusBadges } from './shared/ReadingStatusBadges.js';
 import { format as formatDate } from 'date-fns';
-import { fmtDate, futureBg, fmtAliyah } from '../utils/format.js';
+import { fmtDate, futureBg, fmtAliyah, calEntryTitle } from '../utils/format.js';
 import { positionTooltip } from '../utils/tooltip.js';
 import type { CalEntry, CalKind, SeferMeta } from '../types/index.js';
 
@@ -16,14 +16,21 @@ const CAL_TIP_GAP = 6;   /* gap between target cell and tooltip in px */
    the special sources each get a distinct left-edge accent, mirrored in the legend. */
 export const KIND_META: Record<CalKind, { label: string; accent: string }> = {
   standard: { label: 'Parsha',  accent: '' },
-  occasion: { label: 'Holiday', accent: '#f59e0b' },
-  weekday:  { label: 'Weekday', accent: '#a78bfa' },
-  hosafah:  { label: 'Hosafah', accent: '#f472b6' },
+  occasion: { label: 'Holiday', accent: '#ffffff' },
+  weekday:  { label: 'Weekday', accent: '#56b4e9' },
+  hosafah:  { label: 'Hosafah', accent: '#f0e442' },
 };
+
+/* Red-green-colorblind-safe accents (white / sky blue / yellow differ in lightness and on the
+   blue-yellow axis). A dark edge keeps the stripe visible on every sefer color, including the
+   orange and yellow-ish ones. */
+export function stripeShadow(accent: string): string {
+  return `inset 4px 0 0 0 ${accent}, inset 6px 0 0 0 rgba(0, 0, 0, 0.45)`;
+}
 
 function kindStripe(kind: CalKind): React.CSSProperties {
   const accent = KIND_META[kind].accent;
-  return accent ? { boxShadow: `inset 3px 0 0 0 ${accent}` } : {};
+  return accent ? { boxShadow: stripeShadow(accent) } : {};
 }
 
 /* Small pill naming a non-standard reading type; standard parsha readings render nothing. */
@@ -58,7 +65,7 @@ function CalDayTooltip({ dateStr, readings, pos, SEFER_MAP }: Readonly<CalDayToo
         return (
           <div key={`${r.parsha}-${r.aliyah}-${i}`} className="cal-tip-row">
             <SeferDot color={color} reread={r.isReread} />
-            <span className="hebrew" style={{ color, fontSize: '0.75rem' }}>{r.parsha}</span>
+            <span className="hebrew" style={{ color, fontSize: '0.75rem' }}>{calEntryTitle(r)}</span>
             <span className="cal-aliyah-label"> · {fmtAliyah(r.aliyah)}</span>
             <KindBadge kind={r.kind} />
             <ReadingStatusBadges isReread={r.isReread} isFuture={r.isFuture} compact />
@@ -96,7 +103,7 @@ export function MonthGrid({ year, month, dayMap, SEFER_MAP }: Readonly<MonthGrid
   const cells       = [...emptyCells, ...dayCells];
 
   return (
-    <div>
+    <div className="cal-month">
       <div className="cal-grid cal-dow-header">
         {DOW.map(d => <div key={d} className="cal-dow">{d}</div>)}
       </div>
@@ -122,7 +129,7 @@ export function MonthGrid({ year, month, dayMap, SEFER_MAP }: Readonly<MonthGrid
                     const { className, style } = chipProps(r, color);
                     return (
                       <div key={`${r.parsha}-${r.aliyah}-${j}`} className={className} style={style}>
-                        <span className="hebrew">{r.parsha}</span>
+                        <span className="hebrew">{calEntryTitle(r)}</span>
                         <span className="cal-event-aliyah"> {fmtAliyah(r.aliyah, true)}</span>
                       </div>
                     );

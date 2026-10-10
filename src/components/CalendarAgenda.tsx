@@ -4,7 +4,7 @@ import { EmptyState } from './shared/EmptyState.js';
 import { SeferDot } from './shared/SeferDot.js';
 import { ReadingStatusBadges } from './shared/ReadingStatusBadges.js';
 import { CollapsibleRow } from './shared/CollapsibleRow.js';
-import { fmtDate, fmtAliyah, groupBy } from '../utils/format.js';
+import { fmtDate, fmtAliyah, calEntryTitle, groupBy } from '../utils/format.js';
 import { TODAY_STR } from '../api.js';
 import { KindBadge } from './CalendarGrid.js';
 import type { CalEntry, SeferMeta } from '../types/index.js';
@@ -42,7 +42,7 @@ function AgendaDay({ dateStr, readings, SEFER_MAP }: Readonly<AgendaDayProps>) {
           return (
             <div key={`${r.parsha}-${r.aliyah}-${i}`} className="cal-agenda-item">
               <SeferDot color={color} reread={r.isReread} />
-              <span className="hebrew" style={{ color, fontSize: '0.8125rem' }}>{r.parsha}</span>
+              <span className="hebrew" style={{ color, fontSize: '0.8125rem' }}>{calEntryTitle(r)}</span>
               <span className="cal-aliyah-label"> · {fmtAliyah(r.aliyah)}</span>
               <KindBadge kind={r.kind} />
               <ReadingStatusBadges isReread={r.isReread} isFuture={r.isFuture} />

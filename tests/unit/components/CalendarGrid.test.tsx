@@ -156,7 +156,7 @@ describe('MonthGrid — chip styling by read state', () => {
     kind => {
       const { container } = renderMonth({ '2024-02-05': [makeCalEntry({ kind })] });
       const style = chips(dayCell(container, 5))[0]!.getAttribute('style') ?? '';
-      expect(style).toContain('inset 3px 0 0 0');
+      expect(style).toContain('inset 4px 0 0 0');
     },
   );
 

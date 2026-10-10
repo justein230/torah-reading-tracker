@@ -78,6 +78,11 @@ export function fmtAliyah(a: string | number, short = false): string {
   return short ? String(a) : `Aliyah ${a}`;
 }
 
+/** Calendar label for a reading: its holiday name when it has one, else the parsha. */
+export function calEntryTitle(e: { occasion?: string; parsha: string }): string {
+  return e.occasion || e.parsha;
+}
+
 export function getCurrentYear(): number {
   return new Date().getFullYear();
 }
