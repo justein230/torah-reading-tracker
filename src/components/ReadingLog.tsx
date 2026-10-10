@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import './ReadingLog.css';
-import { Box, Modal, ActionIcon, Group, Text } from '@mantine/core';
+import { Box, Modal, ActionIcon, Group, Text, Button } from '@mantine/core';
 import { useApp } from '../context/AppContext.js';
 import { fmtDate, groupBy } from '../utils/format.js';
 import { TODAY_STR } from '../api.js';
@@ -254,7 +254,7 @@ function editDeleteIcons(onEdit: () => void, onDelete: () => void): React.ReactN
 }
 
 export default function ReadingLog() {
-  const { allRows, SEFER_MAP, filters, specialReadings, weekdayAliyot, occasionAliyot, hosafotReadings, stats } = useApp();
+  const { allRows, SEFER_MAP, filters, specialReadings, weekdayAliyot, occasionAliyot, hosafotReadings, stats, setWhatIfOpen } = useApp();
   const crud = useReadingCrud();
 
   const readings = [
@@ -346,6 +346,12 @@ export default function ReadingLog() {
             />
           </Modal>
         </>
+      )}
+
+      {stats && (
+        <Group justify="flex-end" mb={4}>
+          <Button variant="subtle" size="xs" onClick={() => setWhatIfOpen(true)}>Preview future %</Button>
+        </Group>
       )}
 
       {readings.length === 0 ? (

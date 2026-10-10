@@ -64,6 +64,8 @@ export function makeCtx(overrides: Partial<AppContextValue> = {}): AppContextVal
     setSortMode:       vi.fn(),
     activeTab:         'overview',
     setActiveTab:      vi.fn(),
+    whatIfOpen:        false,
+    setWhatIfOpen:     vi.fn(),
     forecastConfig:    { lookbackYears: 1, paceOverride: null },
     setForecastConfig: vi.fn(),
     stats:           null,

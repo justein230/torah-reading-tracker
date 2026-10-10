@@ -3,9 +3,10 @@ import { AppShell, Tabs, Box, ActionIcon, Text, Indicator } from '@mantine/core'
 import { useApp } from './context/AppContext.js';
 import { useTabIndicator } from './hooks/useTabIndicator.js';
 import { usePullToRefresh } from './hooks/usePullToRefresh.js';
-import { TABS, TAB_LABELS } from './constants.js';
+import { TABS, TAB_LABELS, WHATIF_DOCK_BREAKPOINT, WHATIF_DOCK_WIDTH } from './constants.js';
 import { fetchAuthStatus } from './api.js';
 import SettingsDrawer from './components/SettingsDrawer.js';
+import { WhatIfPreview } from './components/WhatIfPreview.js';
 import BottomNav from './components/BottomNav.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { PullToRefreshIndicator } from './components/shared/PullToRefreshIndicator.js';
@@ -26,7 +27,7 @@ function filterCount(filters: Filters): number {
 }
 
 export default function App() {
-  const { activeTab, setActiveTab, filters, setFilters, setSortMode, ready,
+  const { activeTab, setActiveTab, whatIfOpen, setWhatIfOpen, filters, setFilters, setSortMode, ready,
           refresh, refreshSpecial, refreshWeekday, refreshHosafot, refreshCanWrite } = useApp();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [insecureConfig, setInsecureConfig] = useState(false);
@@ -117,6 +118,7 @@ export default function App() {
     <AppShell
       header={{ height: `calc(${headerHeight}px + env(safe-area-inset-top))` }}
       footer={{ height: { base: 60, sm: 0 } }}
+      aside={{ width: WHATIF_DOCK_WIDTH, breakpoint: WHATIF_DOCK_BREAKPOINT, collapsed: { desktop: !whatIfOpen, mobile: true } }}
       padding={0}
     >
       <AppShell.Header withBorder={false} className="app-header">
@@ -185,6 +187,7 @@ export default function App() {
         <BottomNav activeTab={activeTab} onChange={setActiveTab} />
       </AppShell.Footer>
 
+      <WhatIfPreview opened={whatIfOpen} onClose={() => setWhatIfOpen(false)} />
       <SettingsDrawer
         opened={drawerOpen}
         onClose={() => setDrawerOpen(false)}

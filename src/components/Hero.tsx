@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { Box, Card, Group, Stack, Text, Button } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { Ring } from './Ring.js';
-import { WhatIfPreview } from './WhatIfPreview.js';
 import { useApp } from '../context/AppContext.js';
 import { estimateCompletionFromStats, computeRing, effectivePseukimOf, committedPseukimOf } from '../compute.js';
 import { RING_PSEUKIM, RING_ALIYOT, RING_HOLIDAY, RING_WEEKDAY } from '../constants.js';
@@ -55,8 +53,7 @@ interface HeroProps {
 }
 
 export function Hero({ stats }: HeroProps) {
-  const { filters, forecastConfig, allRows, SEFER_MAP, occasionAliyot, weekdayAliyot, hosafotReadings } = useApp();
-  const [whatIfOpen, setWhatIfOpen] = useState(false);
+  const { filters, forecastConfig, allRows, SEFER_MAP, occasionAliyot, weekdayAliyot, hosafotReadings, setWhatIfOpen } = useApp();
   const totalPseukim     = stats.totalPseukim;
   const readPseukim      = effectivePseukimOf(stats);
   const committedPseukim = committedPseukimOf(stats);
@@ -110,7 +107,6 @@ export function Hero({ stats }: HeroProps) {
           <Button variant="subtle" size="xs" mt={4} onClick={() => setWhatIfOpen(true)}>
             Preview future %
           </Button>
-          <WhatIfPreview opened={whatIfOpen} onClose={() => setWhatIfOpen(false)} />
           {est && (
             <div className="est-divider">
               <Text size="xs" c="dimmed" className="label-caps" mb={3}>Est. completion</Text>

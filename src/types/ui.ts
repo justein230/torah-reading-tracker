@@ -68,6 +68,8 @@ export interface AppContextValue {
   setSortMode: React.Dispatch<React.SetStateAction<string>>;
   activeTab: string;
   setActiveTab: React.Dispatch<React.SetStateAction<string>>;
+  whatIfOpen: boolean;
+  setWhatIfOpen: React.Dispatch<React.SetStateAction<boolean>>;
   forecastConfig: ForecastConfig;
   setForecastConfig: React.Dispatch<React.SetStateAction<ForecastConfig>>;
   stats: Stats | null;

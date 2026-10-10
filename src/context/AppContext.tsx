@@ -61,6 +61,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
     const t = p.get('tab') || 'overview';
     return TABS.includes(t) ? t : 'overview';
   });
+  const [whatIfOpen,     setWhatIfOpen]     = useState(false);
   const [forecastConfig, setForecastConfig] = useState<ForecastConfig>({ lookbackYears: 1, paceOverride: null });
 
   useEffect(() => {
@@ -89,7 +90,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    (async () => {
+    void (async () => {
       const [meta, raw, hebcal, occ, oa, sr, wa, hr] = await Promise.all([
         fetchMeta(),
         fetchAliyot(),
@@ -203,6 +204,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
     filters, setFilters,
     sortMode, setSortMode,
     activeTab, setActiveTab,
+    whatIfOpen, setWhatIfOpen,
     forecastConfig, setForecastConfig,
     stats, refresh, ready,
     canWrite, refreshCanWrite,
@@ -211,7 +213,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
     hosafotReadings: enrichedHosafotReadings, refreshHosafot,
   }), [SEFER_ORDER, SEFER_MAP, TLIT, pairs, parshaById, allRows, parshaIndex, allYears, schedule,
        datesByParsha, cacheYears, settings,
-       filters, sortMode, activeTab, forecastConfig, stats, refresh, ready,
+       filters, sortMode, activeTab, whatIfOpen, forecastConfig, stats, refresh, ready,
        canWrite, refreshCanWrite,
        occasions, enrichedOccasionAliyot, specialReadings, refreshSpecial,
        enrichedWeekdayAliyot, refreshWeekday,

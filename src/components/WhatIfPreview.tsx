@@ -1,108 +1,26 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Modal, Button, MultiSelect, Group, Stack, Text, ActionIcon, Switch } from '@mantine/core';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppShell, Drawer, CloseButton, ScrollArea, Button, MultiSelect, Group, Stack, Text, ActionIcon, Switch, useMantineTheme } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
+import { useMediaQuery } from '@mantine/hooks';
 import { useApp } from '../context/AppContext.js';
 import { computeStats, estimateCompletionFromStats, effectivePseukimOf, committedPseukimOf } from '../compute.js';
-import { applyWhatIfPicks, standardRowKey } from '../utils/whatIf.js';
+import { applyWhatIfPicks } from '../utils/whatIf.js';
+import { pickId, whatIfKeyOf, standardPick, seedExistingFuturePicks, reconcilePicks } from '../utils/whatIfPicks.js';
 import { buildGroupedOptions } from '../utils/form-options.js';
 import { ParshaField } from './shared/ParshaField.js';
 import { Ring } from './Ring.js';
 import { fmtAliyah, toDateStr, fmtDate } from '../utils/format.js';
 import { TODAY_STR } from '../api.js';
-import { RING_PSEUKIM, RING_ALIYOT } from '../constants.js';
+import { RING_PSEUKIM, RING_ALIYOT, WHATIF_DOCK_BREAKPOINT } from '../constants.js';
 import './ReadingLog.css';
 import './Overview.css';
 import type { WhatIfPick } from '../utils/whatIf.js';
-import type { ForecastResult, MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, Stats } from '../types/index.js';
+import type { PendingPick } from '../utils/whatIfPicks.js';
+import type { ForecastResult, MappedRow, Stats } from '../types/index.js';
 
 interface WhatIfPreviewProps {
   readonly opened: boolean;
   readonly onClose: () => void;
-}
-
-interface PendingPick {
-  kind: WhatIfPick['kind'];
-  /* Row id for occasion/weekday/hosafah picks; undefined for standard aliyot (keyed by parsha+aliyah). */
-  id?: number;
-  parsha: string;
-  sefer: string;
-  aliyah: string;
-  date: string;
-  pseukim: number;
-  /* Already scheduled for real (seeded from the real arrays) vs. added in this preview session. */
-  existing: boolean;
-  /* Precomputed display strings so the render stays uniform across all reading kinds. */
-  title: string;   /* Hebrew heading line */
-  detail: string;  /* secondary descriptor shown before the sefer + pseukim */
-}
-
-/* The key applyWhatIfPicks matches a pick against: parsha+aliyah for standard aliyot, row id for
-   the special-reading kinds (see WhatIfPick / applyWhatIfPicks in utils/whatIf.ts). */
-function whatIfKeyOf(p: PendingPick): string {
-  return p.kind === 'standard' ? standardRowKey(p) : String(p.id);
-}
-
-/* Stable identity for React keys / removal / the cumulative-stats map. Prefixed with kind so a
-   standard aliyah and a special reading that happen to share an id/key can never collide. */
-function pickId(p: PendingPick): string {
-  return `${p.kind}:${whatIfKeyOf(p)}`;
-}
-
-/* Mirrors ReadingRow's aliyahHebrew logic. Numbered aliyot render as עליה N; the maftir
-   (aliyah 8, or the 'M' key used by occasion readings) renders as מפטיר. */
-function aliyahHebrew(aliyah: string): string {
-  return Number(aliyah) === 8 || aliyah === 'M' ? 'מפטיר' : `עליה ${aliyah}`;
-}
-
-function standardPick(r: MappedRow, date: string, existing: boolean, TLIT: Record<string, string>): PendingPick {
-  return {
-    kind: 'standard', parsha: r.parsha, sefer: r.sefer, aliyah: String(r.aliyah), date, pseukim: r.pseukim, existing,
-    title: `${r.parsha} — ${aliyahHebrew(String(r.aliyah))}`,
-    detail: `${TLIT[r.parsha] ?? ''} · ${fmtAliyah(r.aliyah)}`,
-  };
-}
-
-function occasionPick(oa: MappedOccasionAliyah): PendingPick {
-  return {
-    kind: 'occasion', id: oa.id, parsha: oa.parsha, sefer: oa.sefer, aliyah: oa.aliyahKey,
-    date: oa.orig, pseukim: oa.pseukim, existing: true,
-    title: `${oa.occasion} — ${oa.parsha} · ${aliyahHebrew(oa.aliyahKey)}`,
-    detail: `${oa.occasionEn} · ${oa.parshaEn} · ${fmtAliyah(oa.aliyahKey)}`,
-  };
-}
-
-function weekdayPick(wa: MappedWeekdayAliyah): PendingPick {
-  return {
-    kind: 'weekday', id: wa.id, parsha: wa.parsha, sefer: wa.sefer, aliyah: String(wa.aliyahNum),
-    date: wa.dateRead, pseukim: wa.pseukim, existing: true,
-    title: `${wa.parsha} — ${aliyahHebrew(String(wa.aliyahNum))}`,
-    detail: `Weekday · ${wa.parshaEn} · ${fmtAliyah(wa.aliyahNum)}`,
-  };
-}
-
-function hosafahPick(hr: MappedHosafah): PendingPick {
-  const parshaLabel = hr.parsha2 ? `${hr.parsha1}–${hr.parsha2}` : hr.parsha1;
-  return {
-    kind: 'hosafah', id: hr.id, parsha: parshaLabel, sefer: hr.sefer, aliyah: '',
-    date: hr.dateRead, pseukim: hr.pseukim, existing: true,
-    title: `${hr.occasion ?? parshaLabel} — הוספה`,
-    detail: `Hosafah · ${hr.occasionEn ?? hr.parsha1En}`,
-  };
-}
-
-function seedExistingFuturePicks(
-  allRows: MappedRow[],
-  occasionAliyot: MappedOccasionAliyah[],
-  weekdayAliyot: MappedWeekdayAliyah[],
-  hosafotReadings: MappedHosafah[],
-  TLIT: Record<string, string>,
-): PendingPick[] {
-  return [
-    ...allRows.filter(r => r.isReadFuture).map(r => standardPick(r, r.orig, true, TLIT)),
-    ...occasionAliyot.filter(oa => oa.isReadFuture).map(occasionPick),
-    ...weekdayAliyot.filter(wa => wa.isReadFuture).map(weekdayPick),
-    ...hosafotReadings.filter(hr => hr.isReadFuture).map(hosafahPick),
-  ];
 }
 
 function readStatusSuffix(r: Pick<MappedRow, 'isReadPast' | 'isReadFuture'>): string {
@@ -148,14 +66,33 @@ export function WhatIfPreview({ opened, onClose }: WhatIfPreviewProps) {
   const [date, setDate] = useState<Date | null>(null);
   const [autoFillDate, setAutoFillDate] = useState(true);
   const [picks, setPicks] = useState<PendingPick[]>([]);
+  const isNarrow = useMediaQuery('(max-width: 520px)');
+  // Wide screens dock the preview as an AppShell aside (see App.tsx) so the tab shrinks to make
+  // room for it; below that breakpoint it falls back to a floating drawer over the page.
+  const theme    = useMantineTheme();
+  const isDocked = useMediaQuery(`(min-width: ${theme.breakpoints[WHATIF_DOCK_BREAKPOINT]})`);
 
-  // Re-seed with every real currently-scheduled future reading (standard aliyot plus holiday,
-  // weekday, and hosafah readings) each time the modal opens, so they all show up as
-  // removable/editable "previewed" rows alongside any newly-added ones.
+  // Seed with every real currently-scheduled future reading (standard aliyot plus holiday,
+  // weekday, and hosafah readings) the first time the drawer opens, so they all show up as
+  // removable/editable "previewed" rows alongside any newly-added ones. Closing keeps the picks
+  // (the drawer stays mounted app-wide); "Reset to committed" starts over. While it's open the
+  // real data can change underneath it (readings added/edited/deleted in other tabs), so later
+  // runs reconcile the picks with the fresh data instead of re-seeding.
+  const seededIds = useRef<Set<string> | null>(null);
   useEffect(() => {
-    if (opened) setPicks(seedExistingFuturePicks(allRows, occasionAliyot, weekdayAliyot, hosafotReadings, TLIT));
+    const seed = seedExistingFuturePicks(allRows, occasionAliyot, weekdayAliyot, hosafotReadings, TLIT);
+    const prevSeedIds = seededIds.current;
+    if (!prevSeedIds && !opened) return;
+    seededIds.current = new Set(seed.map(pickId));
+    setPicks(prevSeedIds ? existing => reconcilePicks(existing, prevSeedIds, seed, allRows) : seed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened]);
+  }, [opened, allRows, occasionAliyot, weekdayAliyot, hosafotReadings]);
+
+  function resetToCommitted() {
+    const seed = seedExistingFuturePicks(allRows, occasionAliyot, weekdayAliyot, hosafotReadings, TLIT);
+    seededIds.current = new Set(seed.map(pickId));
+    setPicks(seed);
+  }
 
   const parshaOptions = buildGroupedOptions(
     SEFER_ORDER,
@@ -271,8 +208,7 @@ export function WhatIfPreview({ opened, onClose }: WhatIfPreviewProps) {
   const committedAliyot    = preview.committedAliyot;
   const committedAliyotPct = totalAliyot > 0 ? committedAliyot / totalAliyot * 100 : 0;
 
-  return (
-    <Modal opened={opened} onClose={onClose} title="Preview future %" size="lg" centered>
+  const body = (
       <Stack gap={16}>
 
         <Group grow align="flex-start">
@@ -314,7 +250,7 @@ export function WhatIfPreview({ opened, onClose }: WhatIfPreviewProps) {
         />
         <Group gap={8}>
           <Button onClick={addPicks} disabled={!parsha || !aliyot.length || !date}>Add to preview</Button>
-          <Button variant="subtle" color="gray" onClick={() => setPicks(seedExistingFuturePicks(allRows, occasionAliyot, weekdayAliyot, hosafotReadings, TLIT))}>
+          <Button variant="subtle" color="gray" onClick={resetToCommitted}>
             Reset to committed
           </Button>
         </Group>
@@ -388,6 +324,48 @@ export function WhatIfPreview({ opened, onClose }: WhatIfPreviewProps) {
           </div>
         )}
       </Stack>
-    </Modal>
+  );
+
+  if (isDocked) {
+    return (
+      // The aside itself is a transparent gutter; the rounded card inside matches the page's
+      // other cards (12px radius, --surface fill) so the panel reads as inset rather than a hard edge.
+      <AppShell.Aside withBorder={false} p="md" style={{ background: 'transparent', overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', display: 'flex', flexDirection: 'column',
+          background: 'var(--surface)', border: '1px solid var(--surface2)', borderRadius: 12,
+        }}>
+          <Group justify="space-between" px={20} pt={16} pb={8}>
+            <Text size="lg" fw={600}>Preview future %</Text>
+            <CloseButton aria-label="Close preview" onClick={onClose} />
+          </Group>
+          <ScrollArea style={{ flex: 1, minHeight: 0 }} scrollbarSize={8} offsetScrollbars="y">
+            <div style={{ padding: '8px 20px 20px' }}>{body}</div>
+          </ScrollArea>
+        </div>
+      </AppShell.Aside>
+    );
+  }
+
+  return (
+    <Drawer
+      opened={opened}
+      onClose={onClose}
+      title="Preview future %"
+      position={isNarrow ? 'bottom' : 'right'}
+      size={isNarrow ? '60%' : 'md'}
+      withOverlay={false}
+      lockScroll={false}
+      trapFocus={false}
+      closeOnClickOutside={false}
+      // On phones the drawer rises from the bottom, so stop it above the 60px bottom nav (App.tsx
+      // footer) — otherwise it would cover the very tabs you need to browse while forecasting.
+      styles={{
+        inner: isNarrow ? { bottom: 'calc(60px + env(safe-area-inset-bottom))' } : undefined,
+        content: { background: 'var(--surface)' },
+      }}
+    >
+      {body}
+    </Drawer>
   );
 }
