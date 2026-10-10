@@ -175,6 +175,7 @@ input[type="date"]::-webkit-date-and-time-value {
 .app-tab { font-size: 0.8125rem !important; padding: 10px 14px !important; white-space: nowrap; user-select: none; -webkit-user-select: none; }
 .app-main { background: var(--bg); min-height: 100vh; }
 .app-main-inner { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+.app-main-inner.wide { max-width: none; }
 .tab-list-wrap { position: relative; }
 .indicator-line { position: absolute; bottom: 0; left: 0; width: 0; height: 2px; background: var(--accent); border-radius: 1px; z-index: 2; }
 
