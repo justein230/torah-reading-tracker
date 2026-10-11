@@ -1,5 +1,16 @@
 // ── Schema-inferred DB row types (from Drizzle schema) ───────────────────────
 export type { Sefer, Parsha, Aliyah, Reading } from '../db/schema.js';
+import type { HolidayDates } from '../utils/occasionDates.js';
+
+/** What the schedule endpoint returns: when parshiot and holidays fall, from the baked Hebcal caches. */
+export interface HebcalData {
+  /** { parshaName: next date on/after today }. */
+  schedule: Record<string, string>;
+  /** { parshaName: every date it was read }. */
+  datesByParsha: Record<string, string[]>;
+  cacheYears: [number, number];
+  holidayDates: HolidayDates;
+}
 
 // ── Raw database shape (what the API / SQLite layer returns) ──────────────────
 
@@ -151,7 +162,7 @@ export interface DbApi {
   fetchAliyot: () => Promise<RawRow[]>;
   fetchReadings: () => Promise<ReadingRecord[]>;
   fetchLocationStats: () => Promise<LocationStat[]>;
-  fetchHebcal: () => Promise<{ schedule: Record<string, string>; datesByParsha: Record<string, string[]>; cacheYears: [number, number] }>;
+  fetchHebcal: () => Promise<HebcalData>;
   fetchHebcalOnDate: (date: string) => Promise<{ parshiot: string[] }>;
   postReading: (body: PostReadingBody) => Promise<{ id: number; reading_type: string }>;
   putReading: (id: number, body: PutReadingBody) => Promise<{ id: number }>;

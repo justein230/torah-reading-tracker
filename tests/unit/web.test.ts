@@ -118,7 +118,10 @@ describe('fetchHebcal', () => {
 
   it('returns an empty schedule when the response is not ok', async () => {
     mockFetchOnce(() => Promise.resolve(jsonResponse({}, false)));
-    expect(await fetchHebcal()).toEqual({ schedule: {}, datesByParsha: {}, cacheYears: [0, 0] });
+    expect(await fetchHebcal()).toEqual({
+      schedule: {}, datesByParsha: {}, cacheYears: [0, 0],
+      holidayDates: { occasionDates: {}, morningReadingDates: [], noMinchaDates: [] },
+    });
   });
 });
 

@@ -5,7 +5,8 @@ import { fetchMeta, fetchAliyot, fetchHebcal, mapRow, enrichRows, mapOccasionAli
 import { computeStats, enrichPartialOrig, enrichOccasionPartialOrig, enrichWeekdayPartialOrig, enrichHosafotPartialOrig } from '../compute.js';
 import { TABS } from '../constants.js';
 import { logEvent } from '../utils/logger-client/index.js';
-import type { AppContextValue, MappedRow, MappedOccasionAliyah, MappedHosafah, OccasionRecord, SpecialReadingRecord,
+import { NO_HOLIDAY_DATES, type HolidayDates } from '../utils/occasionDates.js';
+import type { AppContextValue, HebcalData, MappedRow, MappedOccasionAliyah, MappedHosafah, OccasionRecord, SpecialReadingRecord,
               Filters, ForecastConfig, ParshaPair, SeferMeta, AppSettings } from '../types/index.js';
 
 const SETTINGS_KEY = 'torah-tracker:settings';
@@ -40,6 +41,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
   // [0, 9999] until the initial /api/hebcal load resolves, so no date is misreported
   // as "outside the cache" before we actually know its real coverage.
   const [cacheYears,  setCacheYears]  = useState<[number, number]>([0, 9999]);
+  const [holidayDates, setHolidayDates] = useState<HolidayDates>(NO_HOLIDAY_DATES);
   const [settings,    setSettings]    = useState<AppSettings>(loadSettings);
   const [ready,       setReady]       = useState(false);
   const [canWrite,    setCanWrite]    = useState(false);
@@ -94,7 +96,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
       const [meta, raw, hebcal, occ, oa, sr, wa, hr] = await Promise.all([
         fetchMeta(),
         fetchAliyot(),
-        fetchHebcal().catch(() => ({ schedule: {}, datesByParsha: {}, cacheYears: [0, 9999] as [number, number] })),
+        fetchHebcal().catch((): HebcalData => ({ schedule: {}, datesByParsha: {}, cacheYears: [0, 9999], holidayDates: NO_HOLIDAY_DATES })),
         fetchOccasions().catch(() => []),
         fetchOccasionAliyot().catch(() => []),
         fetchSpecialReadings().catch(() => []),
@@ -137,6 +139,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
       setSchedule(hebcal.schedule);
       setDatesByParsha(hebcal.datesByParsha);
       setCacheYears(hebcal.cacheYears);
+      setHolidayDates(hebcal.holidayDates ?? NO_HOLIDAY_DATES);
       setOccasions(occ);
       setOccasionAliyot(oa.map(mapOccasionAliyahRow));
       setSpecialReadings(sr.map(mapSpecialReadingRow));
@@ -199,7 +202,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
 
   const value = useMemo<AppContextValue>(() => ({
     SEFER_ORDER, SEFER_MAP, TLIT, pairs, parshaById,
-    allRows, parshaIndex, allYears, schedule, datesByParsha, cacheYears,
+    allRows, parshaIndex, allYears, schedule, datesByParsha, cacheYears, holidayDates,
     settings, setSettings,
     filters, setFilters,
     sortMode, setSortMode,
@@ -212,7 +215,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
     weekdayAliyot: enrichedWeekdayAliyot, refreshWeekday,
     hosafotReadings: enrichedHosafotReadings, refreshHosafot,
   }), [SEFER_ORDER, SEFER_MAP, TLIT, pairs, parshaById, allRows, parshaIndex, allYears, schedule,
-       datesByParsha, cacheYears, settings,
+       datesByParsha, cacheYears, holidayDates, settings,
        filters, sortMode, activeTab, whatIfOpen, forecastConfig, stats, refresh, ready,
        canWrite, refreshCanWrite,
        occasions, enrichedOccasionAliyot, specialReadings, refreshSpecial,

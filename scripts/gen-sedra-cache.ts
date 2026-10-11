@@ -5,9 +5,8 @@
  * existing cache and fetches only the chunks that are missing, so a normal build
  * (cache committed and complete) makes ZERO network requests and works offline.
  *
- * The API silently clamps every request to a ~10-year span and returns HTTP 200, so
- * the next chunk is always driven from the `range.end` the response reports rather
- * than from the end date we asked for. Covering 1990-2050 therefore takes 7 requests.
+ * The API silently clamps every request to a ~10-year span (see hebcal-range.ts), so
+ * covering 1990-2050 takes 7 requests.
  *
  * A past year's parsha schedule is a fixed calendar calculation and never changes, so
  * a cached chunk never goes stale.
@@ -19,6 +18,7 @@ import fs   from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { entriesFromHebcalItems, type HebcalItem, type SedraEntry } from '../src/utils/sedra.ts';
+import { USER_AGENT, fetchRange, type Chunk } from './hebcal-range.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH  = path.join(__dirname, '../src/data/sedraCache.ts');
@@ -26,16 +26,9 @@ const OUT_PATH  = path.join(__dirname, '../src/data/sedraCache.ts');
 /** Inclusive calendar-year range the cache must cover. Widen to extend it. */
 const TARGET: [number, number] = [1990, 2050];
 
-/** Hebcal asks API consumers to identify themselves. */
-const USER_AGENT   = 'torah-tracker/1.0 (+https://github.com/justein/torah)';
-const REQUEST_GAP  = 1000; // ms between requests, to stay a polite client
-const MAX_REQUESTS = 20;   // guards against a clamp change turning this into a loop
-
 type Entry = SedraEntry;
 
 interface HebcalResponse { items?: HebcalItem[]; range?: { start: string; end: string } }
-
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 /**
  * Reads the coverage marker of the cache that is already on disk. Returns null when
@@ -53,7 +46,7 @@ function readCoverage(): [number, number] | null {
 }
 
 /** Fetches one chunk. Returns its entries plus the end date the API actually served. */
-async function fetchChunk(startISO: string, endISO: string): Promise<{ entries: Entry[]; servedEnd: string }> {
+async function fetchChunk(startISO: string, endISO: string): Promise<Chunk<Entry>> {
   const url = 'https://www.hebcal.com/hebcal?v=1&cfg=json&s=on&i=off&leyning=off'
             + `&start=${startISO}&end=${endISO}`;
 
@@ -68,29 +61,6 @@ async function fetchChunk(startISO: string, endISO: string): Promise<{ entries: 
     ?? endISO;
 
   return { entries, servedEnd };
-}
-
-/** Walks the target range in whatever chunk size the API grants us. */
-async function fetchRange(fromYear: number, toYear: number): Promise<{ entries: Entry[]; requests: number }> {
-  const finalDate = `${toYear}-12-31`;
-  const entries: Entry[] = [];
-  let cursor   = `${fromYear}-01-01`;
-  let requests = 0;
-
-  while (cursor <= finalDate && requests < MAX_REQUESTS) {
-    if (requests > 0) await sleep(REQUEST_GAP);
-    const { entries: chunk, servedEnd } = await fetchChunk(cursor, finalDate);
-    requests++;
-    entries.push(...chunk);
-
-    // The API clamps to ~10 years; resume from the day after what it actually served.
-    if (servedEnd >= finalDate || servedEnd < cursor) break;
-    const next = new Date(`${servedEnd}T00:00:00Z`);
-    next.setUTCDate(next.getUTCDate() + 1);
-    cursor = next.toISOString().slice(0, 10);
-  }
-
-  return { entries, requests };
 }
 
 /** Sorts, de-duplicates on date, and renders the module source. */
@@ -143,7 +113,7 @@ async function main(): Promise<void> {
   let fetched: Entry[];
   let requests: number;
   try {
-    ({ entries: fetched, requests } = await fetchRange(from, to));
+    ({ entries: fetched, requests } = await fetchRange(from, to, fetchChunk));
   } catch (err) {
     // A network failure must never break the build. Keep whatever cache exists.
     const reason = err instanceof Error ? err.message : String(err);

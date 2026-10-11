@@ -1,5 +1,6 @@
-import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
+import type { HebcalData, MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
 import { logEvent } from '../utils/logger-client/index.js';
+import { NO_HOLIDAY_DATES } from '../utils/occasionDates.js';
 
 // ── fetch helpers ────────────────────────────────────────────────────────────
 // Every function below is a thin wrapper around one of these four shapes:
@@ -85,9 +86,9 @@ export const fetchAliyot        = (): Promise<RawRow[]>                => getJso
 export const fetchReadings      = (): Promise<ReadingRecord[]>         => getJson('/api/readings');
 export const fetchLocationStats = (): Promise<LocationStat[]>          => getJson('/api/stats/location');
 
-export async function fetchHebcal(): Promise<{ schedule: Record<string, string>; datesByParsha: Record<string, string[]>; cacheYears: [number, number] }> {
+export async function fetchHebcal(): Promise<HebcalData> {
   const res = await fetch('/api/hebcal');
-  if (!res.ok) return { schedule: {}, datesByParsha: {}, cacheYears: [0, 0] };
+  if (!res.ok) return { schedule: {}, datesByParsha: {}, cacheYears: [0, 0], holidayDates: NO_HOLIDAY_DATES };
   return res.json();
 }
 

@@ -3,11 +3,13 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { createNativeDb } from './drizzle-native.js';
 import { NATIVE_DB_VERSION, NATIVE_UPGRADE_STATEMENTS } from './nativeMigrations.generated.js';
 import { NewerSchemaError, switchOverVersion } from '../utils/schemaVersion.js';
-import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, hosafotReadings as hosafotReadingsTable, torahChapters } from './schema.js';
+import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, hosafotReadings as hosafotReadingsTable, occasions as occasionsTable, torahChapters } from './schema.js';
 import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL, APP_META_GET_SQL, APP_META_UPSERT_SQL } from './queries.js';
-import type { MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
+import type { HebcalData, MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
 import { scheduleFromEntries, datesByParshaFromEntries, fetchLiveHebcalItemsForDate, entriesFromHebcalItems } from '../utils/sedra.js';
+import { holidayDatesFromEntries } from '../utils/occasionDates.js';
 import { SEDRA_CACHE, SEDRA_YEARS } from '../data/sedraCache.js';
+import { HOLIDAY_CACHE } from '../data/holidayCache.js';
 import { logEvent } from '../utils/logger-client/index.js';
 import { APP_VERSION_KEY, UNKNOWN_APP_VERSION, formatBackupName } from '../utils/dbBackupName.js';
 import { errText } from '../utils/errText.js';
@@ -336,14 +338,16 @@ async function deleteReadingFn(id: number): Promise<void> {
 // The upcoming-parsha dates come from the baked cache (src/data/sedraCache.ts, generated
 // from the Hebcal.com REST API — CC BY 4.0). Native builds are cache-only and offline by
 // default: no library, no network. The cache runs through SEDRA_YEARS[1].
-export async function fetchHebcal(): Promise<{ schedule: Record<string, string>; datesByParsha: Record<string, string[]>; cacheYears: [number, number] }> {
+export async function fetchHebcal(): Promise<HebcalData> {
   const parshaRows = await db.select({ name_en: parshiot.nameEn }).from(parshiot).all();
   const known = new Set(parshaRows.map(r => r.name_en));
+  const occasionRows = await db.select({ nameEn: occasionsTable.nameEn }).from(occasionsTable).all();
   const today = new Date().toISOString().slice(0, 10);
   return {
     schedule:      scheduleFromEntries(SEDRA_CACHE, known, today),
     datesByParsha: datesByParshaFromEntries(SEDRA_CACHE, known),
     cacheYears:    [SEDRA_YEARS[0], SEDRA_YEARS[1]],
+    holidayDates:  holidayDatesFromEntries(HOLIDAY_CACHE, occasionRows.map(r => r.nameEn)),
   };
 }
 

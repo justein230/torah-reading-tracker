@@ -7,10 +7,12 @@ import rateLimit from 'express-rate-limit';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { createDb } from './src/db/drizzle-server.js';
 import { initDb } from './src/db/init.js';
-import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot, specialReadings, weekdayAliyot, weekdayReadings, hosafotReadings, torahChapters, adminPassword, authSessions } from './src/db/schema.js';
+import { sefarim, parshiot, parshaPairs, occasions, aliyot, readings, occasionAliyot, specialReadings, weekdayAliyot, weekdayReadings, hosafotReadings, torahChapters, adminPassword, authSessions } from './src/db/schema.js';
 import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './src/db/queries.js';
 import { buildSchedule, fetchLiveHebcalItems, fetchLiveHebcalItemsForDate, entriesFromHebcalItems, type Schedule } from './src/utils/sedra.js';
 import { SEDRA_CACHE, SEDRA_YEARS } from './src/data/sedraCache.js';
+import { HOLIDAY_CACHE } from './src/data/holidayCache.js';
+import { holidayDatesFromEntries, NO_HOLIDAY_DATES, type HolidayDates } from './src/utils/occasionDates.js';
 import { hashPassword, verifyPassword, generateSessionToken, hashSessionToken, parseSessionCookie, serializeSessionCookie, clearSessionCookie, isHeaderAuthenticated, generateBootstrapPassword } from './src/utils/auth.js';
 import { buildExportBuffer } from './src/utils/export-server.js';
 import { importDatabase, ImportValidationError } from './src/utils/import-server.js';
@@ -271,6 +273,18 @@ async function getSchedule(): Promise<Schedule> {
   return _schedule;
 }
 
+// Holiday dates are cache-only (HOLIDAY_YEARS), so unlike the schedule they need no live extend.
+// Memoised like _schedule: the occasions table is static reference data.
+let _holidayDates: HolidayDates | null = null;
+
+function getHolidayDates(): HolidayDates {
+  _holidayDates ??= holidayDatesFromEntries(
+    HOLIDAY_CACHE,
+    db.select({ nameEn: occasions.nameEn }).from(occasions).all().map(r => r.nameEn),
+  );
+  return _holidayDates;
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function parseId(req: express.Request): number {
@@ -370,10 +384,10 @@ function findAliyahId(parsha: string, aliyahNum: number): number | null {
 app.get('/api/hebcal', async (_req, res) => {
   try {
     const { schedule, datesByParsha } = await getSchedule();
-    res.json({ schedule, datesByParsha, cacheYears: SEDRA_YEARS });
+    res.json({ schedule, datesByParsha, cacheYears: SEDRA_YEARS, holidayDates: getHolidayDates() });
   } catch (err: unknown) {
     logger.error({ err: errText(err) }, 'Hebcal error');
-    res.json({ schedule: {}, datesByParsha: {}, cacheYears: SEDRA_YEARS });
+    res.json({ schedule: {}, datesByParsha: {}, cacheYears: SEDRA_YEARS, holidayDates: NO_HOLIDAY_DATES });
   }
 });
 
