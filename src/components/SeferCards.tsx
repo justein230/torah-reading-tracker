@@ -68,7 +68,10 @@ export function SeferCards({ stats }: Readonly<SeferCardsProps>) {
         <SimpleGrid cols={1}>{cards}</SimpleGrid>
       </div>
       <div className="sefercards-wide">
-        <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }}>{cards}</SimpleGrid>
+        {/* Container-based so the columns follow the width the page actually has — a docked side panel
+            narrows it without narrowing the window. 728px / 952px are the page's content widths at the
+            former sm (768px) / md (992px) window breakpoints. */}
+        <SimpleGrid type="container" cols={{ base: 2, '728px': 3, '952px': 5 }}>{cards}</SimpleGrid>
       </div>
     </>
   );

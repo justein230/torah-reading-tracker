@@ -5,6 +5,7 @@ import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 import { makeCtx, MOCK_SEFER, MOCK_PARSHA } from '../../helpers/appContextMock.js';
 import { makeRow, makeHosafah, makeOA, makeWA, makeSpecial } from '../../helpers/fixtures.js';
 import type { ReadingRecord } from '../../../src/types/index.js';
+import { computeStats } from '../../../src/compute.js';
 
 vi.mock('../../../src/context/AppContext.js', () => ({ useApp: vi.fn() }));
 import { useApp } from '../../../src/context/AppContext.js';
@@ -371,5 +372,24 @@ describe('ReadingLog — row actions for non-standard reading kinds', () => {
 
     fireEvent.click(screen.getByTitle('Delete'));
     expect(crud.confirmDeleteHosafah).toHaveBeenCalledWith(41, 'Bereishit · 1:1–1:5');
+  });
+});
+
+describe('ReadingLog — Preview future % opener', () => {
+  const FILTERS = { sefarim: [], years: [], includeFutureDates: false, pctMode: 'pseukim', showHolidayRing: false, showWeekdayRing: false };
+
+  it('opens the preview flyout via the context setter', () => {
+    const setWhatIfOpen = vi.fn();
+    const stats = computeStats([], [], [], {}, FILTERS);
+    (useApp as Mock).mockReturnValue(makeCtx({ allRows: [], hosafotReadings: [], stats, setWhatIfOpen }));
+    renderWithProviders(<ReadingLog />);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview future %' }));
+    expect(setWhatIfOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('is hidden until stats have loaded', () => {
+    (useApp as Mock).mockReturnValue(makeCtx({ allRows: [], hosafotReadings: [], stats: null }));
+    renderWithProviders(<ReadingLog />);
+    expect(screen.queryByRole('button', { name: 'Preview future %' })).not.toBeInTheDocument();
   });
 });

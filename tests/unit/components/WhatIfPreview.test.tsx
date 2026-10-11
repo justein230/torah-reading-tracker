@@ -219,3 +219,38 @@ describe('buildAliyahOptions', () => {
     expect(buildAliyahOptions([row], '')).toEqual([]);
   });
 });
+
+describe('WhatIfPreview — flyout staying mounted while the real data changes', () => {
+  const mkFuture = (aliyah: number, orig: string) => makeRow({
+    sefer: MOCK_SEFER, parsha: MOCK_PARSHA, aliyah, pseukim: 20,
+    chapterStart: aliyah, verseStart: 1, chapterEnd: aliyah, verseEnd: 20,
+    isRead: true, isReadFuture: true, orig, yearRead: 2099, allYears: [2099],
+  });
+  const ctxFor = (allRows: ReturnType<typeof makeRow>[]) => makeCtx({
+    allRows, SEFER_ORDER, SEFER_MAP, filters: FILTERS,
+    stats: computeStats(allRows, [], SEFER_ORDER, SEFER_MAP, FILTERS),
+    parshaIndex: { [MOCK_SEFER]: [MOCK_PARSHA] },
+  });
+
+  it('keeps removed picks across close and reopen', async () => {
+    (useApp as Mock).mockReturnValue(ctxFor([mkFuture(2, '2099-01-01')]));
+    const { rerender } = renderWithProviders(<WhatIfPreview opened onClose={vi.fn()} />);
+    await userEvent.click(screen.getByLabelText('Remove'));
+
+    rerender(<WhatIfPreview opened={false} onClose={vi.fn()} />);
+    rerender(<WhatIfPreview opened onClose={vi.fn()} />);
+
+    expect(screen.queryByText(/already scheduled/)).not.toBeInTheDocument();
+  });
+
+  it('adds a reading that gets scheduled for real while the flyout is open', () => {
+    (useApp as Mock).mockReturnValue(ctxFor([mkFuture(2, '2099-01-01')]));
+    const { rerender } = renderWithProviders(<WhatIfPreview opened onClose={vi.fn()} />);
+    expect(screen.getAllByText(/already scheduled/)).toHaveLength(1);
+
+    (useApp as Mock).mockReturnValue(ctxFor([mkFuture(2, '2099-01-01'), mkFuture(3, '2099-02-01')]));
+    rerender(<WhatIfPreview opened onClose={vi.fn()} />);
+
+    expect(screen.getAllByText(/already scheduled/)).toHaveLength(2);
+  });
+});

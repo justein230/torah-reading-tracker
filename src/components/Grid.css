@@ -19,10 +19,15 @@
 .acell.dashed { border-style: dashed; }
 .reread-dot { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: #fff; opacity: .85; pointer-events: none; }
 
+/* Each breakpoint is written twice: as a window media query (right from first paint) and as a class set
+   by GridsTab from its measured width (gridWidthClass), which also catches a docked side panel narrowing
+   the page without narrowing the window. Keep the pairs in sync. */
 @media (max-width: 990px) {
   .sefer-grid { column-count: 1; }
   .sefer-grid.sefer-grid-rows { grid-template-columns: 1fr; }
 }
+.grids-sm .sefer-grid, .grids-xs .sefer-grid { column-count: 1; }
+.grids-sm .sefer-grid.sefer-grid-rows, .grids-xs .sefer-grid.sefer-grid-rows { grid-template-columns: 1fr; }
 
 @media (max-width: 700px) {
   .parsha-label { width: 100px; min-width: 100px; }
@@ -30,3 +35,7 @@
   .aliyah-col-num { width: 26px; }
   .acell { width: 26px; height: 26px; border-radius: 4px; }
 }
+.grids-xs .parsha-label { width: 100px; min-width: 100px; }
+.grids-xs .aliyah-col-spacer { width: 100px; min-width: 100px; }
+.grids-xs .aliyah-col-num { width: 26px; }
+.grids-xs .acell { width: 26px; height: 26px; border-radius: 4px; }

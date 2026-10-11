@@ -1,3 +1,7 @@
+/* The Preview-future-% panel docks beside the page (AppShell aside) from this Mantine breakpoint up. */
+export const WHATIF_DOCK_BREAKPOINT = 'md';
+export const WHATIF_DOCK_WIDTH = 480;
+
 export const TABS: string[] = ['overview', 'grid', 'log', 'details', 'calendar'];
 
 /* Ring/chart accent colors — must be hex because Chart.js and SVG strokes can't read CSS vars */
