@@ -1,7 +1,7 @@
 import { screen, act, fireEvent } from '@testing-library/react';
-import { vi } from 'vitest';
+import { vi, beforeEach, afterEach } from 'vitest';
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
-import { makeCtx, MOCK_PARSHA } from '../../helpers/appContextMock.js';
+import { makeCtx, MOCK_PARSHA, MOCK_PARSHA_2 } from '../../helpers/appContextMock.js';
 import type { ManageForm } from '../../../src/types/index.js';
 
 vi.mock('../../../src/context/AppContext.js', () => ({ useApp: vi.fn() }));
@@ -215,5 +215,128 @@ describe('AddReadingForm — edit mode and messages', () => {
     renderEdit({ resetForm });
     fireEvent.click(screen.getByText('Cancel'));
     expect(resetForm).toHaveBeenCalled();
+  });
+});
+
+describe('AddReadingForm — date autofill', () => {
+  const purimCtx = () => makeCtx({
+    parshaById: { 1: MOCK_PARSHA, 2: MOCK_PARSHA_2 },
+    occasions: [{ id: 20, name: 'פורים', nameEn: 'Purim', category: 'other', sortOrder: 500 }],
+    holidayDates: {
+      occasionDates: { Purim: ['2024-03-24', '2025-03-14', '2026-03-03', '2027-03-23'] },
+      morningReadingDates: [], noMinchaDates: [],
+    },
+  });
+
+  function renderWith(form: Partial<ManageForm>, setField = vi.fn()) {
+    const view = renderWithProviders(
+      <AddReadingForm
+        form={{ ...baseForm, ...form }}
+        setField={setField}
+        editId={null} recreate={false} locked={false}
+        msg={{ text: '', error: false }}
+        formTitle="Add Reading" submitLabel="Add"
+        doRecreate={vi.fn()} submit={vi.fn()} resetForm={vi.fn()}
+        parshaOptions={[]} aliyahOptions={[]}
+      />,
+    );
+    return Object.assign(view, { setField });
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-01T12:00:00'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('offers the autofill switch for every reading type except hosafah', () => {
+    const types: ManageForm['readingType'][] = ['standard', 'double_parsha', 'holiday', 'weekday'];
+    for (const readingType of types) {
+      mockUseApp.mockReturnValue(purimCtx());
+      const { unmount } = renderWith({ readingType });
+      expect(screen.getByText('Auto-fill from schedule')).toBeInTheDocument();
+      unmount();
+    }
+    mockUseApp.mockReturnValue(purimCtx());
+    renderWith({ readingType: 'hosafah' });
+    expect(screen.queryByText('Auto-fill from schedule')).not.toBeInTheDocument();
+  });
+
+  it('fills a holiday with its next upcoming date by default when the occasion is chosen', () => {
+    mockUseApp.mockReturnValue(purimCtx());
+    const { setField } = renderWith({ readingType: 'holiday' });
+
+    fireEvent.click(screen.getByPlaceholderText('Select holiday…'));
+    fireEvent.click(screen.getByText('Purim'));
+
+    const dateCall = setField.mock.calls.find(([k]) => k === 'date');
+    expect(dateCall?.[1]).toEqual(new Date('2027-03-23T00:00:00'));
+  });
+
+  it('fills the most recent past date once "Most recent" is selected', () => {
+    mockUseApp.mockReturnValue(purimCtx());
+    const { setField } = renderWith({ readingType: 'holiday' });
+
+    fireEvent.click(screen.getByText('Most recent'));
+    fireEvent.click(screen.getByPlaceholderText('Select holiday…'));
+    fireEvent.click(screen.getByText('Purim'));
+
+    const dateCall = setField.mock.calls.find(([k]) => k === 'date');
+    expect(dateCall?.[1]).toEqual(new Date('2026-03-03T00:00:00'));
+  });
+
+  it('re-fills the date for the current selection when the direction changes', () => {
+    mockUseApp.mockReturnValue(purimCtx());
+    const { setField } = renderWith({ readingType: 'holiday', occasionId: 20 });
+
+    fireEvent.click(screen.getByText('Most recent'));
+
+    expect(setField).toHaveBeenCalledWith('date', new Date('2026-03-03T00:00:00'));
+  });
+
+  it('hides the direction selector when autofill is switched off', () => {
+    mockUseApp.mockReturnValue(purimCtx());
+    renderWith({ readingType: 'holiday' });
+
+    fireEvent.click(screen.getByLabelText('Auto-fill from schedule'));
+
+    expect(screen.queryByText('Most recent')).not.toBeInTheDocument();
+  });
+
+  it('leaves the date alone when autofill is switched off', () => {
+    mockUseApp.mockReturnValue(purimCtx());
+    const { setField } = renderWith({ readingType: 'holiday' });
+
+    fireEvent.click(screen.getByLabelText('Auto-fill from schedule'));
+    fireEvent.click(screen.getByPlaceholderText('Select holiday…'));
+    fireEvent.click(screen.getByText('Purim'));
+
+    expect(setField.mock.calls.some(([k]) => k === 'date')).toBe(false);
+  });
+});
+
+describe('AddReadingForm — double-parsha mismatch warning', () => {
+  const pairRow = { ...makeCtx().allRows[0]!, parsha: MOCK_PARSHA, pairNameEn: 'Bereishit-Noach' };
+
+  it('warns for a historic date the pair was read together, not just the upcoming one', () => {
+    mockUseApp.mockReturnValue(makeCtx({
+      allRows: [pairRow],
+      schedule: {},
+      datesByParsha: { 'Bereishit-Noach': ['2011-10-22', '2030-10-19'] },
+    }));
+    renderForm({ ...baseForm, date: new Date('2011-10-22T00:00:00') });
+    expect(screen.getByText(/typically read as part of Bereishit-Noach/)).toBeInTheDocument();
+  });
+
+  it('does not warn on a date the pair was not read together', () => {
+    mockUseApp.mockReturnValue(makeCtx({
+      allRows: [pairRow],
+      datesByParsha: { 'Bereishit-Noach': ['2011-10-22'] },
+    }));
+    renderForm({ ...baseForm, date: new Date('2012-10-20T00:00:00') });
+    expect(screen.queryByText(/typically read as part of/)).not.toBeInTheDocument();
   });
 });

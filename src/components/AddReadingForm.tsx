@@ -1,39 +1,28 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Text, Select, MultiSelect, Button, TextInput, Group, Switch, Radio, Card } from '@mantine/core';
+import { Text, Select, MultiSelect, Button, TextInput, Group, Switch, Radio, Card, SegmentedControl } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useApp } from '../context/AppContext.js';
 import { countPseukim } from '../compute.js';
 import { fmtDate, toDateStr } from '../utils/format.js';
+import { getTodayStr } from '../api.js';
+import { pickAutofillDate, weekdayReadingDates, type AutofillDirection } from '../utils/autofillDate.js';
 import { buildGroupedOptions } from '../utils/form-options.js';
 import { CATEGORY_LABELS_FORM } from '../constants.js';
 import { ParshaField } from './shared/ParshaField.js';
 import { useParshaForDate, type ParshaForDate } from '../hooks/useParshaForDate.js';
 import type { ManageForm, MappedRow } from '../types/index.js';
 
-function autoFillFromSchedule(
-  key: string | null,
-  schedule: Record<string, string>,
-  TLIT: Record<string, string>,
-  setField: (k: keyof ManageForm, v: ManageForm[keyof ManageForm]) => void,
-) {
-  if (!key) return;
-  const schedDate = schedule[TLIT[key] ?? ''];
-  if (schedDate) setField('date', new Date(schedDate + 'T00:00:00'));
-}
-
 function getDoubleParshaMismatch(
   form: ManageForm,
   allRows: MappedRow[],
-  schedule: Record<string, string>,
+  datesByParsha: Record<string, string[]>,
   TLIT: Record<string, string>,
 ): string | null {
   if (form.readingType !== 'standard' || !form.parsha || !form.date) return null;
   const pairNameEn = allRows.find(r => r.parsha === form.parsha)?.pairNameEn ?? '';
   if (!pairNameEn) return null;
-  const pairDate = schedule[pairNameEn];
-  if (!pairDate) return null;
-  const entered = toDateStr(form.date);
-  if (entered !== pairDate) return null;
+  // Every date the pair was read together, not just the next one, so historic entries are caught too.
+  if (!datesByParsha[pairNameEn]?.includes(toDateStr(form.date))) return null;
   return `${TLIT[form.parsha] ?? form.parsha} is typically read as part of ${pairNameEn} on this date. Consider using Double-Parsha Shabbat instead.`;
 }
 
@@ -222,9 +211,15 @@ export function AddReadingForm({
   parshaOptions, aliyahOptions,
   inModal = false,
 }: Readonly<AddReadingFormProps>) {
-  const { SEFER_ORDER, SEFER_MAP, parshaIndex, TLIT, schedule, pairs, allRows,
+  const { SEFER_ORDER, SEFER_MAP, parshaIndex, TLIT, schedule, datesByParsha, holidayDates, pairs, allRows,
           occasions, occasionAliyot, weekdayAliyot } = useApp();
   const [autoFillDate, setAutoFillDate] = useState(true);
+  const [autoFillDirection, setAutoFillDirection] = useState<AutofillDirection>('upcoming');
+
+  const weekdayBlockers = useMemo(() => ({
+    morningReadingDates: new Set(holidayDates.morningReadingDates),
+    noMinchaDates:       new Set(holidayDates.noMinchaDates),
+  }), [holidayDates]);
 
   const isDouble  = form.readingType === 'double_parsha';
   const isHoliday = form.readingType === 'holiday';
@@ -232,6 +227,29 @@ export function AddReadingForm({
   const isHosafah = form.readingType === 'hosafah';
   const isStandard    = form.readingType === 'standard';
   const isParshaBased = !isHoliday && !isWeekday && !isHosafah; /* standard or double_parsha */
+
+  /** Every date the chosen reading falls on, for the current reading type. */
+  const autoFillDatesFor = (sel: Pick<ManageForm, 'parsha' | 'pairId' | 'occasionId'>): readonly string[] | undefined => {
+    if (isStandard) return datesByParsha[TLIT[sel.parsha] ?? ''];
+    if (isWeekday)  return weekdayReadingDates(datesByParsha[TLIT[sel.parsha] ?? ''], weekdayBlockers);
+    if (isDouble)   return datesByParsha[pairs.find(p => p.id === sel.pairId)?.name_en ?? ''];
+    if (isHoliday)  return holidayDates.occasionDates[occasions.find(o => o.id === sel.occasionId)?.nameEn ?? ''];
+    return undefined;
+  };
+
+  /** The one place the form's date is autofilled, from the date nearest today in the chosen direction. */
+  const autoFillDateFrom = (
+    sel: Pick<ManageForm, 'parsha' | 'pairId' | 'occasionId'>,
+    direction: AutofillDirection = autoFillDirection,
+  ) => {
+    const date = pickAutofillDate(autoFillDatesFor(sel), getTodayStr(), direction);
+    if (date) setField('date', new Date(date + 'T00:00:00'));
+  };
+
+  const handleDirectionChange = (direction: AutofillDirection) => {
+    setAutoFillDirection(direction);
+    if (autoFillDate) autoFillDateFrom(form, direction);
+  };
 
 
   // Weekday aliyah options for selected parsha (always 1, 2, 3)
@@ -264,12 +282,12 @@ export function AddReadingForm({
 
   const handleParshaChange = (parsha: string | null) => {
     setField('parsha', parsha ?? '');
-    if (autoFillDate) autoFillFromSchedule(parsha, schedule, TLIT, setField);
+    if (autoFillDate && parsha) autoFillDateFrom({ ...form, parsha });
   };
 
   const resolvedForDate = useParshaForDate(form.date);
   const scheduleWarning = getScheduleWarning(form, schedule, resolvedForDate, TLIT, locked);
-  const doubleParshaMismatch = getDoubleParshaMismatch(form, allRows, schedule, TLIT);
+  const doubleParshaMismatch = getDoubleParshaMismatch(form, allRows, datesByParsha, TLIT);
 
   const inner = (
     <>
@@ -306,11 +324,7 @@ export function AddReadingForm({
               onChange={v => {
                 setField('pairId', v ? Number(v) : null);
                 setField('parsha', '');
-                if (autoFillDate && v) {
-                  const pair = pairs.find(p => p.id === Number(v));
-                  const schedDate = pair ? schedule[pair.name_en] : undefined;
-                  if (schedDate) setField('date', new Date(schedDate + 'T00:00:00'));
-                }
+                if (autoFillDate && v) autoFillDateFrom({ ...form, pairId: Number(v) });
               }}
               mb={12}
             />
@@ -330,6 +344,7 @@ export function AddReadingForm({
                   setField('isShabbatVariant', newOccasionId
                     ? occasionAliyot.some(oa => oa.occasionId === newOccasionId && oa.isShabbatVariant)
                     : false);
+                  if (autoFillDate && newOccasionId) autoFillDateFrom({ ...form, occasionId: newOccasionId });
                 }}
                 mb={12}
                 searchable
@@ -351,7 +366,7 @@ export function AddReadingForm({
       {isStandard && (
         <ParshaField
           value={form.parsha}
-          onSelect={v => handleParshaChange(v)}
+          onSelect={handleParshaChange}
           parshaOptions={parshaOptions}
           locked={locked}
           SEFER_ORDER={SEFER_ORDER}
@@ -364,7 +379,7 @@ export function AddReadingForm({
       {isWeekday && (
         <ParshaField
           value={form.parsha}
-          onSelect={v => setField('parsha', v)}
+          onSelect={handleParshaChange}
           parshaOptions={parshaOptions}
           SEFER_ORDER={SEFER_ORDER}
           SEFER_MAP={SEFER_MAP}
@@ -406,13 +421,25 @@ export function AddReadingForm({
 
       <Group justify="space-between" align="center" mb={4}>
         <Text size="sm" fw={500}>Date</Text>
-        {isParshaBased && (
-          <Switch
-            label="Auto-fill from schedule"
-            size="xs"
-            checked={autoFillDate}
-            onChange={e => setAutoFillDate(e.currentTarget.checked)}
-          />
+        {!isHosafah && (
+          <Group gap="xs">
+            {autoFillDate && (
+              <SegmentedControl
+                size="xs"
+                color="cyan"
+                aria-label="Auto-fill direction"
+                value={autoFillDirection}
+                onChange={v => handleDirectionChange(v as AutofillDirection)}
+                data={[{ value: 'recent', label: 'Most recent' }, { value: 'upcoming', label: 'Upcoming' }]}
+              />
+            )}
+            <Switch
+              label="Auto-fill from schedule"
+              size="xs"
+              checked={autoFillDate}
+              onChange={e => setAutoFillDate(e.currentTarget.checked)}
+            />
+          </Group>
         )}
       </Group>
       <DateInput

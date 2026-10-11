@@ -37,7 +37,10 @@ describe('GET /api/hebcal — failure fallback', () => {
     try {
       const res = await request(app).get('/api/hebcal');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ schedule: {}, datesByParsha: {}, cacheYears: [1990, 2050] });
+      expect(res.body).toEqual({
+        schedule: {}, datesByParsha: {}, cacheYears: [1990, 2050],
+        holidayDates: { occasionDates: {}, morningReadingDates: [], noMinchaDates: [] },
+      });
       const logged = fs.readFileSync(logFilePath(TEMP_DB), 'utf8');
       expect(logged).toContain('Hebcal error');
     } finally {

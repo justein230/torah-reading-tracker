@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, SeferMeta, ParshaPair, OccasionRecord, SpecialReadingRecord } from './db.js';
 import type { Filters, ForecastConfig, Stats } from './stats.js';
+import type { HolidayDates } from '../utils/occasionDates.js';
 
 // ── Calendar entry (display-only, aggregates all reading sources) ─────────────
 
@@ -60,6 +61,8 @@ export interface AppContextValue {
   schedule: Record<string, string>;
   datesByParsha: Record<string, string[]>;
   cacheYears: [number, number];
+  /** Occasion → dates map and Mon/Thu-displacing dates, for the entry form's date autofill. */
+  holidayDates: HolidayDates;
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   filters: Filters;
