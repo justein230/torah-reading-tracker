@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 import { makeCtx } from '../../helpers/appContextMock.js';
 import type { AuthStatus } from '../../../src/types/index.js';
-import { STEPS } from '../../helpers/migrations.js';
 
 vi.mock('../../../src/context/AppContext.js', () => ({ useApp: vi.fn() }));
 import { useApp } from '../../../src/context/AppContext.js';
@@ -97,14 +96,6 @@ describe('SettingsDrawer — filters', () => {
 
     fireEvent.click(screen.getByRole('switch', { name: 'Show re-reads Show additional readings in Reading Log' }));
     expect(setFilters).toHaveBeenCalled();
-  });
-});
-
-describe('SettingsDrawer — version line', () => {
-  it('shows the app version and the schema version this build migrates to', () => {
-    setCtx({ canWrite: false });
-    renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
-    expect(screen.getByText(`v${__APP_VERSION__}`, { exact: false })).toHaveTextContent(`v${__APP_VERSION__}DB v${STEPS.length}`);
   });
 });
 

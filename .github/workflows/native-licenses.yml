@@ -1,0 +1,63 @@
+name: native-licenses
+
+# Regenerates licenses/native/android.md and ios.md from the real Gradle / CocoaPods dependency lists and
+# fails if they differ from what is committed. Nothing is built for release and nothing is uploaded.
+# To update the files: run `npm run licenses:android` / `licenses:ios`, or copy them from a failed run's log.
+# See docs/LICENSES.md.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - package-lock.json
+      - android/**
+      - ios/**
+      - scripts/native-licenses.ts
+      - .github/workflows/native-licenses.yml
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+      - run: npm ci --ignore-scripts
+      - run: npm run build   # cap sync copies dist/ into the Android project
+      - run: npm run licenses:android
+      - name: Fail if licenses/native/android.md is out of date
+        run: |
+          test -z "$(git status --porcelain licenses/native/android.md)" || {
+            echo "::error::licenses/native/android.md is out of date. Regenerated content follows."
+            git status --short licenses/native/android.md
+            git diff licenses/native/android.md
+            test -f licenses/native/android.md && git ls-files --error-unmatch licenses/native/android.md > /dev/null 2>&1 || cat licenses/native/android.md
+            exit 1
+          }
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build   # cap sync copies dist/ into the iOS project and runs `pod install`
+      - run: npm run licenses:ios
+      - name: Fail if licenses/native/ios.md is out of date
+        run: |
+          test -z "$(git status --porcelain licenses/native/ios.md)" || {
+            echo "::error::licenses/native/ios.md is out of date. Regenerated content follows."
+            git status --short licenses/native/ios.md
+            git diff licenses/native/ios.md
+            test -f licenses/native/ios.md && git ls-files --error-unmatch licenses/native/ios.md > /dev/null 2>&1 || cat licenses/native/ios.md
+            exit 1
+          }

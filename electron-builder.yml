@@ -3,6 +3,7 @@ productName: Torah Reading Tracker
 directories:
   output: dist-electron
 files:
+  - LICENSE
   - dist/**
   - electron/**
   - dist-server/**

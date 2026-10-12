@@ -336,11 +336,6 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
           </>
         )}
       </Stack>
-
-      <Text c="dimmed" ta="right" px={6} pb={4} style={{ fontSize: '0.75rem' }}>
-        v{__APP_VERSION__}<br />
-        DB v{__SCHEMA_VERSION__}
-      </Text>
     </Drawer>
   );
 }

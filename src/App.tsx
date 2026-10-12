@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AppShell, Tabs, Box, ActionIcon, Text, Indicator } from '@mantine/core';
+import { AppShell, Tabs, Box, ActionIcon, Text, Indicator, Group } from '@mantine/core';
+import IconInfoCircle from '@tabler/icons-react/dist/esm/icons/IconInfoCircle.mjs';
 import { useApp } from './context/AppContext.js';
 import { useTabIndicator } from './hooks/useTabIndicator.js';
 import { usePullToRefresh } from './hooks/usePullToRefresh.js';
 import { TABS, TAB_LABELS, WHATIF_DOCK_BREAKPOINT, WHATIF_DOCK_WIDTH } from './constants.js';
 import { fetchAuthStatus } from './api.js';
 import SettingsDrawer from './components/SettingsDrawer.js';
+import AboutModal from './components/AboutModal.js';
 import { WhatIfPreview } from './components/WhatIfPreview.js';
 import BottomNav from './components/BottomNav.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
@@ -30,6 +32,7 @@ export default function App() {
   const { activeTab, setActiveTab, whatIfOpen, setWhatIfOpen, filters, setFilters, setSortMode, ready,
           refresh, refreshSpecial, refreshWeekday, refreshHosafot, refreshCanWrite } = useApp();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [insecureConfig, setInsecureConfig] = useState(false);
   const { tabListRef, indicatorRef } = useTabIndicator(activeTab);
   const headerRef     = useRef<HTMLDivElement>(null);
@@ -139,20 +142,31 @@ export default function App() {
               <Text fw={700} size="lg" className="app-title">מעקב תורה</Text>
               <Text size="xs" c="dimmed">Torah Reading Tracker</Text>
             </Box>
-            <Indicator label={count || undefined} size={16} disabled={count === 0} color="cyan">
+            <Group gap={4} wrap="nowrap">
               <ActionIcon
                 variant="subtle"
                 size="lg"
-                onClick={() => setDrawerOpen(true)}
-                aria-label="Open filters"
+                onClick={() => setAboutOpen(true)}
+                aria-label="About and licenses"
                 style={{ color: 'var(--muted)' }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                </svg>
+                <IconInfoCircle size={20} stroke={2} />
               </ActionIcon>
-            </Indicator>
+              <Indicator label={count || undefined} size={16} disabled={count === 0} color="cyan">
+                <ActionIcon
+                  variant="subtle"
+                  size="lg"
+                  onClick={() => setDrawerOpen(true)}
+                  aria-label="Open filters"
+                  style={{ color: 'var(--muted)' }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                  </svg>
+                </ActionIcon>
+              </Indicator>
+            </Group>
           </div>
 
           <div className="app-tabs-bar">
@@ -188,6 +202,7 @@ export default function App() {
       </AppShell.Footer>
 
       <WhatIfPreview opened={whatIfOpen} onClose={() => setWhatIfOpen(false)} />
+      <AboutModal opened={aboutOpen} onClose={() => setAboutOpen(false)} />
       <SettingsDrawer
         opened={drawerOpen}
         onClose={() => setDrawerOpen(false)}
