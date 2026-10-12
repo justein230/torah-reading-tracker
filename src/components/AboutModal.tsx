@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal, Stack, Anchor, Text } from '@mantine/core';
 import LicenseViewerModal from './LicenseViewerModal.js';
+import HebcalCredit from './shared/HebcalCredit.js';
 
 // Generated into dist/ by the build (see docs/LICENSES.md); `./` keeps them working under a sub-path and in the native apps.
 const LICENSE_LINKS = [
@@ -23,6 +24,8 @@ export default function AboutModal({ opened, onClose }: AboutModalProps) {
         <Stack gap="xs">
           <Text size="sm"><Text span c="dimmed" display="inline-block" w={100}>App version</Text>v{__APP_VERSION__}</Text>
           <Text size="sm"><Text span c="dimmed" display="inline-block" w={100}>DB schema</Text>v{__SCHEMA_VERSION__}</Text>
+          <Text size="sm" c="dimmed" mt="sm">Data</Text>
+          <Text size="sm"><HebcalCredit /></Text>
           <Text size="sm" c="dimmed" mt="sm">Licenses</Text>
           {LICENSE_LINKS.map(link => (
             <Anchor key={link.href} component="button" type="button" ta="left" size="sm" onClick={() => setViewing(link)}>

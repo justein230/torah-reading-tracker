@@ -30,6 +30,11 @@ function readmeLicenseSection(readme) {
   return unescaped && unescaped.length > 100 ? unescaped : null;
 }
 
+// Apache-2.0 section 4(d): the contents of a package's NOTICE file must be passed on too.
+function noticeText(info) {
+  return info.noticeFile ? readFileSync(info.noticeFile, 'utf-8').trim() : null;
+}
+
 // Full license text for a package, or null if neither it nor an override provides any.
 function licenseText(nameAtVersion, info) {
   const file = info.licenseFile;
@@ -52,8 +57,10 @@ const missing = [];
 const sections = Object.entries(JSON.parse(json)).map(([nameAtVersion, info]) => {
   const text = licenseText(nameAtVersion, info);
   if (!text) missing.push(nameAtVersion);
+  const notice = noticeText(info);
   return `## ${nameAtVersion}\n\nLicense: ${info.licenses}\n\n` +
-    (text ? '```text\n' + text + '\n```' : '_No license file shipped with this package._');
+    (text ? '```text\n' + text + '\n```' : '_No license file shipped with this package._') +
+    (notice ? '\n\nNOTICE:\n\n```text\n' + notice + '\n```' : '');
 });
 
 writeFileSync('dist/THIRD_PARTY_LICENSES.md',

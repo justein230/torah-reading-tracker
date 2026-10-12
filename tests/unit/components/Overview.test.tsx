@@ -31,5 +31,6 @@ describe('Overview', () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(screen.getByRole('link', { name: 'Hebcal.com' })).toHaveAttribute('href', 'https://www.hebcal.com');
+    expect(screen.getByRole('link', { name: 'CC BY 4.0' })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/');
   });
 });

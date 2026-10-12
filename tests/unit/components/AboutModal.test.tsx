@@ -20,7 +20,15 @@ describe('AboutModal', () => {
       'Third-party licenses',
       'Mobile app libraries',
     ]);
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    // Only the data credit is a link; a license-file link would navigate the WebView away on iOS/Android.
+    expect(screen.getAllByRole('link').map(a => a.textContent)).toEqual(['Hebcal.com', 'CC BY 4.0']);
+  });
+
+  it('credits Hebcal for the data, naming the license and that the data was adapted', () => {
+    renderWithProviders(<AboutModal opened onClose={() => {}} />);
+    expect(screen.getByRole('link', { name: 'Hebcal.com' })).toHaveAttribute('href', 'https://www.hebcal.com');
+    expect(screen.getByRole('link', { name: 'CC BY 4.0' })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/');
+    expect(screen.getByText(/adapted from/)).toHaveTextContent(/holiday dates and aliyah verse ranges adapted from/);
   });
 
   it('shows the app version and the schema version this build migrates to', () => {

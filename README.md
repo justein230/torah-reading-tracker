@@ -244,11 +244,19 @@ Two mutually exclusive auth modes, picked via `TORAH_AUTH_MODE`:
 
 ## Data & Attribution
 
-Weekly Torah portion (parsha) dates and aliyah verse ranges come from the
-[Hebcal.com](https://www.hebcal.com) REST API. This data is licensed
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+Weekly Torah portion (parsha) dates, holiday dates and aliyah verse ranges are adapted from the
+[Hebcal.com](https://www.hebcal.com) REST API (combined parshiot are split and entries re-keyed). This data is
+licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The credit appears in the app on the Overview
+tab and in the About dialog.
 
 - Parsha dates are baked into `src/data/sedraCache.ts` (regenerate with `npm run gen:sedra-cache`).
+- Holiday dates are baked into `src/data/holidayCache.ts` (regenerate with `npm run gen:holiday-cache`).
 - Aliyah verse ranges are seeded once via `scripts/seed-verse-ranges.mts`.
 
 The project carries no `@hebcal/*` package dependency; it uses only the hosted API.
+
+## License
+
+Torah Tracker is released under the [MIT License](LICENSE). The licenses of the third-party packages and native
+libraries it includes are shown in the app under About (the "i" icon) → Licenses; see
+[docs/LICENSES.md](docs/LICENSES.md) for how they are produced.

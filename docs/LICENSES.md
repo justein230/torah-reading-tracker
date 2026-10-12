@@ -115,3 +115,8 @@ A fix only reaches users in a new build:
   from `devDependencies`, it ends up in the bundle without being listed: move it to `dependencies`.
 - Fonts (Inter, Noto Sans Hebrew) are loaded from Google Fonts at runtime and are not redistributed, so
   they are not listed. If they are ever self-hosted, their SIL OFL text must be added.
+- Apache-2.0 packages that ship a `NOTICE` file get its text appended to their entry in
+  `THIRD_PARTY_LICENSES.md` (`noticeText` in `scripts/post-build-licenses.mjs`), as Apache-2.0 §4(d) requires.
+  None of the current production dependencies has one.
+- Electron's own and Chromium's notices (`LICENSE.electron.txt`, `LICENSES.chromium.html`) are added to the
+  desktop packages by electron-builder; nothing here produces them.

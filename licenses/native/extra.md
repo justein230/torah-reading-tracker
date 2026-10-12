@@ -1,7 +1,7 @@
 # Additional notices
 
 Written by hand. These come with native code that the Gradle and CocoaPods license tools cannot see.
-The Apache License 2.0 text they refer to is in the Android and iOS sections below.
+The Apache License 2.0 text they refer to is in the Android section below.
 
 ## OpenSSL (inside SQLCipher for Android)
 

@@ -7,7 +7,7 @@
  */
 
 /** Hebcal asks API consumers to identify themselves. */
-export const USER_AGENT = 'torah-tracker/1.0 (+https://github.com/justein/torah)';
+export const USER_AGENT = 'torah-tracker/1.0 (+https://github.com/justein230/torah-reading-tracker)';
 
 const REQUEST_GAP  = 1000; // ms between requests, to stay a polite client
 const MAX_REQUESTS = 20;   // guards against a clamp change turning this into a loop
