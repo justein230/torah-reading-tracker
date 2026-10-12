@@ -19,6 +19,7 @@ The three files in `licenses/native/` are committed, so web, Docker and Electron
 | `android.md` | **Generated:** `npm run licenses:android` (AboutLibraries Gradle plugin) |
 | `ios.md` | **Generated:** `npm run licenses:ios` (CocoaPods acknowledgements) |
 | `extra.md` | **Written by hand:** what the tools cannot see (OpenSSL inside SQLCipher, the Apache Cordova NOTICE) |
+| `overrides/*.txt` | **Written by hand:** license text for libraries whose build metadata has none (see `NATIVE_LICENSES.md`) |
 
 ## Regenerating (the normal case)
 
@@ -64,9 +65,9 @@ Capacitor plugin (`@capacitor/*`, `@capacitor-community/*`), by Capacitor core, 
 is not listed in `licenses/native/`. This happens after upgrading or adding a Capacitor plugin, and until the
 first generation of `android.md` / `ios.md`. The version is ignored: only `group:artifact` (or the pod name) must be listed.
 
-Regenerate the lists:
+Regenerate the lists (full walkthrough, troubleshooting and the reasoning behind the setup: `NATIVE_LICENSES.md`):
 
-- **Android:** `npm run licenses:android`. Needs JDK 21 and the Android SDK (`ANDROID_HOME`).
+- **Android:** `npm run licenses:android`. Needs JDK 17+ and the Android SDK (`sdk.dir` in `android/local.properties`, or `ANDROID_HOME`).
 - **iOS:** `npm run licenses:ios`. Needs macOS with CocoaPods, because `cap sync ios` runs `pod install`.
 - **Without either:** run the `native-licenses` workflow (`.github/workflows/native-licenses.yml`) with
   "Run workflow". It builds nothing and uploads nothing. It regenerates the files, and if they differ from

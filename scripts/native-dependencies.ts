@@ -1,7 +1,8 @@
 // Native (Android/iOS) dependencies that Capacitor plugins declare, so a test can check that each one is
 // covered by licenses/native.md. The Capacitor core itself is MIT and listed with the JS packages.
 
-const GRADLE_DEPENDENCY = /^[ \t]*(?:implementation|api|annotationProcessor)[ \t]*\(?[ \t]*["']([^"']+)["']/gm;
+// annotationProcessor is left out: it runs at build time and is not packaged into the app.
+const GRADLE_DEPENDENCY = /^[ \t]*(?:implementation|api)[ \t]*\(?[ \t]*["']([^"']+)["']/gm;
 const PODSPEC_DEPENDENCY = /s\.dependency\s+'([^']+)'/g;
 
 /**

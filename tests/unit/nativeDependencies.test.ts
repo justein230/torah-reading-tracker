@@ -9,15 +9,21 @@ describe('parseGradleDependencies', () => {
       implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
       implementation 'androidx.room:room-runtime:2.6.1'
       implementation 'net.zetetic:sqlcipher-android:4.17.0@aar'
-      annotationProcessor 'androidx.room:room-compiler:2.6.1'
       implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinxCoroutinesVersion")`;
     expect(parseGradleDependencies(gradle)).toEqual([
       'androidx.appcompat:appcompat',
       'androidx.room:room-runtime:2.6.1',
       'net.zetetic:sqlcipher-android:4.17.0',
-      'androidx.room:room-compiler:2.6.1',
       'org.jetbrains.kotlinx:kotlinx-coroutines-core',
     ]);
+  });
+
+  it('ignores annotation processors and test dependencies, which are not packaged into the app', () => {
+    const gradle = `
+      annotationProcessor 'androidx.room:room-compiler:2.6.1'
+      testImplementation "junit:junit:$junitVersion"
+      androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"`;
+    expect(parseGradleDependencies(gradle)).toEqual([]);
   });
 
   it('ignores file, project and Capacitor core dependencies', () => {

@@ -5,6 +5,7 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+        gradlePluginPortal() // the AboutLibraries plugin below is only published here
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'

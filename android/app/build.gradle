@@ -5,9 +5,8 @@ apply plugin: 'com.mikepenz.aboutlibraries.plugin'
 // (see docs/LICENSES.md). Run through `npm run licenses:android`; nothing here ships in the app.
 aboutLibraries {
     offlineMode = true
-    collect {
-        fetchRemoteLicense = false
-    }
+    // Explicit property access: in Groovy, `collect { }` would call Groovy's own Object.collect(Closure).
+    collect.fetchRemoteLicense = false
     export {
         outputFile = file("$buildDir/aboutlibraries.json")
         prettyPrint = true
