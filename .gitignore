@@ -34,10 +34,6 @@ docker-compose.override.yml
 2025-*.txt
 old/
 
-# Capacitor native platforms (generated)
-ios/
-android/
-
 # Mac files
 .DS_Store
 
