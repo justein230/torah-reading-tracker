@@ -20,7 +20,7 @@ export default function AboutModal({ opened, onClose }: AboutModalProps) {
 
   return (
     <>
-      <Modal opened={opened} onClose={onClose} title="About Torah Reading Tracker" size="sm" centered closeButtonProps={{ 'aria-label': 'Close' }}>
+      <Modal opened={opened} onClose={onClose} closeOnEscape={!viewing} title="About Torah Reading Tracker" size="sm" centered closeButtonProps={{ 'aria-label': 'Close' }}>
         <Stack gap="xs">
           <Text size="sm"><Text span c="dimmed" display="inline-block" w={100}>App version</Text>v{__APP_VERSION__}</Text>
           <Text size="sm"><Text span c="dimmed" display="inline-block" w={100}>DB schema</Text>v{__SCHEMA_VERSION__}</Text>

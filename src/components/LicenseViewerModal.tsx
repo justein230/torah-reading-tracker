@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, ScrollArea, Text, Loader, Center } from '@mantine/core';
 
 interface LicenseViewerModalProps {
@@ -32,11 +32,16 @@ export default function LicenseViewerModal({ title, href, onClose }: LicenseView
     return () => controller.abort();
   }, [href]);
 
+  // Keep showing the last file and title while the modal fades out, so closing doesn't flash the loader or an empty title.
+  const lastShown = useRef({ title, href });
+  if (href) lastShown.current = { title, href };
+  const shown = lastShown.current;
+
   // Ignore a result left over from a previously opened file.
-  const current = loaded?.href === href ? loaded : null;
+  const current = loaded?.href === shown.href ? loaded : null;
 
   return (
-    <Modal opened={href !== null} onClose={onClose} title={title} size="xl" centered closeButtonProps={{ 'aria-label': 'Close license' }}>
+    <Modal opened={href !== null} onClose={onClose} title={shown.title} size="xl" centered closeButtonProps={{ 'aria-label': 'Close license' }}>
       {current === null && <Center h={120}><Loader size="sm" aria-label="Loading license" /></Center>}
       {current && 'error' in current && <Text size="sm" c="red">Could not load this license file.</Text>}
       {current && 'text' in current && (
