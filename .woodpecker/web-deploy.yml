@@ -2,7 +2,7 @@ when:
   - event: push
   - event: manual
   - event: cron
-
+  - event: tag
 
 steps:
   - name: test
@@ -27,6 +27,22 @@ steps:
       tags:
         - latest
         - ${CI_COMMIT_SHA}
+
+  # Version tags (including prereleases like v1.1.2-dev.0) get an image tagged
+  # with the version only; `latest` stays owned by the main-branch step above.
+  - name: docker-build-push-tag
+    when:
+      - event: tag
+        ref: refs/tags/v*
+    image: gitea.services.justein.com/homelab/container_uploader:latest
+    settings:
+      registry: gitea.services.justein.com
+      repo: gitea.services.justein.com/justein/torah
+      username: justein
+      password:
+        from_secret: registry_token
+      tags:
+        - ${CI_COMMIT_TAG}
 
   # Uncomment when ready to enable automatic deployment
   # - name: deploy
