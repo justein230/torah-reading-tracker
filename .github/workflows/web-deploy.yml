@@ -1,19 +1,22 @@
 name: web-deploy
 
 # Ported from .woodpecker/web-deploy.yml
-# Runs tests on every push, and on main also builds + pushes the Docker image to GHCR.
+# Runs tests on every push. The Docker image is built + pushed to GHCR only for
+# version tags: vX.Y.Z (also tagged :latest), vX.Y.Z-qa.N (:qa) and vX.Y.Z-dev.N (:dev).
 on:
   push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
   # NOTE: no `pull_request` trigger — fork-PR workflows are disallowed for now
   # (Option A: contributions are merged via Gitea). To CI contributor PRs later
   # (Option B), add `pull_request:` here — use `pull_request`, never
   # pull_request_target, so fork PRs stay on a read-only token with no secrets.
   workflow_dispatch:      # replaces Woodpecker "event: manual"
-  schedule:               # replaces Woodpecker "event: cron" — set your own cadence
-    - cron: "0 6 * * 1"   # every Monday 06:00 UTC
 
 # Least privilege by default: every job gets a read-only token unless it explicitly
-# opts into more (only docker-build-push does, and only on a real push to main).
+# opts into more (only docker-build-push does, and only for a version tag).
 permissions:
   contents: read
 
@@ -39,16 +42,35 @@ jobs:
 
   docker-build-push:
     needs: test
-    # Publish on push / manual / cron to main (matches the Woodpecker
-    # "branch: main, event: [push, manual, cron]" guard). Excluding pull_request
-    # explicitly is defense in depth for if a `pull_request` trigger is added later.
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    # Only version tags build an image. Excluding pull_request explicitly is
+    # defense in depth for if a `pull_request` trigger is added later.
+    if: github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write       # required to push to GHCR
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0    # full history so the main-ancestry check below can see origin/main
+
+      - name: Validate tag format
+        run: |
+          [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(dev|qa)\.[0-9]+)?$ ]] || {
+            echo "::error::Tag ${{ github.ref_name }} must look like vX.Y.Z, vX.Y.Z-qa.N or vX.Y.Z-dev.N."
+            exit 1
+          }
+
+      # Dev/QA prerelease tags can be cut from any branch for testing. A stable
+      # vX.Y.Z tag must point at a commit that's on main (same rule as platform-builds.yml).
+      - name: Verify stable tag is on main
+        if: ${{ !contains(github.ref_name, '-') }}
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "${{ github.sha }}" origin/main || {
+            echo "::error::Tag ${{ github.ref_name }} (${{ github.sha }}) is not on main — refusing to publish a release image from another branch."
+            exit 1
+          }
 
       - uses: docker/login-action@v3
         with:
@@ -56,13 +78,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}   # built-in, no secret to create
 
+      - uses: docker/setup-buildx-action@v3
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern=v{{version}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+            type=raw,value=qa,enable=${{ contains(github.ref_name, '-qa.') }}
+            type=raw,value=dev,enable=${{ contains(github.ref_name, '-dev.') }}
+
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   # Uncomment to enable automatic deployment over SSH (mirrors the Woodpecker deploy step).
   # deploy:
