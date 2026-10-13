@@ -15,22 +15,14 @@ describe('GridsTab', () => {
     expect(screen.queryByText('Double parsha grid')).not.toBeInTheDocument();
   });
 
-  it('switches to the holidays grid when that tab is clicked', () => {
+  it.each([
+    ['Holidays',          'Holiday grid'],
+    ['Weekday',           'Weekday grid'],
+    ['Double Parshiyot',  'Double parsha grid'],
+  ])('switches to the %s grid when that tab is clicked', (tab, grid) => {
     renderWithProviders(<GridsTab />);
-    fireEvent.click(screen.getByText('Holidays'));
-    expect(screen.getByText('Holiday grid')).toBeInTheDocument();
+    fireEvent.click(screen.getByText(tab));
+    expect(screen.getByText(grid)).toBeInTheDocument();
     expect(screen.queryByText('Portions grid')).not.toBeInTheDocument();
-  });
-
-  it('switches to the weekday grid when that tab is clicked', () => {
-    renderWithProviders(<GridsTab />);
-    fireEvent.click(screen.getByText('Weekday'));
-    expect(screen.getByText('Weekday grid')).toBeInTheDocument();
-  });
-
-  it('switches to the double parshiyot grid when that tab is clicked', () => {
-    renderWithProviders(<GridsTab />);
-    fireEvent.click(screen.getByText('Double Parshiyot'));
-    expect(screen.getByText('Double parsha grid')).toBeInTheDocument();
   });
 });

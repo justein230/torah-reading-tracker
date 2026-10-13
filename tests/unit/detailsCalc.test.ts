@@ -1,23 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import { buildParshaRow, sortParshas } from '../../src/utils/details-utils.js';
+import type { Filters, MappedRow, ParshaRow } from '../../src/types/index.js';
 
-const NO_FILTERS = { sefarim: [], years: [], includeFutureDates: false };
+const NO_FILTERS = { sefarim: [], years: [], includeFutureDates: false } as unknown as Filters;
 const TLIT = { 'בְּרֵאשִׁית': 'Bereishit' };
 const SCHEDULE = { Bereishit: '2026-10-03' };
 
 const SEFER_MAP = { Genesis: { en: 'Genesis', color: '#000', chapterVerses: [] } };
-const LOOKUP    = { TLIT, schedule: SCHEDULE, seferMap: SEFER_MAP };
+const LOOKUP    = { TLIT, schedule: SCHEDULE, seferMap: SEFER_MAP } as unknown as Parameters<typeof buildParshaRow>[5];
 
 // Each aliyah gets its own non-overlapping verse range (chapter 1) so pseukim are counted by pasuk.
-function makeRow(overrides) {
-  const row = {
-    sefer: 'Genesis', parsha: 'בְּרֵאשִׁית', aliyah: 1, pseukim: 100, pct: 1.5, parshaPct: 100,
+function makeRow(overrides: Partial<MappedRow> = {}): MappedRow {
+  const aliyah = Number(overrides.aliyah ?? 1);
+  const pseukim = overrides.pseukim ?? 100;
+  const start = (aliyah - 1) * 1000 + 1;
+  return {
+    sefer: 'Genesis', parsha: 'בְּרֵאשִׁית', aliyah, pseukim, pct: 1.5, parshaPct: 100,
     isReadPast: false, isRead: false, hasFuture: false,
     orig: '', yearRead: null, allYears: [],
+    chapterStart: 1, verseStart: start, chapterEnd: 1, verseEnd: start + pseukim - 1,
     ...overrides,
-  };
-  const start = (row.aliyah - 1) * 1000 + 1;
-  return { chapterStart: 1, verseStart: start, chapterEnd: 1, verseEnd: start + row.pseukim - 1, ...row };
+  } as MappedRow;
 }
 
 // ── buildParshaRow ────────────────────────────────────────────────────────────
@@ -85,16 +88,17 @@ describe('buildParshaRow — nextReadDate from schedule', () => {
 
 // ── sortParshas ────────────────────────────────────────────────────────────────
 
-function makeParshaEntry(parsha, readAliyot, readPseukim, lastDate) {
-  return { parsha, readAliyot, readPseukim, lastDate };
+function makeParshaEntry(parsha: string, readAliyot: number, readPseukim: number, lastDate: string | null): ParshaRow {
+  return { parsha, readAliyot, readPseukim, lastDate } as ParshaRow;
 }
+
+const names = (parshas: ParshaRow[]) => parshas.map(p => p.parsha);
 
 describe('sortParshas — order mode', () => {
   it('leaves array in original order', () => {
     const parshas = [makeParshaEntry('א', 3, 300, null), makeParshaEntry('ב', 7, 700, null)];
     sortParshas(parshas, 'order');
-    expect(parshas[0].parsha).toBe('א');
-    expect(parshas[1].parsha).toBe('ב');
+    expect(names(parshas)).toEqual(['א', 'ב']);
   });
 });
 
@@ -102,7 +106,7 @@ describe('sortParshas — complete mode', () => {
   it('puts most-read parsha first', () => {
     const parshas = [makeParshaEntry('few', 1, 100, null), makeParshaEntry('many', 5, 500, null)];
     sortParshas(parshas, 'complete');
-    expect(parshas[0].parsha).toBe('many');
+    expect(names(parshas)[0]).toBe('many');
   });
 
   it('breaks ties by readPseukim', () => {
@@ -111,7 +115,7 @@ describe('sortParshas — complete mode', () => {
       makeParshaEntry('hi-pseukim',  3, 300, null),
     ];
     sortParshas(parshas, 'complete');
-    expect(parshas[0].parsha).toBe('hi-pseukim');
+    expect(names(parshas)[0]).toBe('hi-pseukim');
   });
 });
 
@@ -122,7 +126,7 @@ describe('sortParshas — recent mode', () => {
       makeParshaEntry('recent', 1, 100, '2024-06-01'),
     ];
     sortParshas(parshas, 'recent');
-    expect(parshas[0].parsha).toBe('recent');
+    expect(names(parshas)[0]).toBe('recent');
   });
 
   it('sinks unread parshas (null lastDate) to the end', () => {
@@ -131,14 +135,12 @@ describe('sortParshas — recent mode', () => {
       makeParshaEntry('read',   1, 100, '2023-03-01'),
     ];
     sortParshas(parshas, 'recent');
-    expect(parshas[0].parsha).toBe('read');
-    expect(parshas[1].parsha).toBe('unread');
+    expect(names(parshas)).toEqual(['read', 'unread']);
   });
 
   it('keeps two unread parshas in stable order', () => {
     const parshas = [makeParshaEntry('א', 0, 0, null), makeParshaEntry('ב', 0, 0, null)];
     sortParshas(parshas, 'recent');
-    expect(parshas[0].parsha).toBe('א');
-    expect(parshas[1].parsha).toBe('ב');
+    expect(names(parshas)).toEqual(['א', 'ב']);
   });
 });

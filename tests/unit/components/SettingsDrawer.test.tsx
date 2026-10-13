@@ -1,5 +1,4 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 import { makeCtx } from '../../helpers/appContextMock.js';
 import type { AuthStatus } from '../../../src/types/index.js';
@@ -121,7 +120,7 @@ describe('SettingsDrawer — login', () => {
     renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
     await screen.findByText('Log in');
 
-    await userEvent.type(screen.getByLabelText('Admin password'), 'wrong');
+    fireEvent.change(screen.getByLabelText('Admin password'), { target: { value: 'wrong' } });
     fireEvent.click(screen.getByText('Log in'));
 
     await screen.findByText('Incorrect password');
@@ -135,7 +134,7 @@ describe('SettingsDrawer — login', () => {
     renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
     await screen.findByText('Log in');
 
-    await userEvent.type(screen.getByLabelText('Admin password'), 'right');
+    fireEvent.change(screen.getByLabelText('Admin password'), { target: { value: 'right' } });
     fireEvent.click(screen.getByText('Log in'));
 
     await waitFor(() => expect(refreshCanWrite).toHaveBeenCalled());
@@ -237,8 +236,8 @@ describe('SettingsDrawer — writable actions', () => {
     renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
     await screen.findByText('Change password');
 
-    await userEvent.type(screen.getByLabelText('Current password'), 'old');
-    await userEvent.type(screen.getByLabelText('New password'), 'x');
+    fireEvent.change(screen.getByLabelText('Current password'), { target: { value: 'old' } });
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'x' } });
     fireEvent.click(screen.getByText('Change password'));
 
     await screen.findByText('Too short');
@@ -250,8 +249,8 @@ describe('SettingsDrawer — writable actions', () => {
     renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
     await screen.findByText('Change password');
 
-    await userEvent.type(screen.getByLabelText('Current password'), 'old');
-    await userEvent.type(screen.getByLabelText('New password'), 'newlongpassword');
+    fireEvent.change(screen.getByLabelText('Current password'), { target: { value: 'old' } });
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'newlongpassword' } });
     fireEvent.click(screen.getByText('Change password'));
 
     await waitFor(() => expect(notificationsShow).toHaveBeenCalledWith(

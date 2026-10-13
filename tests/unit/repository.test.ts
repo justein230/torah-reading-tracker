@@ -67,6 +67,43 @@ describe('fetchMeta', () => {
   });
 });
 
+describe('fetchAliyot', () => {
+  const firstRow = async () => (await repo.fetchAliyot()).find(r => r.aliyah === 1)!;
+
+  it('returns every standard aliyah, unread at first', async () => {
+    const rows = await repo.fetchAliyot();
+    expect(rows.length).toBeGreaterThanOrEqual(378);
+    expect(rows[0]).toEqual(expect.objectContaining({ orig: '', direct_orig: '', reread_count: 0 }));
+  });
+
+  it('reflects a reading in orig and direct_orig', async () => {
+    await repo.postReading({ ...aliyah(), date_read: '2024-01-01' });
+    expect(await firstRow()).toMatchObject({ orig: '2024-01-01', direct_orig: '2024-01-01' });
+  });
+
+  it('reflects a re-read in fut and reread_count', async () => {
+    await repo.postReading({ ...aliyah(), date_read: '2024-01-01' });
+    await repo.postReading({ ...aliyah(), date_read: '2025-06-01' });
+    const row = await firstRow();
+    expect(row.reread_count).toBe(1);
+    expect(row.fut).toContain('2025-06-01');
+  });
+
+  it('puts a deleted reading back to unread', async () => {
+    const { id } = await repo.postReading({ ...aliyah(), date_read: '2024-01-01' });
+    await repo.deleteReading(id);
+    expect((await firstRow()).orig).toBe('');
+  });
+
+  // Regression: a hosafah whose verse range exactly matches a standard aliyah (the reported
+  // Bamidbar 4:21-4:37 case) must set that aliyah's `orig`; ALIYOT_SQL once had no hosafot_readings
+  // branch in its `orig` COALESCE, so a fully-covering hosafah never marked the aliyah as read.
+  it('sets orig when a hosafah fully covers the aliyah’s verse range', async () => {
+    await repo.postHosafah(hosafah({ sefer: 'בראשית', chapter_end: 2, verse_end: 3, pseukim: 34, date_read: '2024-01-01' }));
+    expect((await firstRow()).orig).toBe('2024-01-01');
+  });
+});
+
 describe('standard readings', () => {
   it('records the first reading of an aliyah as standard, then later ones as additional', async () => {
     const a = aliyah();
@@ -151,6 +188,14 @@ describe('weekday readings', () => {
     expect(one('SELECT COUNT(*) AS n FROM weekday_readings').n).toBe(0);
   });
 
+  it('400s without weekday_aliyah_id, 404s an unknown one, and 409s a second reading of the same aliyah', async () => {
+    expect(await rejection(repo.postWeekdayReading({ weekday_aliyah_id: 0, date_read: '2024-01-01' }))).toMatchObject({ status: 400 });
+    expect(await rejection(repo.postWeekdayReading({ weekday_aliyah_id: 999999, date_read: '2024-01-01' }))).toMatchObject({ status: 404 });
+    await repo.postWeekdayReading({ weekday_aliyah_id: weekdayAliyah(), date_read: '2024-01-01' });
+    const err = await rejection(repo.postWeekdayReading({ weekday_aliyah_id: weekdayAliyah(), date_read: '2024-02-01' }));
+    expect(err).toMatchObject({ status: 409, detail: 'This weekday reading was already recorded.' });
+  });
+
   it('400s an edit without date_read and 404s a missing id', async () => {
     expect(await rejection(repo.putWeekdayReading(1, { date_read: '' }))).toMatchObject({ status: 400 });
     expect(await rejection(repo.putWeekdayReading(999999, { date_read: '2025-01-01' }))).toMatchObject({ status: 404, detail: 'Weekday reading not found' });
@@ -165,6 +210,11 @@ describe('hosafot readings', () => {
     expect(one('SELECT date_read, note, location FROM hosafot_readings WHERE id = ?', id)).toEqual({ date_read: '2025-03-03', note: 'n', location: null });
     await repo.deleteHosafah(id);
     expect(await rejection(repo.deleteHosafah(id))).toMatchObject({ status: 404, detail: 'Hosafah reading not found' });
+  });
+
+  it('stores is_double_parsha as 1/0', async () => {
+    const { id } = await repo.postHosafah(hosafah({ is_double_parsha: true }));
+    expect(one('SELECT is_double_parsha FROM hosafot_readings WHERE id = ?', id)).toEqual({ is_double_parsha: 1 });
   });
 
   it.each(['chapter_start', 'verse_start', 'chapter_end', 'verse_end', 'pseukim'])('400s when %s is not a positive integer', async field => {
@@ -185,6 +235,16 @@ describe('fetchLocationStats', () => {
     await repo.postReading({ ...a, date_read: localDateStr(), location: 'Shul' });
     await repo.postReading({ ...a, date_read: localDateStr(tomorrow), location: 'Shul' });
     expect(await repo.fetchLocationStats()).toEqual([{ location: 'Shul', count: 2, past_count: 1, upcoming_count: 1 }]);
+  });
+});
+
+describe('fetchLocationStats across reading types', () => {
+  it('counts standard, weekday and hosafot readings together and buckets them by date', async () => {
+    const weekdayAliyahId = one<{ id: number }>('SELECT id FROM weekday_aliyot LIMIT 1').id;
+    await repo.postReading({ ...aliyah(), date_read: '2024-01-01', location: 'Shul' });
+    await repo.postWeekdayReading({ weekday_aliyah_id: weekdayAliyahId, date_read: '2024-01-02', location: 'Shul' });
+    await repo.postHosafah(hosafah({ date_read: '2099-01-03', location: 'Shul' }));
+    expect(await repo.fetchLocationStats()).toEqual([{ location: 'Shul', count: 3, past_count: 2, upcoming_count: 1 }]);
   });
 });
 

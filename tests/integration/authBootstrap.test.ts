@@ -36,7 +36,7 @@ afterAll(() => {
 describe('bootstrap admin password', () => {
   it('prints a bootstrap password to the logs on first start', () => {
     expect(bootstrapPassword).toBeTruthy();
-    expect(bootstrapPassword.length).toBeGreaterThanOrEqual(20);
+    expect(bootstrapPassword!.length).toBeGreaterThanOrEqual(20);
   });
 
   it('reports insecureConfig: false (no plaintext env var to warn about)', async () => {

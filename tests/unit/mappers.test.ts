@@ -14,57 +14,36 @@ const OCCASION_BASE = {
   covers_aliyah_id: null, orig: '', all_dates: '', read_count: 0,
 };
 
-describe('mapOccasionAliyahRow — unread', () => {
-  it('marks isRead false and hasFuture false when orig is empty', () => {
-    const r = mapOccasionAliyahRow(OCCASION_BASE);
-    expect(r.isRead).toBe(false);
-    expect(r.isReadPast).toBe(false);
-    expect(r.isReadFuture).toBe(false);
-    expect(r.hasFuture).toBe(false);
-    expect(r.allDates).toEqual([]);
-  });
-});
-
-describe('mapOccasionAliyahRow — past reading', () => {
-  it('marks read and past for a historical orig date', () => {
-    const r = mapOccasionAliyahRow({ ...OCCASION_BASE, orig: '2023-01-01' });
-    expect(r.isRead).toBe(true);
-    expect(r.isReadPast).toBe(true);
-    expect(r.isReadFuture).toBe(false);
-  });
-});
-
-describe('mapOccasionAliyahRow — future reading', () => {
+// Every mapper derives isReadPast / isReadFuture with deriveReadState (tested in mapRow.test.ts);
+// this table only checks that each one feeds it the right date field.
+describe('read state is derived from each record kind’s own date field', () => {
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2025-01-01T12:00:00')); });
   afterEach(() => { vi.useRealTimers(); });
 
-  it('marks read and future when orig is after today', () => {
-    const r = mapOccasionAliyahRow({ ...OCCASION_BASE, orig: '2025-06-01' });
-    expect(r.isReadPast).toBe(false);
-    expect(r.isReadFuture).toBe(true);
-  });
+  const mappers = {
+    occasion: (date: string) => mapOccasionAliyahRow({ ...OCCASION_BASE, orig: date }),
+    weekday:  (date: string) => mapWeekdayAliyahRow({ ...WEEKDAY_BASE, all_dates: date }),
+    hosafah:  (date: string) => mapHosafahRow({ ...HOSAFAH_BASE, date_read: date }),
+  };
 
-  it('treats today as past', () => {
-    const r = mapOccasionAliyahRow({ ...OCCASION_BASE, orig: '2025-01-01' });
-    expect(r.isReadPast).toBe(true);
+  it.each(Object.keys(mappers) as (keyof typeof mappers)[])('%s', kind => {
+    const map = mappers[kind];
+    expect(map('')).toMatchObject({ isReadPast: false, isReadFuture: false });
+    expect(map('2023-01-01')).toMatchObject({ isReadPast: true, isReadFuture: false });
+    expect(map('2025-01-01')).toMatchObject({ isReadPast: true, isReadFuture: false });
+    expect(map('2025-06-01')).toMatchObject({ isReadPast: false, isReadFuture: true });
   });
 });
 
 describe('mapOccasionAliyahRow — hasFuture re-reads', () => {
-  it('is true when there is a past orig and a future all_dates entry', () => {
-    const r = mapOccasionAliyahRow({ ...OCCASION_BASE, orig: '2023-01-01', all_dates: '2023-01-01,2099-01-01' });
-    expect(r.hasFuture).toBe(true);
-    expect(r.allDates).toEqual(['2023-01-01', '2099-01-01']);
-  });
-
-  it('is false when unread, even with future all_dates', () => {
-    const r = mapOccasionAliyahRow({ ...OCCASION_BASE, orig: '', all_dates: '2099-01-01' });
-    expect(r.hasFuture).toBe(false);
-  });
-
-  it('is false when all all_dates entries are in the past', () => {
-    const r = mapOccasionAliyahRow({ ...OCCASION_BASE, orig: '2020-01-01', all_dates: '2020-01-01,2021-01-01' });
-    expect(r.hasFuture).toBe(false);
+  it.each([
+    ['a past orig and a future date',         '2023-01-01', '2023-01-01,2099-01-01', true],
+    ['unread, even with a future date',       '',           '2099-01-01',            false],
+    ['only past dates',                       '2020-01-01', '2020-01-01,2021-01-01', false],
+  ])('%s → %s', (_label, orig, all_dates, expected) => {
+    const r = mapOccasionAliyahRow({ ...OCCASION_BASE, orig, all_dates });
+    expect(r.hasFuture).toBe(expected);
+    expect(r.allDates).toEqual(all_dates.split(','));
   });
 });
 
@@ -102,36 +81,14 @@ const WEEKDAY_BASE = {
   covers_aliyah_id: null, all_dates: '', reading_id: 0, location: '', note: '',
 };
 
-describe('mapWeekdayAliyahRow — unread', () => {
-  it('derives empty dateRead and false flags when all_dates is empty', () => {
-    const r = mapWeekdayAliyahRow(WEEKDAY_BASE);
-    expect(r.dateRead).toBe('');
-    expect(r.allDates).toEqual([]);
-    expect(r.isReadPast).toBe(false);
-    expect(r.isReadFuture).toBe(false);
-    expect(r.hasFuture).toBe(false);
-  });
-});
-
-describe('mapWeekdayAliyahRow — past/future from all_dates[0]', () => {
-  it('marks past when the first date is historical', () => {
-    const r = mapWeekdayAliyahRow({ ...WEEKDAY_BASE, all_dates: '2023-01-01' });
-    expect(r.dateRead).toBe('2023-01-01');
-    expect(r.isReadPast).toBe(true);
-    expect(r.isReadFuture).toBe(false);
+describe('mapWeekdayAliyahRow — dates', () => {
+  it('derives an empty dateRead and no flags when all_dates is empty', () => {
+    expect(mapWeekdayAliyahRow(WEEKDAY_BASE)).toMatchObject({ dateRead: '', allDates: [], hasFuture: false });
   });
 
-  it('marks future when the first date is ahead', () => {
-    vi.useFakeTimers(); vi.setSystemTime(new Date('2025-01-01T12:00:00'));
-    const r = mapWeekdayAliyahRow({ ...WEEKDAY_BASE, all_dates: '2025-06-01' });
-    expect(r.isReadPast).toBe(false);
-    expect(r.isReadFuture).toBe(true);
-    vi.useRealTimers();
-  });
-
-  it('hasFuture true when a later all_dates entry is in the future', () => {
+  it('takes dateRead from the first date; hasFuture when a later one is ahead', () => {
     const r = mapWeekdayAliyahRow({ ...WEEKDAY_BASE, all_dates: '2023-01-01,2099-01-01' });
-    expect(r.hasFuture).toBe(true);
+    expect(r).toMatchObject({ dateRead: '2023-01-01', hasFuture: true });
   });
 });
 
@@ -156,26 +113,6 @@ const HOSAFAH_BASE = {
   parsha1: 'מטות', parsha1_en: 'Matot', parsha2: 'מסעי', parsha2_en: "Masei",
   occasion: '', occasion_en: '',
 };
-
-describe('mapHosafahRow — past reading boundary', () => {
-  it('treats unread (empty date_read) as not past', () => {
-    expect(mapHosafahRow(HOSAFAH_BASE).isReadPast).toBe(false);
-  });
-
-  it('treats today as past', () => {
-    vi.useFakeTimers(); vi.setSystemTime(new Date('2025-01-01T12:00:00'));
-    const r = mapHosafahRow({ ...HOSAFAH_BASE, date_read: '2025-01-01' });
-    expect(r.isReadPast).toBe(true);
-    vi.useRealTimers();
-  });
-
-  it('treats a future date_read as not past', () => {
-    vi.useFakeTimers(); vi.setSystemTime(new Date('2025-01-01T12:00:00'));
-    const r = mapHosafahRow({ ...HOSAFAH_BASE, date_read: '2025-06-01' });
-    expect(r.isReadPast).toBe(false);
-    vi.useRealTimers();
-  });
-});
 
 describe('mapHosafahRow — flags and projection', () => {
   it('coerces is_double_parsha to boolean', () => {

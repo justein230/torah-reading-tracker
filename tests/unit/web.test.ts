@@ -84,16 +84,9 @@ describe('changePassword', () => {
   });
 });
 
-describe('fetchMeta', () => {
-  it('returns the parsed JSON body', async () => {
-    const meta = { sefarim: [] };
-    mockFetchOnce(() => Promise.resolve(jsonResponse(meta)));
-    expect(await fetchMeta()).toEqual(meta);
-  });
-});
-
 describe('plain GET wrappers', () => {
   it.each([
+    ['fetchMeta', fetchMeta, { sefarim: [] }],
     ['fetchAliyot', fetchAliyot, [{ sefer: 'a' }]],
     ['fetchReadings', fetchReadings, [{ id: 1 }]],
     ['fetchLocationStats', fetchLocationStats, [{ location: 'Shul', count: 1 }]],
@@ -104,7 +97,7 @@ describe('plain GET wrappers', () => {
     ['fetchHosafotReadings', fetchHosafotReadings, [{ id: 1 }]],
   ] as const)('%s returns the parsed JSON body', async (_name, fn, body) => {
     mockFetchOnce(() => Promise.resolve(jsonResponse(body)));
-    expect(await fn()).toEqual(body);
+    expect(await (fn as () => Promise<unknown>)()).toEqual(body);
   });
 });
 
@@ -137,152 +130,92 @@ describe('fetchHebcalOnDate', () => {
   });
 });
 
-// ── POST wrappers — success / error-with-detail / error-without-body ─────────
+// ── mutations ─────────────────────────────────────────────────────────────────
+// Every write goes through the same send/del helpers, so one table drives them all: what each
+// call sends, what it returns on success, and the fallback error it throws when the server's
+// reply has no usable JSON body.
 
-describe('postReading', () => {
-  it('returns the created id and reading_type on success', async () => {
-    mockFetchOnce(() => Promise.resolve(jsonResponse({ id: 1, reading_type: 'standard' })));
-    const result = await postReading({ parsha: 'בראשית', aliyah: 1, date_read: '2024-01-01' });
-    expect(result).toEqual({ id: 1, reading_type: 'standard' });
+const HOSAFAH = { sefer: 'במדבר', chapter_start: 1, verse_start: 1, chapter_end: 1, verse_end: 5, pseukim: 5, date_read: '2024-01-01' };
+
+const mutations = [
+  { name: 'postReading',          call: () => postReading({ parsha: 'בראשית', aliyah: 1, date_read: '2024-01-01' }), method: 'POST', path: '/api/readings',
+    reply: { id: 1, reading_type: 'standard' }, fallback: 'Error adding reading.' },
+  { name: 'putReading',           call: () => putReading(1, { location: 'Shul' }), method: 'PUT', path: '/api/readings/1',
+    reply: { id: 1 }, fallback: 'Error updating reading.' },
+  { name: 'postSpecialReading',   call: () => postSpecialReading({ occasion_aliyah_id: 1, date_read: '2024-01-01' }), method: 'POST', path: '/api/readings/special',
+    reply: { id: 9 }, fallback: 'Error adding special reading.' },
+  { name: 'postWeekdayReading',   call: () => postWeekdayReading({ weekday_aliyah_id: 1, date_read: '2024-01-01' }), method: 'POST', path: '/api/readings/weekday',
+    reply: { id: 5 }, fallback: 'Error adding weekday reading.' },
+  { name: 'postHosafah',          call: () => postHosafah(HOSAFAH), method: 'POST', path: '/api/readings/hosafot',
+    reply: { id: 7 }, fallback: 'Error adding hosafah reading.' },
+  // These two return nothing on success.
+  { name: 'putWeekdayReading',    call: () => putWeekdayReading(1, { date_read: '2024-01-01' }), method: 'PUT', path: '/api/readings/weekday/1',
+    reply: undefined, fallback: 'Error updating weekday reading.' },
+  { name: 'putHosafah',           call: () => putHosafah(1, { date_read: '2024-01-01' }), method: 'PUT', path: '/api/readings/hosafot/1',
+    reply: undefined, fallback: 'Error updating hosafah reading.' },
+];
+
+describe.each(mutations)('$name', ({ call, method, path, reply, fallback }) => {
+  it(`sends ${method} ${path} and returns the reply`, async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse(reply ?? {})));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await call()).toEqual(reply);
+    expect(fetchMock).toHaveBeenCalledWith(path, expect.objectContaining({ method }));
   });
 
-  it('throws the error body detail when the response is not ok', async () => {
-    mockFetchOnce(() => Promise.resolve(jsonResponse({ detail: 'Aliyah already read.' }, false)));
-    await expect(postReading({ parsha: 'בראשית', aliyah: 1, date_read: '2024-01-01' }))
-      .rejects.toEqual({ detail: 'Aliyah already read.' });
+  it('throws the server’s error detail when the response is not ok', async () => {
+    mockFetchOnce(() => Promise.resolve(jsonResponse({ detail: 'Nope.' }, false)));
+    await expect(call()).rejects.toEqual({ detail: 'Nope.' });
   });
 
-  it('falls back to a default error message when the error body has no JSON', async () => {
+  it('throws its own fallback message when the error body is not JSON', async () => {
     mockFetchOnce(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.reject(new Error('bad json')) } as Response));
-    await expect(postReading({ parsha: 'בראשית', aliyah: 1, date_read: '2024-01-01' }))
-      .rejects.toEqual({ detail: 'Error adding reading.' });
+    await expect(call()).rejects.toEqual({ detail: fallback });
+  });
+});
+
+const deletions = [
+  { name: 'deleteReading',        call: () => deleteReading(1),        path: '/api/readings/1',          fallback: 'Error deleting reading.' },
+  { name: 'deleteSpecialReading', call: () => deleteSpecialReading(1), path: '/api/readings/special/1',  fallback: 'Error deleting special reading.' },
+  { name: 'deleteWeekdayReading', call: () => deleteWeekdayReading(1), path: '/api/readings/weekday/1',  fallback: 'Error deleting weekday reading.' },
+  { name: 'deleteHosafah',        call: () => deleteHosafah(1),        path: '/api/readings/hosafot/1',  fallback: 'Error deleting hosafah reading.' },
+];
+
+describe.each(deletions)('$name', ({ call, path, fallback }) => {
+  it.each([200, 204])('DELETEs %i and resolves', async status => {
+    const fetchMock = vi.fn(() => Promise.resolve({ ok: true, status } as Response));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(call()).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledWith(path, { method: 'DELETE' });
+  });
+
+  it('throws its own message when the response is not ok', async () => {
+    mockFetchOnce(() => Promise.resolve({ ok: false, status: 404 } as Response));
+    await expect(call()).rejects.toMatchObject({ detail: fallback });
   });
 });
 
 describe('mutation logging', () => {
   // web.ts's logEvent (default, non-debug settings) writes via console.* — see
-  // src/utils/logger-client/web.ts. A successful mutation logs at info, a failed one at
-  // warn; both go through mutateJson/mutateVoid/del, so postReading/deleteReading here
-  // stand in for every CUD call in the app.
+  // src/utils/logger-client/web.ts. A successful mutation logs at info, a failed one at warn;
+  // both go through send/del, so postReading/deleteReading stand in for every write in the app.
+  afterEach(() => { vi.restoreAllMocks(); });
+
   it('logs at info on a successful mutation', async () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => {});
     mockFetchOnce(() => Promise.resolve(jsonResponse({ id: 1, reading_type: 'standard' })));
     await postReading({ parsha: 'בראשית', aliyah: 1, date_read: '2024-01-01' });
     expect(info).toHaveBeenCalledWith(expect.stringContaining('POST /api/readings ok'), expect.anything());
-    info.mockRestore();
   });
 
-  it('logs at warn on a failed mutation', async () => {
+  it('logs at warn on a failed mutation and on a failed delete', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockFetchOnce(() => Promise.resolve(jsonResponse({ detail: 'Aliyah already read.' }, false)));
     await postReading({ parsha: 'בראשית', aliyah: 1, date_read: '2024-01-01' }).catch(() => {});
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('POST /api/readings failed'), expect.anything());
-    warn.mockRestore();
-  });
 
-  it('logs at warn when a delete fails', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockFetchOnce(() => Promise.resolve({ ok: false, status: 404 } as Response));
     await deleteReading(999).catch(() => {});
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('DELETE /api/readings/999 failed'), expect.anything());
-    warn.mockRestore();
-  });
-});
-
-describe('postSpecialReading / postWeekdayReading / postHosafah', () => {
-  it('postSpecialReading returns id on success', async () => {
-    mockFetchOnce(() => Promise.resolve(jsonResponse({ id: 9 })));
-    expect(await postSpecialReading({ occasion_aliyah_id: 1, date_read: '2024-01-01' })).toEqual({ id: 9 });
-  });
-
-  it('postSpecialReading falls back to its own default error message', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.reject(new Error('x')) } as Response));
-    await expect(postSpecialReading({ occasion_aliyah_id: 1, date_read: '2024-01-01' }))
-      .rejects.toEqual({ detail: 'Error adding special reading.' });
-  });
-
-  it('postWeekdayReading returns id on success', async () => {
-    mockFetchOnce(() => Promise.resolve(jsonResponse({ id: 5 })));
-    expect(await postWeekdayReading({ weekday_aliyah_id: 1, date_read: '2024-01-01' })).toEqual({ id: 5 });
-  });
-
-  it('postWeekdayReading falls back to its own default error message', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.reject(new Error('x')) } as Response));
-    await expect(postWeekdayReading({ weekday_aliyah_id: 1, date_read: '2024-01-01' }))
-      .rejects.toEqual({ detail: 'Error adding weekday reading.' });
-  });
-
-  it('postHosafah returns id on success', async () => {
-    mockFetchOnce(() => Promise.resolve(jsonResponse({ id: 7 })));
-    expect(await postHosafah({
-      sefer: 'במדבר', chapter_start: 1, verse_start: 1, chapter_end: 1, verse_end: 5, pseukim: 5, date_read: '2024-01-01',
-    })).toEqual({ id: 7 });
-  });
-
-  it('postHosafah falls back to its own default error message', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.reject(new Error('x')) } as Response));
-    await expect(postHosafah({
-      sefer: 'במדבר', chapter_start: 1, verse_start: 1, chapter_end: 1, verse_end: 5, pseukim: 5, date_read: '2024-01-01',
-    })).rejects.toEqual({ detail: 'Error adding hosafah reading.' });
-  });
-});
-
-// ── PUT wrappers ───────────────────────────────────────────────────────────────
-
-describe('putReading / putWeekdayReading / putHosafah', () => {
-  it('putReading returns the body on success', async () => {
-    mockFetchOnce(() => Promise.resolve(jsonResponse({ id: 1 })));
-    expect(await putReading(1, { location: 'Shul' })).toEqual({ id: 1 });
-  });
-
-  it('putWeekdayReading throws the error detail on failure', async () => {
-    mockFetchOnce(() => Promise.resolve(jsonResponse({ detail: 'Not found.' }, false)));
-    await expect(putWeekdayReading(1, { date_read: '2024-01-01' })).rejects.toEqual({ detail: 'Not found.' });
-  });
-
-  it('putHosafah resolves without a body on success', async () => {
-    mockFetchOnce(() => Promise.resolve(jsonResponse({})));
-    await expect(putHosafah(1, { date_read: '2024-01-01' })).resolves.toBeUndefined();
-  });
-});
-
-// ── DELETE wrappers — 204, ok, and error paths ───────────────────────────────
-
-describe('deleteReading / deleteSpecialReading / deleteWeekdayReading / deleteHosafah', () => {
-  it.each([200, 204])('deleteReading resolves on %i', async status => {
-    mockFetchOnce(() => Promise.resolve({ ok: true, status } as Response));
-    await expect(deleteReading(1)).resolves.toBeUndefined();
-  });
-
-  it('deleteReading throws when the response is not ok', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 404 } as Response));
-    await expect(deleteReading(1)).rejects.toMatchObject({ detail: 'Error deleting reading.' });
-  });
-
-  it('deleteSpecialReading throws its own message on failure', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 404 } as Response));
-    await expect(deleteSpecialReading(1)).rejects.toMatchObject({ detail: 'Error deleting special reading.' });
-  });
-
-  it('deleteWeekdayReading throws its own message on failure', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 404 } as Response));
-    await expect(deleteWeekdayReading(1)).rejects.toMatchObject({ detail: 'Error deleting weekday reading.' });
-  });
-
-  it('deleteHosafah throws its own message on failure', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 404 } as Response));
-    await expect(deleteHosafah(1)).rejects.toMatchObject({ detail: 'Error deleting hosafah reading.' });
-  });
-});
-
-describe('putWeekdayReading / putHosafah — error path', () => {
-  it('putWeekdayReading throws its own message on failure', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.reject(new Error('x')) } as Response));
-    await expect(putWeekdayReading(1, { date_read: '2024-01-01' })).rejects.toEqual({ detail: 'Error updating weekday reading.' });
-  });
-
-  it('putHosafah throws its own message on failure', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.reject(new Error('x')) } as Response));
-    await expect(putHosafah(1, { date_read: '2024-01-01' })).rejects.toEqual({ detail: 'Error updating hosafah reading.' });
   });
 });

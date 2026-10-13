@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mapRow, enrichRows } from '../../src/api.js';
+import { mapRow, enrichRows, deriveReadState } from '../../src/api.js';
 
 // ── mapRow ────────────────────────────────────────────────────────────────────
 
@@ -9,63 +9,44 @@ const BASE = {
   orig: '', fut: '', occasion: '', location: '', reread_count: 0,
 };
 
-describe('mapRow — unread aliyah', () => {
-  it('marks aliyah as unread when orig is empty', () => {
-    const r = mapRow({ ...BASE, orig: '' });
-    expect(r.isRead).toBe(false);
-    expect(r.isReadPast).toBe(false);
-    expect(r.isReadFuture).toBe(false);
-    expect(r.isFuture).toBe(false);
-    expect(r.yearRead).toBeNull();
-    expect(r.futDates).toEqual([]);
-    expect(r.hasFuture).toBe(false);
-  });
-
-  it('passes through pseukim, pct, and rereadCount', () => {
-    const r = mapRow({ ...BASE, pseukim: 42, pct: 2.5, reread_count: 3 });
-    expect(r.pseukim).toBe(42);
-    expect(r.pct).toBe(2.5);
-    expect(r.rereadCount).toBe(3);
-  });
-
-  it('base row is never marked isReread', () => {
-    expect(mapRow(BASE).isReread).toBe(false);
-  });
-
-  it('maps direct_orig → directOrig (set / empty / absent)', () => {
-    expect(mapRow({ ...BASE, direct_orig: '2023-03-15' }).directOrig).toBe('2023-03-15');
-    expect(mapRow({ ...BASE, direct_orig: '' }).directOrig).toBe('');
-    expect(mapRow(BASE).directOrig).toBe('');
+// The one place the past / future / today / unread rules are tested; every mapper derives its
+// flags through deriveReadState, and tests/unit/mappers.test.ts checks each one passes the right date.
+describe('deriveReadState', () => {
+  it.each([
+    ['unread',            '',           { isRead: false, isReadPast: false, isReadFuture: false }],
+    ['a past date',       '2024-12-31', { isRead: true,  isReadPast: true,  isReadFuture: false }],
+    ['today (counts as past)', '2025-01-01', { isRead: true, isReadPast: true, isReadFuture: false }],
+    ['a future date',     '2025-01-02', { isRead: true,  isReadPast: false, isReadFuture: true }],
+  ])('%s', (_label, date, expected) => {
+    expect(deriveReadState(date, '2025-01-01')).toEqual(expected);
   });
 });
 
-describe('mapRow — past reading', () => {
-  it('marks aliyah as read and past for a historical date', () => {
-    const r = mapRow({ ...BASE, orig: '2023-03-15' });
-    expect(r.isRead).toBe(true);
-    expect(r.isReadPast).toBe(true);
-    expect(r.isReadFuture).toBe(false);
-    expect(r.yearRead).toBe(2023);
-  });
-});
-
-describe('mapRow — future reading', () => {
+describe('mapRow — read dates', () => {
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2025-01-01T12:00:00')); });
   afterEach(() => { vi.useRealTimers(); });
 
-  it('marks aliyah as future when orig is after today', () => {
-    const r = mapRow({ ...BASE, orig: '2025-06-01' });
-    expect(r.isRead).toBe(true);
-    expect(r.isReadPast).toBe(false);
-    expect(r.isReadFuture).toBe(true);
-    expect(r.isFuture).toBe(true);
-    expect(r.yearRead).toBe(2025);
+  it.each([
+    ['unread',      '',           null, false],
+    ['a past date', '2023-03-15', 2023, false],
+    ['today',       '2025-01-01', 2025, false],
+    ['a future date', '2025-06-01', 2025, true],
+  ])('%s → yearRead %s, isFuture %s', (_label, orig, yearRead, isFuture) => {
+    const r = mapRow({ ...BASE, orig });
+    expect(r).toMatchObject({ isRead: orig !== '', isReadFuture: isFuture, isFuture, yearRead });
+    expect(r.futDates).toEqual([]);
+    expect(r.hasFuture).toBe(false);
+  });
+});
+
+describe('mapRow — projection', () => {
+  it('passes through pseukim, pct, rereadCount and directOrig', () => {
+    const r = mapRow({ ...BASE, pseukim: 42, pct: 2.5, reread_count: 3, direct_orig: '2023-03-15' });
+    expect(r).toMatchObject({ pseukim: 42, pct: 2.5, rereadCount: 3, directOrig: '2023-03-15', isReread: false });
   });
 
-  it('treats today as past (orig <= today)', () => {
-    const r = mapRow({ ...BASE, orig: '2025-01-01' });
-    expect(r.isReadPast).toBe(true);
-    expect(r.isReadFuture).toBe(false);
+  it('defaults directOrig to empty when absent', () => {
+    expect(mapRow(BASE).directOrig).toBe('');
   });
 });
 
@@ -93,61 +74,32 @@ describe('mapRow — year attribution near Jan 1', () => {
 });
 
 describe('mapRow — allYears', () => {
-  it('deduplicates when yearRead equals futureYear', () => {
-    const r = mapRow({ ...BASE, orig: '2025-06-01', fut: '2025-09-15' });
-    expect(r.allYears).toEqual([2025]);
-  });
-
-  it('includes both years when different', () => {
-    const r = mapRow({ ...BASE, orig: '2023-06-01', fut: '2025-09-15' });
-    expect(r.allYears).toContain(2023);
-    expect(r.allYears).toContain(2025);
-    expect(r.allYears).toHaveLength(2);
-  });
-
-  it('allYears is empty when unread and no future dates', () => {
-    const r = mapRow(BASE);
-    expect(r.allYears).toEqual([]);
+  it.each([
+    ['deduplicates when yearRead equals futureYear', '2025-06-01', '2025-09-15', [2025]],
+    ['includes both years when different',           '2023-06-01', '2025-09-15', [2023, 2025]],
+    ['is empty when unread with no future dates',    '',           '',           []],
+  ])('%s', (_label, orig, fut, expected) => {
+    expect(mapRow({ ...BASE, orig, fut }).allYears).toEqual(expected);
   });
 });
 
 describe('mapRow — occasion and location', () => {
-  it('passes occasion and location through', () => {
-    const r = mapRow({ ...BASE, orig: '2023-01-01', occasion: 'Bar Mitzvah', location: 'Shul' });
-    expect(r.occasion).toBe('Bar Mitzvah');
-    expect(r.location).toBe('Shul');
-  });
-
-  it('defaults occasion and location to empty string when absent', () => {
-    const r = mapRow(BASE);
-    expect(r.occasion).toBe('');
-    expect(r.location).toBe('');
+  it('passes them through, defaulting to empty string when absent', () => {
+    expect(mapRow({ ...BASE, occasion: 'Bar Mitzvah', location: 'Shul' })).toMatchObject({ occasion: 'Bar Mitzvah', location: 'Shul' });
+    expect(mapRow(BASE)).toMatchObject({ occasion: '', location: '' });
   });
 });
 
 // ── mapRow — double-parsha fields ─────────────────────────────────────────────
 
 describe('mapRow — double-parsha fields', () => {
-  it('maps pair_name and pair_name_en through', () => {
-    const r = mapRow({ ...BASE, pair_name: 'וַיַּקְהֵל-פְקוּדֵי', pair_name_en: 'Vayakhel-Pekudei' });
-    expect(r.pairName).toBe('וַיַּקְהֵל-פְקוּדֵי');
-    expect(r.pairNameEn).toBe('Vayakhel-Pekudei');
+  it('maps pair_name, pair_name_en and combined_aliyah through', () => {
+    const r = mapRow({ ...BASE, pair_name: 'וַיַּקְהֵל-פְקוּדֵי', pair_name_en: 'Vayakhel-Pekudei', combined_aliyah: 3 });
+    expect(r).toMatchObject({ pairName: 'וַיַּקְהֵל-פְקוּדֵי', pairNameEn: 'Vayakhel-Pekudei', combinedAliyah: 3 });
   });
 
-  it('maps combined_aliyah through', () => {
-    const r = mapRow({ ...BASE, combined_aliyah: 3 });
-    expect(r.combinedAliyah).toBe(3);
-  });
-
-  it('defaults pairName and pairNameEn to empty string when absent', () => {
-    const r = mapRow(BASE);
-    expect(r.pairName).toBe('');
-    expect(r.pairNameEn).toBe('');
-  });
-
-  it('defaults combinedAliyah to null when absent', () => {
-    const r = mapRow(BASE);
-    expect(r.combinedAliyah).toBeNull();
+  it('defaults them to empty strings / null when absent', () => {
+    expect(mapRow(BASE)).toMatchObject({ pairName: '', pairNameEn: '', combinedAliyah: null });
   });
 });
 

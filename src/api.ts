@@ -9,7 +9,7 @@ export const TODAY_STR = getTodayStr();
 // Shared date arithmetic behind isRead/isReadPast/isReadFuture — every mapper below derives
 // these three the same way from a single date string; only hasFuture varies per record kind
 // (mapRow's comes from a separate "additional readings" column, the others from allDates).
-function deriveReadState(date: string, today: string): { isRead: boolean; isReadPast: boolean; isReadFuture: boolean } {
+export function deriveReadState(date: string, today: string): { isRead: boolean; isReadPast: boolean; isReadFuture: boolean } {
   const isRead = date !== '';
   return { isRead, isReadPast: isRead && date <= today, isReadFuture: isRead && date > today };
 }

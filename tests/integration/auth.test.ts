@@ -33,9 +33,9 @@ afterAll(() => {
   try { fs.unlinkSync(TEMP_DB); } catch {}
 });
 
-function sessionCookie(res) {
+function sessionCookie(res: request.Response) {
   const setCookie = res.headers['set-cookie'];
-  return setCookie?.[0]?.split(';')[0];
+  return setCookie?.[0]?.split(';')[0] as string;
 }
 
 describe('GET /api/can-write — password mode', () => {

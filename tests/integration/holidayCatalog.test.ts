@@ -38,7 +38,7 @@ describe('occasion catalog integrity', () => {
   });
 
   it('every range is ordered and pseukim equals the verse count for single-chapter ranges', () => {
-    const rows = db.prepare(`SELECT * FROM occasion_aliyot WHERE chapter_start > 0`).all();
+    const rows = db.prepare(`SELECT * FROM occasion_aliyot WHERE chapter_start > 0`).all() as { chapter_start: number; verse_start: number; chapter_end: number; verse_end: number; pseukim: number }[];
     for (const r of rows) {
       expect(r.chapter_end * 1000 + r.verse_end).toBeGreaterThanOrEqual(r.chapter_start * 1000 + r.verse_start);
       if (r.chapter_start === r.chapter_end) expect(r.pseukim).toBe(r.verse_end - r.verse_start + 1);

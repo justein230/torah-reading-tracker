@@ -21,11 +21,11 @@ afterAll(() => {
 
 // Builds an importable buffer from a copy of the live db plus one extra reading — reuses
 // the app's own already-migrated schema instead of hand-rolling a second one for this test.
-function addReadingToBuffer(exportedBuffer) {
+function addReadingToBuffer(exportedBuffer: Buffer) {
   const tempPath = path.join(os.tmpdir(), `torah-import-candidate-${process.pid}-${Date.now()}.db`);
   fs.writeFileSync(tempPath, exportedBuffer);
   const candidateDb = new Database(tempPath);
-  const aliyah = candidateDb.prepare('SELECT id FROM aliyot LIMIT 1').get();
+  const aliyah = candidateDb.prepare('SELECT id FROM aliyot LIMIT 1').get() as { id: number };
   candidateDb.prepare("INSERT INTO readings (aliyah_id, date_read, reading_type) VALUES (?, '2020-01-01', 'standard')").run(aliyah.id);
   candidateDb.close();
   const buf = fs.readFileSync(tempPath);
