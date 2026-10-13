@@ -49,9 +49,11 @@ copyFileSync('LICENSE', 'dist/LICENSE.txt');
 // tests/unit/nativeDependencies.test.ts checks it covers every native dependency.
 writeFileSync('dist/THIRD_PARTY_LICENSES_NATIVE.md', nativeLicensesMarkdown());
 
-const json = execFileSync('npx', [
-  'license-checker-rseidelsohn', '--production', '--excludePrivatePackages', '--json',
-], { encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024, shell: process.platform === 'win32' });
+// Run the installed checker with the current Node binary rather than looking up `npx` on PATH.
+const json = execFileSync(process.execPath, [
+  'node_modules/license-checker-rseidelsohn/bin/license-checker-rseidelsohn.js',
+  '--production', '--excludePrivatePackages', '--json',
+], { encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024 });
 
 const missing = [];
 const sections = Object.entries(JSON.parse(json)).map(([nameAtVersion, info]) => {

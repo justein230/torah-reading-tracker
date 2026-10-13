@@ -14,7 +14,7 @@ type Loaded = { href: string; text: string } | { href: string; error: true };
  * Shows a license file inside the app. Opening the file as a link would navigate the WebView away from
  * the app on iOS and Android, with no way back.
  */
-export default function LicenseViewerModal({ title, href, onClose }: LicenseViewerModalProps) {
+export default function LicenseViewerModal({ title, href, onClose }: Readonly<LicenseViewerModalProps>) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
 
   useEffect(() => {

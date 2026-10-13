@@ -15,7 +15,7 @@ interface AboutModalProps {
   onClose: () => void;
 }
 
-export default function AboutModal({ opened, onClose }: AboutModalProps) {
+export default function AboutModal({ opened, onClose }: Readonly<AboutModalProps>) {
   const [viewing, setViewing] = useState<(typeof LICENSE_LINKS)[number] | null>(null);
 
   return (
