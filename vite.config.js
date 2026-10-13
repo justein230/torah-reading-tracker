@@ -50,14 +50,21 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       globals: true,
-      environment: 'jsdom',
       // Use the standard forked-process pool, not the VM-based 'vmForks'. Under
       // vmForks each file runs in a separate VM realm whose globals differ from the
       // ones @testing-library/react binds auto-cleanup to, so the jsdom DOM is never
       // cleared between tests (renders pile up → "Found multiple elements") and mock
       // resets misfire. It's timing-sensitive: green locally, 140 failures in CI.
       pool: 'forks',
-      setupFiles: ['./tests/setup.js'],
+      // Starting jsdom is a big share of the suite's time, so only the React component/hook
+      // tests (.tsx) get it (and the RTL/jest-dom setup); everything else runs in node.
+      projects: [
+        { extends: true, test: { name: 'dom',  environment: 'jsdom', setupFiles: ['./tests/setup.js'], include: ['tests/**/*.test.tsx'] } },
+        // Unit tests share module evaluation per worker (isolate: false); integration tests
+        // import server.ts with DB/env state, so they keep a fresh module graph per file.
+        { extends: true, test: { name: 'node-unit',        environment: 'node', isolate: false, include: ['tests/unit/**/*.test.{ts,js}'] } },
+        { extends: true, test: { name: 'node-integration', environment: 'node',                 include: ['tests/integration/**/*.test.{ts,js}'] } },
+      ],
       coverage: {
         provider: 'v8',
         include: ['src/api.ts', 'src/compute.ts', 'src/utils/**/*.ts', 'server.ts', 'src/components/**/*.tsx', 'src/hooks/**/*.{ts,tsx}', 'src/db/web.ts', 'src/context/AppContext.tsx'],
