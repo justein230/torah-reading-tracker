@@ -3,12 +3,22 @@
   "plugins": [
     "typescript",
     "unicorn",
-    "oxc"
+    "oxc",
+    "react",
+    "import"
   ],
   "categories": {
     "correctness": "error"
   },
-  "rules": {},
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "error",
+    "react/react-in-jsx-scope": "off",
+    "react/set-state-in-effect": "off",
+    "react/refs": "off",
+    "react/purity": "off",
+    "react/preserve-manual-memoization": "off"
+  },
   "env": {
     "builtin": true
   },

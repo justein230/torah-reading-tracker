@@ -60,7 +60,7 @@ vi.mock('../../../src/components/AddReadingForm.js', () => ({
       <span data-testid={`aliyah-options-${props.formTitle}`}>{props.aliyahOptions.map(o => o.label).join(' | ')}</span>
       <button onClick={() => props.setField('parsha', MOCK_PARSHA)}>set-parsha</button>
       <button onClick={() => props.setField('aliyah', ['1'])}>set-aliyah</button>
-      <button onClick={() => props.setField('date', new Date('2024-01-01'))}>set-date</button>
+      <button onClick={() => props.setField('date', new Date('2024-01-01T00:00:00'))}>set-date</button>
       <button onClick={() => props.setField('date', null)}>clear-date</button>
       <button onClick={() => props.setField('readingType', 'weekday')}>set-type-weekday</button>
       <button onClick={() => props.setField('readingType', 'hosafah')}>set-type-hosafah</button>

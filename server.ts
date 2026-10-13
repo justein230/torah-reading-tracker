@@ -7,8 +7,8 @@ import rateLimit from 'express-rate-limit';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { createDb } from './src/db/drizzle-server.js';
 import { initDb } from './src/db/init.js';
-import { sefarim, parshiot, parshaPairs, occasions, aliyot, readings, occasionAliyot, specialReadings, weekdayAliyot, weekdayReadings, hosafotReadings, torahChapters, adminPassword, authSessions } from './src/db/schema.js';
-import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL } from './src/db/queries.js';
+import { sefarim, parshiot, occasions, adminPassword, authSessions } from './src/db/schema.js';
+import { createRepository, RepoError, type QueryRows } from './src/db/repository.js';
 import { buildSchedule, fetchLiveHebcalItems, fetchLiveHebcalItemsForDate, entriesFromHebcalItems, type Schedule } from './src/utils/sedra.js';
 import { SEDRA_CACHE, SEDRA_YEARS } from './src/data/sedraCache.js';
 import { HOLIDAY_CACHE } from './src/data/holidayCache.js';
@@ -19,6 +19,7 @@ import { importDatabase, ImportValidationError } from './src/utils/import-server
 import { stampAppVersion } from './src/utils/backup-server.js';
 import { buildCalendarFeed } from './src/utils/calendar-feed.js';
 import { errText } from './src/utils/errText.js';
+import { localDateStr } from './src/utils/dates.js';
 import { createLogger, createHttpLogger, allLogFiles } from './src/utils/logger-server.js';
 
 if (process.env.SERVICE_MODE !== 'prod') {
@@ -54,6 +55,10 @@ let rawDb = new Database(DB_PATH);
 rawDb.pragma('journal_mode = DELETE');
 rawDb.pragma('foreign_keys = OFF'); // must be off during migrations (table recreations need it)
 let db = createDb(rawDb);
+// Reads `rawDb` at call time, so it follows the handle swap after a DB import.
+const queryRows: QueryRows = async (query, params = []) => rawDb.prepare(query).all(...params);
+// Every read and write the data routes below perform lives here, shared with the native app.
+let repo = createRepository(db, queryRows);
 // Printed (so `docker logs` shows it) and kept in the log file, to check what a deploy migrated.
 const logMigration = (message: string) => { console.log(message); logger.info(message); };
 // Backs the db up beside itself first if a migration is pending (see backupBeforeMigrating).
@@ -200,7 +205,7 @@ const changePasswordLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, stan
 app.post('/api/auth/login', loginLimiter, (req, res) => {
   if (AUTH_MODE !== 'password') return res.status(404).json({ detail: 'Not found' });
   const storedHash = getStoredPasswordHash();
-  const { password } = req.body;
+  const { password } = bodyOrEmpty(req);
   if (!storedHash || typeof password !== 'string' || !verifyPassword(password, storedHash)) {
     return res.status(401).json({ detail: 'Incorrect password' });
   }
@@ -225,7 +230,7 @@ app.post('/api/auth/logout', (req, res) => {
 // caller's own session stays valid so they aren't logged out by changing their password.
 app.post('/api/auth/change-password', changePasswordLimiter, privateOnly, (req, res) => {
   if (AUTH_MODE !== 'password') return res.status(404).json({ detail: 'Not found' });
-  const { currentPassword, newPassword } = req.body;
+  const { currentPassword, newPassword } = bodyOrEmpty(req);
   const storedHash = getStoredPasswordHash();
   if (!storedHash || typeof currentPassword !== 'string' || !verifyPassword(currentPassword, storedHash)) {
     return res.status(401).json({ detail: 'Incorrect current password' });
@@ -251,13 +256,6 @@ app.post('/api/auth/change-password', changePasswordLimiter, privateOnly, (req, 
 
 let _schedule: Schedule | null = null;
 
-// Local calendar date, e.g. "2026-09-13" — avoids new Date().toISOString(), which is
-// UTC and can land on the wrong side of midnight relative to the server's local day.
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 async function getSchedule(): Promise<Schedule> {
   if (_schedule) return _schedule;
 
@@ -265,7 +263,7 @@ async function getSchedule(): Promise<Schedule> {
     parshaNames: new Set(
       db.select({ name_en: parshiot.nameEn }).from(parshiot).all().map(r => r.name_en)
     ),
-    today:        todayStr(),
+    today:        localDateStr(),
     cache:        SEDRA_CACHE,
     cacheEndYear: SEDRA_YEARS[1],
     fetchLive:    fetchLiveHebcalItems,
@@ -291,92 +289,10 @@ function parseId(req: express.Request): number {
   return Number.parseInt(String(req.params['id']), 10);
 }
 
-// Strips control characters from user-supplied free text (occasion/location/note)
-// before it's stored and later echoed into the public ICS calendar feed.
-function cleanText(s: string): string {
-  // oxlint-disable-next-line no-control-regex -- intentional: stripping control chars is the point
-  return s.replace(/[\x00-\x1F\x7F]/g, '').trim();
-}
-
-// Cleans an optional free-text field, collapsing missing/empty/control-only input to null
-// so it stores as NULL rather than ''.
-function cleanOrNull(s: string | undefined | null): string | null {
-  return s ? cleanText(s) || null : null;
-}
-
-function requireFields(res: express.Response, body: Record<string, unknown>, fields: string[]): boolean {
-  const missing = fields.filter(f => !body[f]);
-  if (!missing.length) return true;
-  res.status(400).json({ detail: `${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} required` });
-  return false;
-}
-
-// Coerces the given fields to positive integers, 400ing if any are missing or non-numeric.
-// Prevents non-numeric input from reaching the chapter/verse columns that drive the
-// chapter*1000+verse overlap arithmetic in queries.ts and compute.ts.
-function requireInts<F extends string>(res: express.Response, body: Record<string, unknown>, fields: F[]): Record<F, number> | null {
-  const out = {} as Record<F, number>;
-  for (const f of fields) {
-    const raw = body[f];
-    const n = typeof raw === 'string' || typeof raw === 'number' ? Number.parseInt(String(raw), 10) : Number.NaN;
-    if (!Number.isFinite(n) || n < 1) {
-      res.status(400).json({ detail: `${f} must be a positive integer` });
-      return null;
-    }
-    out[f] = n;
-  }
-  return out;
-}
-
-function existsOrNotFound(res: express.Response, query: { get(): unknown }, label: string): boolean {
-  if (query.get()) return true;
-  res.status(404).json({ detail: `${label} not found` });
-  return false;
-}
-
-function isUniqueConstraint(e: unknown): boolean {
-  return typeof e === 'object' && e !== null && (e as { code?: unknown }).code === 'SQLITE_CONSTRAINT_UNIQUE';
-}
-
-// Registers the DELETE (and, when `put` is given, PUT) routes shared by the special/weekday/
-// hosafot reading tables: parseId → existsOrNotFound → mutate → respond. `exists`/`del`/`put.set`
-// stay as small per-table closures so each keeps its own exact Drizzle table/column types.
-function crudRoutes<TSet>(app: express.Express, opts: {
-  path: string;
-  label: string;
-  exists: (id: number) => { get(): unknown };
-  del: (id: number) => void;
-  put?: {
-    buildSet: (body: Record<string, unknown>) => TSet;
-    set: (id: number, values: TSet) => void;
-  };
-}): void {
-  if (opts.put) {
-    const { buildSet, set } = opts.put;
-    app.put(`${opts.path}/:id`, (req, res) => {
-      const id = parseId(req);
-      if (!requireFields(res, req.body, ['date_read'])) return;
-      if (!existsOrNotFound(res, opts.exists(id), opts.label)) return;
-      set(id, buildSet(req.body));
-      res.json({ id });
-    });
-  }
-
-  app.delete(`${opts.path}/:id`, (req, res) => {
-    const id = parseId(req);
-    if (!existsOrNotFound(res, opts.exists(id), opts.label)) return;
-    opts.del(id);
-    res.status(204).send();
-  });
-}
-
-function findAliyahId(parsha: string, aliyahNum: number): number | null {
-  const row = db.select({ id: aliyot.id })
-    .from(aliyot)
-    .innerJoin(parshiot, eq(parshiot.id, aliyot.parshaId))
-    .where(and(eq(parshiot.name, parsha), eq(aliyot.aliyah, aliyahNum)))
-    .get();
-  return row?.id ?? null;
+// Express 5 leaves req.body undefined (Express 4 made it {}) when no body was parsed, e.g. a
+// POST with no payload. Reading it through here lets requireFields answer 400 instead of crashing.
+function bodyOrEmpty(req: express.Request) {
+  return req.body ?? {};
 }
 
 // ── routes ────────────────────────────────────────────────────────────────────
@@ -422,7 +338,7 @@ app.get('/api/can-write', (req, res) => {
 
 app.get('/api/export/excel', privateOnly, async (_req, res) => {
   try {
-    const rows = db.all(sql.raw(ALIYOT_SQL)) as Parameters<typeof buildExportBuffer>[0];
+    const rows = await repo.fetchAliyot() as Parameters<typeof buildExportBuffer>[0];
     const seferRows = db.select({ name: sefarim.name, name_en: sefarim.nameEn })
       .from(sefarim).orderBy(sefarim.sortOrder).all();
     const buf = await buildExportBuffer(rows, seferRows);
@@ -464,6 +380,7 @@ app.post('/api/import/db', privateOnly, express.raw({ type: 'application/vnd.sql
   }
   try {
     ({ rawDb, db } = importDatabase(req.body, rawDb, DB_PATH, MIGRATIONS_DIR, message => logMigration(`DB import: ${message}`)));
+    repo = createRepository(db, queryRows);
     stampAppVersion(rawDb, APP_VERSION);
     res.json({ success: true });
   } catch (err: unknown) {
@@ -473,229 +390,78 @@ app.post('/api/import/db', privateOnly, express.raw({ type: 'application/vnd.sql
   }
 });
 
-app.get('/api/meta', (_req, res) => {
-  const seferRows  = db.select({ id: sefarim.id, name: sefarim.name, name_en: sefarim.nameEn, color: sefarim.color }).from(sefarim).orderBy(sefarim.sortOrder).all();
-  const parshaRows = db.select({ id: parshiot.id, name: parshiot.name, name_en: parshiot.nameEn }).from(parshiot).orderBy(parshiot.sortOrder).all();
-  const pairRows   = db.select({ id: parshaPairs.id, name: parshaPairs.name, name_en: parshaPairs.nameEn, parsha1_id: parshaPairs.parsha1Id, parsha2_id: parshaPairs.parsha2Id }).from(parshaPairs).all();
-  const chapterRows = db.select({ seferId: torahChapters.seferId, verseCount: torahChapters.verseCount }).from(torahChapters).orderBy(torahChapters.seferId, torahChapters.chapter).all();
-  const cvMap: Record<number, number[]> = {};
-  for (const r of chapterRows) {
-    const arr = cvMap[r.seferId] ?? [];
-    cvMap[r.seferId] = arr;
-    arr.push(r.verseCount);
-  }
-  res.json({
-    sefarim:  seferRows.map(s => ({ name: s.name, name_en: s.name_en, color: s.color, chapter_verses: cvMap[s.id] ?? [] })),
-    parshiot: parshaRows,
-    pairs:    pairRows,
-  });
+// Data routes only adapt HTTP to the repository: read the body, call it, send the result. A RepoError
+// it throws (400/404/409) reaches the error handler at the bottom via Express 5's async forwarding.
+
+app.get('/api/meta',            async (_req, res) => { res.json(await repo.fetchMeta()); });
+app.get('/api/aliyot',          async (_req, res) => { res.json(await repo.fetchAliyot()); });
+app.get('/api/stats/location',  async (_req, res) => { res.json(await repo.fetchLocationStats()); });
+app.get('/api/readings',        async (_req, res) => { res.json(await repo.fetchReadings()); });
+
+app.post('/api/readings', async (req, res) => {
+  res.status(201).json(await repo.postReading(bodyOrEmpty(req)));
 });
 
-app.get('/api/aliyot', (_req, res) => {
-  res.json(db.all(sql.raw(ALIYOT_SQL)));
+app.put('/api/readings/:id', async (req, res) => {
+  res.json(await repo.putReading(parseId(req), bodyOrEmpty(req)));
 });
 
-app.get('/api/stats/location', (_req, res) => {
-  // NOSONAR(S7781) — replaceAll needs ES2021 lib; tsconfig targets ES2020, so this stays a regex .replace.
-  res.json(db.all(sql.raw(LOCATION_STATS_SQL.replace(/\{\{TODAY\}\}/g, todayStr()))));
-});
-
-app.get('/api/readings', (_req, res) => {
-  res.json(db.all(sql.raw(READINGS_SQL)));
-});
-
-app.post('/api/readings', (req, res) => {
-  const { parsha, aliyah, date_read, occasion = '', location = '', pair_id, reading_type: requested_type } = req.body;
-  if (!requireFields(res, req.body, ['parsha', 'aliyah', 'date_read'])) return;
-  const aliyahId = findAliyahId(parsha, aliyah);
-  if (aliyahId == null) return res.status(404).json({ detail: 'Aliyah not found' });
-
-  const existing = db.select({ id: readings.id })
-    .from(readings)
-    .where(and(
-      eq(readings.aliyahId, aliyahId),
-      sql`${readings.readingType} IN ('standard', 'double_parsha')`
-    ))
-    .get();
-  let reading_type: string;
-  if (existing) {
-    reading_type = 'additional';
-  } else {
-    reading_type = requested_type === 'double_parsha' ? 'double_parsha' : 'standard';
-  }
-
-  let id: number;
-  try {
-    const result = db.insert(readings).values({
-      aliyahId,
-      dateRead: date_read,
-      occasion: cleanOrNull(occasion),
-      location: cleanOrNull(location),
-      readingType: reading_type,
-      pairId: pair_id ?? null,
-    }).run();
-    id = Number(result.lastInsertRowid);
-  } catch (e: unknown) {
-    if (isUniqueConstraint(e))
-      return res.status(409).json({ detail: 'This aliyah was already recorded on that date.' });
-    throw e;
-  }
-
-  res.status(201).json({ id, reading_type });
-});
-
-app.put('/api/readings/:id', (req, res) => {
-  const id = parseId(req);
-  if (!existsOrNotFound(res, db.select({ id: readings.id }).from(readings).where(eq(readings.id, id)), 'Reading')) return;
-
-  const { occasion = '', location = '' } = req.body;
-  db.update(readings)
-    .set({ occasion: cleanOrNull(occasion), location: cleanOrNull(location) })
-    .where(eq(readings.id, id))
-    .run();
-  res.json({ id });
-});
-
-app.delete('/api/readings/:id', (req, res) => {
-  const id = parseId(req);
-  if (!existsOrNotFound(res, db.select({ id: readings.id }).from(readings).where(eq(readings.id, id)), 'Reading')) return;
-
-  db.delete(readings).where(eq(readings.id, id)).run();
+app.delete('/api/readings/:id', async (req, res) => {
+  await repo.deleteReading(parseId(req));
   res.status(204).send();
 });
 
 // ── occasions / special readings ──────────────────────────────────────────────
 
-app.get('/api/occasions', (_req, res) => {
-  const rows = db.all(sql.raw(OCCASIONS_SQL)) as Array<{ id: number; name: string; name_en: string; category: string; sort_order: number }>;
-  res.json(rows.map(r => ({ id: r.id, name: r.name, nameEn: r.name_en, category: r.category, sortOrder: r.sort_order })));
+app.get('/api/occasions',        async (_req, res) => { res.json(await repo.fetchOccasions()); });
+app.get('/api/occasion-aliyot',  async (_req, res) => { res.json(await repo.fetchOccasionAliyot()); });
+app.get('/api/readings/special', async (_req, res) => { res.json(await repo.fetchSpecialReadings()); });
+
+app.post('/api/readings/special', async (req, res) => {
+  res.status(201).json(await repo.postSpecialReading(bodyOrEmpty(req)));
 });
 
-app.get('/api/occasion-aliyot', (_req, res) => {
-  res.json(db.all(sql.raw(OCCASION_ALIYOT_SQL)));
-});
-
-app.get('/api/readings/special', (_req, res) => {
-  res.json(db.all(sql.raw(SPECIAL_READINGS_SQL)));
-});
-
-app.post('/api/readings/special', (req, res) => {
-  const { occasion_aliyah_id, date_read, note = '', location: loc = '' } = req.body;
-  if (!requireFields(res, req.body, ['occasion_aliyah_id', 'date_read'])) return;
-  if (!existsOrNotFound(res, db.select({ id: occasionAliyot.id }).from(occasionAliyot).where(eq(occasionAliyot.id, occasion_aliyah_id)), 'Occasion aliyah')) return;
-
-  let id: number;
-  try {
-    const result = db.insert(specialReadings).values({
-      occasionAliyahId: occasion_aliyah_id,
-      dateRead: date_read,
-      note:     cleanOrNull(note),
-      location: cleanOrNull(loc),
-    }).run();
-    id = Number(result.lastInsertRowid);
-  } catch (e: unknown) {
-    if (isUniqueConstraint(e))
-      return res.status(409).json({ detail: 'This occasion aliyah was already recorded on that date.' });
-    throw e;
-  }
-  res.status(201).json({ id });
-});
-
-crudRoutes(app, {
-  path: '/api/readings/special',
-  label: 'Special reading',
-  exists: id => db.select({ id: specialReadings.id }).from(specialReadings).where(eq(specialReadings.id, id)),
-  del: id => { db.delete(specialReadings).where(eq(specialReadings.id, id)).run(); },
+app.delete('/api/readings/special/:id', async (req, res) => {
+  await repo.deleteSpecialReading(parseId(req));
+  res.status(204).send();
 });
 
 // ── weekday readings ──────────────────────────────────────────────────────────
 
-app.get('/api/weekday-aliyot', (_req, res) => {
-  res.json(db.all(sql.raw(WEEKDAY_ALIYOT_SQL)));
+app.get('/api/weekday-aliyot', async (_req, res) => { res.json(await repo.fetchWeekdayAliyot()); });
+
+app.post('/api/readings/weekday', async (req, res) => {
+  res.status(201).json(await repo.postWeekdayReading(bodyOrEmpty(req)));
 });
 
-app.post('/api/readings/weekday', (req, res) => {
-  const { weekday_aliyah_id, date_read, note = '', location: loc = '' } = req.body;
-  if (!requireFields(res, req.body, ['weekday_aliyah_id', 'date_read'])) return;
-  if (!existsOrNotFound(res, db.select({ id: weekdayAliyot.id }).from(weekdayAliyot).where(eq(weekdayAliyot.id, weekday_aliyah_id)), 'Weekday aliyah')) return;
-
-  try {
-    const [inserted] = db.insert(weekdayReadings).values({
-      weekdayAliyahId: weekday_aliyah_id,
-      dateRead:        date_read,
-      note:            cleanOrNull(note),
-      location:        cleanOrNull(loc),
-    }).returning({ id: weekdayReadings.id }).all();
-    if (!inserted) throw new Error('Insert returned no row');
-    res.status(201).json({ id: inserted.id });
-  } catch (e: unknown) {
-    if (isUniqueConstraint(e)) return res.status(409).json({ detail: 'This weekday reading was already recorded.' });
-    throw e;
-  }
+app.put('/api/readings/weekday/:id', async (req, res) => {
+  const id = parseId(req);
+  await repo.putWeekdayReading(id, bodyOrEmpty(req));
+  res.json({ id });
 });
 
-crudRoutes(app, {
-  path: '/api/readings/weekday',
-  label: 'Weekday reading',
-  exists: id => db.select({ id: weekdayReadings.id }).from(weekdayReadings).where(eq(weekdayReadings.id, id)),
-  del: id => { db.delete(weekdayReadings).where(eq(weekdayReadings.id, id)).run(); },
-  put: {
-    buildSet: body => ({ dateRead: body['date_read'] as string, note: cleanOrNull(body['note'] as string), location: cleanOrNull(body['location'] as string) }),
-    set: (id, values) => { db.update(weekdayReadings).set(values).where(eq(weekdayReadings.id, id)).run(); },
-  },
+app.delete('/api/readings/weekday/:id', async (req, res) => {
+  await repo.deleteWeekdayReading(parseId(req));
+  res.status(204).send();
 });
 
 // ── hosafot readings ──────────────────────────────────────────────────────────
 
-app.get('/api/readings/hosafot', (_req, res) => {
-  res.json(db.all(sql.raw(HOSAFOT_READINGS_SQL)));
+app.get('/api/readings/hosafot', async (_req, res) => { res.json(await repo.fetchHosafotReadings()); });
+
+app.post('/api/readings/hosafot', async (req, res) => {
+  res.status(201).json(await repo.postHosafah(bodyOrEmpty(req)));
 });
 
-app.post('/api/readings/hosafot', (req, res) => {
-  if (!requireFields(res, req.body, ['sefer', 'chapter_start', 'verse_start', 'chapter_end', 'verse_end', 'pseukim', 'date_read'])) return;
-  const ints = requireInts(res, req.body, ['chapter_start', 'verse_start', 'chapter_end', 'verse_end', 'pseukim']);
-  if (!ints) return;
-  const {
-    sefer, parsha_id_1 = null, parsha_id_2 = null, occasion_id = null,
-    is_double_parsha = 0, date_read, note = '', location: loc = '',
-  } = req.body;
-  let id: number;
-  try {
-    const values: typeof hosafotReadings.$inferInsert = {
-      sefer,
-      parshaId1:      parsha_id_1,
-      parshaId2:      parsha_id_2,
-      occasionId:     occasion_id,
-      isDoubleParsha: is_double_parsha ? 1 : 0,
-      chapterStart:   ints['chapter_start'],
-      verseStart:     ints['verse_start'],
-      chapterEnd:     ints['chapter_end'],
-      verseEnd:       ints['verse_end'],
-      pseukim:        ints['pseukim'],
-      dateRead:       date_read,
-      note:           cleanOrNull(note),
-      location:       cleanOrNull(loc),
-    };
-    const [inserted] = db.insert(hosafotReadings).values(values).returning({ id: hosafotReadings.id }).all();
-    if (!inserted) throw new Error('Insert returned no row');
-    id = inserted.id;
-  } catch (e: unknown) {
-    if (isUniqueConstraint(e))
-      return res.status(409).json({ detail: 'This hosafah reading was already recorded on that date.' });
-    throw e;
-  }
-  res.status(201).json({ id });
+app.put('/api/readings/hosafot/:id', async (req, res) => {
+  const id = parseId(req);
+  await repo.putHosafah(id, bodyOrEmpty(req));
+  res.json({ id });
 });
 
-crudRoutes(app, {
-  path: '/api/readings/hosafot',
-  label: 'Hosafah reading',
-  exists: id => db.select({ id: hosafotReadings.id }).from(hosafotReadings).where(eq(hosafotReadings.id, id)),
-  del: id => { db.delete(hosafotReadings).where(eq(hosafotReadings.id, id)).run(); },
-  put: {
-    buildSet: body => ({ dateRead: body['date_read'] as string, note: cleanOrNull(body['note'] as string), location: cleanOrNull(body['location'] as string) }),
-    set: (id, values) => { db.update(hosafotReadings).set(values).where(eq(hosafotReadings.id, id)).run(); },
-  },
+app.delete('/api/readings/hosafot/:id', async (req, res) => {
+  await repo.deleteHosafah(parseId(req));
+  res.status(204).send();
 });
 
 // ── calendar feed ─────────────────────────────────────────────────────────────
@@ -717,6 +483,10 @@ app.get('/api/calendar.ics', async (_req, res) => {
 // Terminal handler: without this, Express's default error handler responds with the
 // full stack trace (including absolute filesystem paths) whenever a route throws.
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err instanceof RepoError) {
+    res.status(err.status).json({ detail: err.detail });
+    return;
+  }
   logger.error({ err: errText(err) }, 'Unhandled error');
   res.status(500).json({ detail: 'Internal error' });
 });

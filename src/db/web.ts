@@ -13,7 +13,8 @@ import { NO_HOLIDAY_DATES } from '../utils/occasionDates.js';
 
 const getJson = <T>(path: string): Promise<T> => fetch(path).then(r => r.json() as Promise<T>);
 
-async function mutateJson<T>(path: string, method: string, body: unknown, fallback: string): Promise<T> {
+// Sends the JSON body and logs the outcome; throws the server's `{ detail }` (or the fallback) on failure.
+async function send(path: string, method: string, body: unknown, fallback: string): Promise<Response> {
   logEvent('debug', 'mutation', `${method} ${path}`, { body });
   const res = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   if (!res.ok) {
@@ -22,24 +23,20 @@ async function mutateJson<T>(path: string, method: string, body: unknown, fallba
     throw detail;
   }
   logEvent('info', 'mutation', `${method} ${path} ok`, { status: res.status });
-  return res.json();
+  return res;
 }
 
+const mutateJson = async <T>(path: string, method: string, body: unknown, fallback: string): Promise<T> =>
+  (await send(path, method, body, fallback)).json();
+
 async function mutateVoid(path: string, method: string, body: unknown, fallback: string): Promise<void> {
-  logEvent('debug', 'mutation', `${method} ${path}`, { body });
-  const res = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({ detail: fallback }));
-    logEvent('warn', 'mutation', `${method} ${path} failed`, { status: res.status, detail });
-    throw detail;
-  }
-  logEvent('info', 'mutation', `${method} ${path} ok`, { status: res.status });
+  await send(path, method, body, fallback);
 }
 
 async function del(path: string, fallback: string): Promise<void> {
   logEvent('debug', 'mutation', `DELETE ${path}`);
   const res = await fetch(path, { method: 'DELETE' });
-  if (!res.ok && res.status !== 204) {
+  if (!res.ok) {
     logEvent('warn', 'mutation', `DELETE ${path} failed`, { status: res.status });
     throw Object.assign(new Error(fallback), { detail: fallback });
   }

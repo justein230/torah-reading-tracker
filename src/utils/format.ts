@@ -1,3 +1,5 @@
+import { localDateStr } from './dates.js';
+
 /** Whole days between two 'YYYY-MM-DD' strings. Parses both via UTC so the result is the same regardless of the host machine's timezone. */
 export function daysBetween(fromStr: string, toStr: string): number {
   const toUTCms = (s: string): number => {
@@ -69,7 +71,7 @@ export function fmtPct(numer: number, denom: number, digits = 2): string {
 
 export function toDateStr(date: Date | string | null): string {
   if (!date) return '';
-  return date instanceof Date ? date.toISOString().slice(0, 10) : String(date).slice(0, 10);
+  return date instanceof Date ? localDateStr(date) : String(date).slice(0, 10);
 }
 
 export function fmtAliyah(a: string | number, short = false): string {

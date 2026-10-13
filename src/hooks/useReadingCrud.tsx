@@ -78,7 +78,7 @@ interface FormSeferMeta {
 }
 
 function buildFormOptions(
-  form: ManageForm,
+  form: Pick<ManageForm, 'parsha' | 'readingType' | 'pairId'>,
   allRows: MappedRow[],
   pairs: ParshaPair[],
   seferMeta: FormSeferMeta,
@@ -472,11 +472,18 @@ export function useReadingCrud() {
   const add  = useAddForm({ refresh, refreshSpecial, refreshWeekday, refreshHosafot, loadReadings }, allRows, pairs, weekdayAliyot);
   const edit = useEditModal(refresh, refreshSpecial, refreshWeekday, refreshHosafot, loadReadings, allRows, pairs);
 
-  const seferMeta: FormSeferMeta = { SEFER_ORDER, SEFER_MAP, parshaIndex, TLIT, parshaById };
-  const addOptions  = useMemo(() => buildFormOptions(add.form,  allRows, pairs, seferMeta),
-    [add.form.parsha, add.form.readingType, add.form.pairId, allRows, pairs, seferMeta]);
-  const editOptions = useMemo(() => buildFormOptions(edit.form, allRows, pairs, seferMeta),
-    [edit.form.parsha, edit.form.readingType, edit.form.pairId, allRows, pairs, seferMeta]);
+  const seferMeta = useMemo<FormSeferMeta>(
+    () => ({ SEFER_ORDER, SEFER_MAP, parshaIndex, TLIT, parshaById }),
+    [SEFER_ORDER, SEFER_MAP, parshaIndex, TLIT, parshaById],
+  );
+  const { parsha: addParsha, readingType: addType, pairId: addPairId } = add.form;
+  const { parsha: editParsha, readingType: editType, pairId: editPairId } = edit.form;
+  const addOptions  = useMemo(
+    () => buildFormOptions({ parsha: addParsha, readingType: addType, pairId: addPairId }, allRows, pairs, seferMeta),
+    [addParsha, addType, addPairId, allRows, pairs, seferMeta]);
+  const editOptions = useMemo(
+    () => buildFormOptions({ parsha: editParsha, readingType: editType, pairId: editPairId }, allRows, pairs, seferMeta),
+    [editParsha, editType, editPairId, allRows, pairs, seferMeta]);
 
   // Lookup from a standard display row (parsha|aliyah|date) back to its DB ReadingRecord.
   const readingsById = useMemo(() => {

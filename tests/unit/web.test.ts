@@ -249,17 +249,12 @@ describe('putReading / putWeekdayReading / putHosafah', () => {
 // ── DELETE wrappers — 204, ok, and error paths ───────────────────────────────
 
 describe('deleteReading / deleteSpecialReading / deleteWeekdayReading / deleteHosafah', () => {
-  it('deleteReading resolves on 204', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 204 } as Response));
+  it.each([200, 204])('deleteReading resolves on %i', async status => {
+    mockFetchOnce(() => Promise.resolve({ ok: true, status } as Response));
     await expect(deleteReading(1)).resolves.toBeUndefined();
   });
 
-  it('deleteReading resolves when ok', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: true, status: 200 } as Response));
-    await expect(deleteReading(1)).resolves.toBeUndefined();
-  });
-
-  it('deleteReading throws when neither ok nor 204', async () => {
+  it('deleteReading throws when the response is not ok', async () => {
     mockFetchOnce(() => Promise.resolve({ ok: false, status: 404 } as Response));
     await expect(deleteReading(1)).rejects.toMatchObject({ detail: 'Error deleting reading.' });
   });
@@ -267,11 +262,6 @@ describe('deleteReading / deleteSpecialReading / deleteWeekdayReading / deleteHo
   it('deleteSpecialReading throws its own message on failure', async () => {
     mockFetchOnce(() => Promise.resolve({ ok: false, status: 404 } as Response));
     await expect(deleteSpecialReading(1)).rejects.toMatchObject({ detail: 'Error deleting special reading.' });
-  });
-
-  it('deleteWeekdayReading resolves on 204', async () => {
-    mockFetchOnce(() => Promise.resolve({ ok: false, status: 204 } as Response));
-    await expect(deleteWeekdayReading(1)).resolves.toBeUndefined();
   });
 
   it('deleteWeekdayReading throws its own message on failure', async () => {

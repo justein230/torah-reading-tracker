@@ -78,6 +78,8 @@ export interface AppContextValue {
   stats: Stats | null;
   refresh: () => Promise<void>;
   ready: boolean;
+  /** Set when the initial data load failed; `ready` then stays false. */
+  loadError: string | null;
   canWrite: boolean;
   refreshCanWrite: () => Promise<void>;
   occasions: OccasionRecord[];

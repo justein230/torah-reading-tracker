@@ -8,8 +8,8 @@ Torah reading tracker: React 19 + TypeScript frontend (Vite), Express/Node backe
 
 ## Stack
 
-- **Frontend:** React 19, TypeScript, Vite, pure CSS modules
-- **Backend:** Express (`server.ts`), better-sqlite3, Drizzle ORM
+- **Frontend:** React 19, TypeScript, Vite, plain global `.css` files (one per component or area, imported by the component; not CSS modules), Mantine for UI components
+- **Backend:** Express 5 (`server.ts`), better-sqlite3, Drizzle ORM. Express 5 leaves `req.body` undefined when no body was parsed, so read it through `bodyOrEmpty(req)`, never `req.body` directly (the raw-parser import route is the one exception).
 - **DB:** SQLite (`torah.db`), schema in `src/db/schema.ts`, numbered SQL migrations in `drizzle/`
 - **Desktop:** Electron
 - **Mobile:** Capacitor
@@ -37,13 +37,13 @@ Torah is the holy book of the Jewish people. It is divided into parshiot (singul
 
 **Frontend data flow:** App fetches `/api/meta` on load (`initData()`), which seeds all sefer/parsha lookup maps dynamically — `SEFER_ORDER`, `SEFER_MAP`, `TLIT` are never hardcoded. `SEFER_COLORS` (Okabe-Ito palette) is the only hardcoded UI concern. Stats recompute on every filter change via `computeStats()` in `src/compute.ts`.
 
-**Backend:** All API logic lives in `server.ts`. Raw SQL query strings are centralized in `src/db/queries.ts`. Schema definitions (source of truth) are in `src/db/schema.ts`. Migrations run automatically on server start via `initDb()`.
+**Backend:** `server.ts` holds the Express app, auth and routes; every data read and write lives in `src/db/repository.ts` (`createRepository(db, queryRows)`), which the Capacitor app (`src/db/native.ts`) runs too. Routes just parse the request and call the repository; it throws `RepoError(status, detail)` for 400/404/409, which the server's error handler turns into the response. New data operations go in the repository, so both platforms get them. Raw SQL query strings are centralized in `src/db/queries.ts`. Schema definitions (source of truth) are in `src/db/schema.ts`. Migrations run automatically on server start via `initDb()`.
 
 **Shared components** live under `src/components/shared/` and are reused across multiple views.
 
 **Utilities** for domain logic (parsha parsing, IP allowlisting, export, form reducers) live in `src/utils/`.
 
-**Tests:** Unit tests in `tests/unit/`, integration in `tests/integration/`, shared helpers in `tests/helpers/`. Coverage targets: `src/api.ts`, `src/compute.ts`, `src/utils/**/*.ts`, `server.ts`, `src/components/**/*.tsx`, `src/hooks/**/*.{ts,tsx}`, `src/db/web.ts`, `src/context/AppContext.tsx`. Out of scope: `src/db/schema.ts`, `queries.ts`, `drizzle-server.ts`, `drizzle-native.ts`, `init.ts` (declarative/glue, exercised indirectly by integration tests), `src/db/native.ts` (Capacitor-only, not exercised by this app's test suite).
+**Tests:** Unit tests in `tests/unit/`, integration in `tests/integration/`, shared helpers in `tests/helpers/`. Coverage targets: `src/api.ts`, `src/compute.ts`, `src/utils/**/*.ts`, `server.ts`, `src/components/**/*.tsx`, `src/hooks/**/*.{ts,tsx}`, `src/db/web.ts`, `src/db/repository.ts`, `src/context/AppContext.tsx`. Out of scope: `src/db/schema.ts`, `queries.ts`, `drizzle-server.ts`, `drizzle-native.ts`, `init.ts` (declarative/glue, exercised indirectly by integration tests), `src/db/native.ts` (Capacitor-only connection/upgrade/import code, not exercised by this app's test suite; its reads and writes are the repository, tested in `tests/unit/repository.test.ts`).
 
 ## Database Schema
 
@@ -61,7 +61,7 @@ Tables: `sefarim` → `parshiot` → `aliyot` → `readings`. Also: `parsha_pair
 
 ## Key Constraints
 
-- **No Prettier** — code uses intentional column alignment that Prettier would destroy. Don't introduce it without explicit discussion. `oxlint` (`npm run lint`) is configured lint-only with its formatter untouched, for the same reason.
+- **No Prettier** — code uses intentional column alignment that Prettier would destroy. Don't introduce it without explicit discussion. `oxlint` (`npm run lint`) is configured lint-only with its formatter untouched, for the same reason. It enforces `react-hooks/rules-of-hooks` and `exhaustive-deps`; the React Compiler rules (`set-state-in-effect`, `refs`, `purity`, `preserve-manual-memoization`) are off because the project doesn't use the compiler.
 - When adding a new API endpoint, add the SQL query string to `src/db/queries.ts`, not inline in `server.ts`.
 - New shared/pure logic should go in `src/utils/` with a corresponding unit test.
 

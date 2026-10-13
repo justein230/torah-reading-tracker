@@ -67,7 +67,7 @@ export default defineConfig(({ mode }) => {
       ],
       coverage: {
         provider: 'v8',
-        include: ['src/api.ts', 'src/compute.ts', 'src/utils/**/*.ts', 'server.ts', 'src/components/**/*.tsx', 'src/hooks/**/*.{ts,tsx}', 'src/db/web.ts', 'src/context/AppContext.tsx'],
+        include: ['src/api.ts', 'src/compute.ts', 'src/utils/**/*.ts', 'server.ts', 'src/components/**/*.tsx', 'src/hooks/**/*.{ts,tsx}', 'src/db/web.ts', 'src/db/repository.ts', 'src/context/AppContext.tsx'],
         reporter: ['text', 'lcov'],
       },
     },

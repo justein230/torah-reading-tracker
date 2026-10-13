@@ -57,6 +57,7 @@ function Probe() {
       <div data-testid="parsha-index">{JSON.stringify(ctx.parshaIndex)}</div>
       <div data-testid="all-years">{ctx.allYears.join(',')}</div>
       <div data-testid="stats">{ctx.stats ? 'has-stats' : 'no-stats'}</div>
+      <div data-testid="load-error">{ctx.loadError ?? 'none'}</div>
       <button onClick={() => { ctx.refresh().catch(() => {}); }}>refresh</button>
     </div>
   );
@@ -90,6 +91,23 @@ describe('AppProvider — initial load', () => {
     render(<AppProvider><Probe /></AppProvider>);
     await screen.findByText('true');
     expect(screen.getByTestId('all-years').textContent).toBe('2021,2023');
+  });
+});
+
+describe('AppProvider — initial load failure', () => {
+  it('exposes loadError and stays not-ready when the required fetches reject', async () => {
+    mockFetches();
+    (api.fetchMeta as Mock).mockRejectedValue(new Error('server down'));
+    render(<AppProvider><Probe /></AppProvider>);
+    await screen.findByText('server down');
+    expect(screen.getByTestId('ready').textContent).toBe('false');
+  });
+
+  it('has no loadError after a successful load', async () => {
+    mockFetches();
+    render(<AppProvider><Probe /></AppProvider>);
+    await screen.findByText('true');
+    expect(screen.getByTestId('load-error').textContent).toBe('none');
   });
 });
 

@@ -1,5 +1,6 @@
 import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, MappedHosafah, Filters, ForecastConfig, ForecastResult, Stats, SeferStats, SeferMeta, YearEntry } from './types/index.js';
 import { daysBetween } from './utils/format.js';
+import { localDateStr } from './utils/dates.js';
 import { partiallyOverlaps, fullyContains, versesOverlap, type VerseRange } from './utils/verseRange.js';
 
 function earliestDate(dates: string[]): string {
@@ -145,11 +146,6 @@ function buildVerseKeySets(allRows: MappedRow[], seferMap: Record<string, SeferM
     }
   }
   return { allKeys, readKeys };
-}
-
-// today's calendar date, in local time — matches how reading dates are entered (api.ts's getTodayStr)
-function localDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // A reading of any kind reduced to what the pace calculation needs: its verse range and its date

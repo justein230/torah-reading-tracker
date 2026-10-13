@@ -72,6 +72,7 @@ export function makeCtx(overrides: Partial<AppContextValue> = {}): AppContextVal
     stats:           null,
     refresh:         vi.fn().mockResolvedValue(undefined),
     ready:           true,
+    loadError:       null,
     canWrite:        true,
     refreshCanWrite: vi.fn().mockResolvedValue(undefined),
     occasions:       [],

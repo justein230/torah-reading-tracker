@@ -5,6 +5,7 @@ import { fetchMeta, fetchAliyot, fetchHebcal, mapRow, enrichRows, mapOccasionAli
 import { computeStats, enrichPartialOrig, enrichOccasionPartialOrig, enrichWeekdayPartialOrig, enrichHosafotPartialOrig } from '../compute.js';
 import { TABS } from '../constants.js';
 import { logEvent } from '../utils/logger-client/index.js';
+import { errText } from '../utils/errText.js';
 import { NO_HOLIDAY_DATES, type HolidayDates } from '../utils/occasionDates.js';
 import type { AppContextValue, HebcalData, MappedRow, MappedOccasionAliyah, MappedHosafah, OccasionRecord, SpecialReadingRecord,
               Filters, ForecastConfig, ParshaPair, SeferMeta, AppSettings } from '../types/index.js';
@@ -44,6 +45,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
   const [holidayDates, setHolidayDates] = useState<HolidayDates>(NO_HOLIDAY_DATES);
   const [settings,    setSettings]    = useState<AppSettings>(loadSettings);
   const [ready,       setReady]       = useState(false);
+  const [loadError,   setLoadError]   = useState<string | null>(null);
   const [canWrite,    setCanWrite]    = useState(false);
 
   const [occasions,       setOccasions]       = useState<OccasionRecord[]>([]);
@@ -92,7 +94,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    void (async () => {
+    async function load() {
       const [meta, raw, hebcal, occ, oa, sr, wa, hr] = await Promise.all([
         fetchMeta(),
         fetchAliyot(),
@@ -146,7 +148,11 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
       setWeekdayAliyot(wa.map(mapWeekdayAliyahRow));
       setHosafotReadings(hr.map(mapHosafahRow));
       setReady(true);
-    })();
+    }
+    load().catch((e: unknown) => {
+      logEvent('error', 'client', 'Initial data load failed', { detail: errText(e) });
+      setLoadError(errText(e));
+    });
     void fetchCanWrite().then(setCanWrite);
   }, []);
 
@@ -209,14 +215,14 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
     activeTab, setActiveTab,
     whatIfOpen, setWhatIfOpen,
     forecastConfig, setForecastConfig,
-    stats, refresh, ready,
+    stats, refresh, ready, loadError,
     canWrite, refreshCanWrite,
     occasions, occasionAliyot: enrichedOccasionAliyot, specialReadings, refreshSpecial,
     weekdayAliyot: enrichedWeekdayAliyot, refreshWeekday,
     hosafotReadings: enrichedHosafotReadings, refreshHosafot,
   }), [SEFER_ORDER, SEFER_MAP, TLIT, pairs, parshaById, allRows, parshaIndex, allYears, schedule,
        datesByParsha, cacheYears, holidayDates, settings,
-       filters, sortMode, activeTab, whatIfOpen, forecastConfig, stats, refresh, ready,
+       filters, sortMode, activeTab, whatIfOpen, forecastConfig, stats, refresh, ready, loadError,
        canWrite, refreshCanWrite,
        occasions, enrichedOccasionAliyot, specialReadings, refreshSpecial,
        enrichedWeekdayAliyot, refreshWeekday,

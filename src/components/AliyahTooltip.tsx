@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useApp } from '../context/AppContext.js';
 import { fmtDate, fmtAliyah, fmtPct } from '../utils/format.js';
 import { positionTooltip } from '../utils/tooltip.js';
+import { localDateStr } from '../utils/dates.js';
 import type { MappedRow, MappedOccasionAliyah, MappedWeekdayAliyah, TipData, TipRow } from '../types/index.js';
 import './AliyahTooltip.css';
 
@@ -49,7 +50,7 @@ export function useAliyahTooltip() {
     if (oa.isReadFuture)                  tipRows.push({ k: 'Upcoming',     v: fmtDate(oa.orig) });
     if (!oa.isReadPast && oa.partialOrig) tipRows.push({ k: 'Partial read', v: fmtDate(oa.partialOrig) });
     if (!oa.isRead && oa.futurePartialOrig) tipRows.push({ k: 'Scheduled Partial', v: fmtDate(oa.futurePartialOrig) });
-    if (oa.hasFuture)                     tipRows.push({ k: 'Re-read on', v: oa.allDates.filter(d => d > new Date().toISOString().slice(0, 10)).map(fmtDate).join(', ') });
+    if (oa.hasFuture)                     tipRows.push({ k: 'Re-read on', v: oa.allDates.filter(d => d > localDateStr()).map(fmtDate).join(', ') });
     setTip({ _color: oa.seferColor, _tlit: occasionName, _aliyah: fmtAliyah(oa.aliyahKey), _tipRows: tipRows });
     if ('clientX' in e) moveTipPos(e);
   }, [moveTipPos, stats]);
@@ -134,7 +135,7 @@ export function useAliyahTooltip() {
     ];
     if (wa.isReadPast)                                tipRows.push({ k: 'Read',           v: fmtDate(wa.dateRead) });
     if (wa.isReadFuture)                              tipRows.push({ k: 'Upcoming',       v: fmtDate(wa.dateRead) });
-    if (wa.hasFuture)                                 tipRows.push({ k: 'Re-read on',     v: wa.allDates.filter(d => d > new Date().toISOString().slice(0, 10)).map(fmtDate).join(', ') });
+    if (wa.hasFuture)                                 tipRows.push({ k: 'Re-read on',     v: wa.allDates.filter(d => d > localDateStr()).map(fmtDate).join(', ') });
     if (!wa.dateRead && coveredBy)                    tipRows.push({ k: coveredBy.label,  v: fmtDate(coveredBy.date) });
     if (!wa.dateRead && !coveredBy && wa.partialOrig) tipRows.push({ k: 'Partial read',   v: fmtDate(wa.partialOrig) });
     if (!wa.dateRead && !coveredBy && wa.futurePartialOrig) tipRows.push({ k: 'Scheduled Partial', v: fmtDate(wa.futurePartialOrig) });

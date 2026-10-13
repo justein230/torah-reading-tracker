@@ -47,6 +47,26 @@ describe('GET /api/can-write', () => {
   });
 });
 
+// ── requests without a body ───────────────────────────────────────────────────
+// Express 5 leaves req.body undefined (Express 4 made it {}) when nothing was parsed, so every
+// handler that destructures it must be reached with a defined body.
+
+describe('requests with no body', () => {
+  it.each([
+    ['POST', '/api/readings', 400],
+    ['POST', '/api/readings/special', 400],
+    ['POST', '/api/readings/weekday', 400],
+    ['POST', '/api/readings/hosafot', 400],
+    ['PUT',  '/api/readings/weekday/1', 400],
+    ['PUT',  '/api/readings/hosafot/1', 400],
+    ['POST', '/api/auth/login', 401],
+    ['POST', '/api/auth/change-password', 401],
+  ])('%s %s answers %i, not a 500', async (method, url, status) => {
+    const res = await agent[method.toLowerCase()](url);
+    expect(res.status).toBe(status);
+  });
+});
+
 // ── GET /api/aliyot ───────────────────────────────────────────────────────────
 
 describe('GET /api/aliyot', () => {

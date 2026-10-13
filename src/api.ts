@@ -1,6 +1,8 @@
 import type { RawRow, MappedRow, RawOccasionAliyahRow, MappedOccasionAliyah, RawSpecialReadingRow, SpecialReadingRecord, RawWeekdayAliyahRow, MappedWeekdayAliyah, RawHosafahRow, MappedHosafah } from './types/index.js';
 
-export const getTodayStr = (): string => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+import { localDateStr } from './utils/dates.js';
+
+export const getTodayStr = (): string => localDateStr();
 // Static snapshot used by components; mapRow calls getTodayStr() for fresh evaluation.
 export const TODAY_STR = getTodayStr();
 

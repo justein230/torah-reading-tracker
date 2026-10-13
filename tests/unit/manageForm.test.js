@@ -108,7 +108,7 @@ vi.mock('../../src/api.js', () => ({
 
 import { postReading, putReading, deleteReading, postSpecialReading, deleteSpecialReading } from '../../src/api.js';
 
-const FORM = { parsha: 'Bereishit', aliyah: ['1'], date: new Date('2024-03-15'), occasion: 'Shabbat', location: 'Shul' };
+const FORM = { parsha: 'Bereishit', aliyah: ['1'], date: new Date('2024-03-15T00:00:00'), occasion: 'Shabbat', location: 'Shul' };
 
 describe('saveReading — new reading', () => {
   beforeEach(() => { vi.clearAllMocks(); });
@@ -217,7 +217,7 @@ describe('saveReading — date conversion', () => {
 
 const PAIR = { id: 7, name: 'וַיַּקְהֵל-פְקוּדֵי', name_en: 'Vayakhel-Pekudei', parsha1_id: 22, parsha2_id: 23 };
 const PAIRS = [PAIR];
-const DOUBLE_FORM = { pairId: 7, aliyah: ['1', '2'], date: new Date('2024-03-15'), occasion: 'Shabbat', location: 'Shul' };
+const DOUBLE_FORM = { pairId: 7, aliyah: ['1', '2'], date: new Date('2024-03-15T00:00:00'), occasion: 'Shabbat', location: 'Shul' };
 
 // allRows representing individual aliyot belonging to this double-parsha pair
 const ALL_ROWS = [
@@ -283,7 +283,7 @@ describe('saveDoubleParsha — recreate', () => {
 const HOLIDAY_FORM = {
   readingType: 'holiday',
   occasionAliyahIds: [3, 7],
-  date: new Date('2025-04-09'),
+  date: new Date('2025-04-09T00:00:00'),
   occasion: 'Pesach',
   location: 'Shul',
 };
@@ -334,7 +334,7 @@ describe('submitReading — standard path: calls refresh', () => {
   });
 
   it('calls refresh after a standard reading', async () => {
-    const form = { parsha: 'Bereishit', aliyah: ['1'], date: new Date('2024-03-15'), occasion: '', location: '' };
+    const form = { parsha: 'Bereishit', aliyah: ['1'], date: new Date('2024-03-15T00:00:00'), occasion: '', location: '' };
     await submitReading(form, null, false, [], [], refresh, refreshSpecial);
     expect(refresh).toHaveBeenCalledOnce();
     expect(refreshSpecial).not.toHaveBeenCalled();

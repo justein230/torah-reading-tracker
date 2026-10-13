@@ -29,7 +29,7 @@ function filterCount(filters: Filters): number {
 }
 
 export default function App() {
-  const { activeTab, setActiveTab, whatIfOpen, setWhatIfOpen, filters, setFilters, setSortMode, ready,
+  const { activeTab, setActiveTab, whatIfOpen, setWhatIfOpen, filters, setFilters, setSortMode, ready, loadError,
           refresh, refreshSpecial, refreshWeekday, refreshHosafot, refreshCanWrite } = useApp();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -191,7 +191,9 @@ export default function App() {
         <div className={`app-main-inner${activeTab === 'calendar' ? ' wide' : ''}`}>
           <ErrorBoundary>
             {ready ? tabPanel() : (
-              <Text c="dimmed" ta="center" mt="xl">Loading…</Text>
+              <Text c={loadError ? 'red' : 'dimmed'} ta="center" mt="xl">
+                {loadError ? `Could not load data: ${loadError}` : 'Loading…'}
+              </Text>
             )}
           </ErrorBoundary>
         </div>

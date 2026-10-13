@@ -1,11 +1,11 @@
 import { CapacitorSQLite, SQLiteConnection, type SQLiteDBConnection } from '@capacitor-community/sqlite';
-import { and, eq, inArray } from 'drizzle-orm';
 import { createNativeDb } from './drizzle-native.js';
+import { createRepository } from './repository.js';
 import { NATIVE_DB_VERSION, NATIVE_UPGRADE_STATEMENTS } from './nativeMigrations.generated.js';
 import { NewerSchemaError, switchOverVersion } from '../utils/schemaVersion.js';
-import { sefarim, parshiot, parshaPairs, aliyot, readings, occasionAliyot as occasionAliyotTable, specialReadings as specialReadingsTable, weekdayAliyot as weekdayAliyotTable, weekdayReadings as weekdayReadingsTable, hosafotReadings as hosafotReadingsTable, occasions as occasionsTable, torahChapters } from './schema.js';
-import { ALIYOT_SQL, READINGS_SQL, LOCATION_STATS_SQL, OCCASIONS_SQL, OCCASION_ALIYOT_SQL, SPECIAL_READINGS_SQL, WEEKDAY_ALIYOT_SQL, HOSAFOT_READINGS_SQL, APP_META_GET_SQL, APP_META_UPSERT_SQL } from './queries.js';
-import type { HebcalData, MetaResult, RawRow, ReadingRecord, LocationStat, PostReadingBody, PutReadingBody, OccasionRecord, RawOccasionAliyahRow, RawSpecialReadingRow, PostSpecialReadingBody, RawWeekdayAliyahRow, PostWeekdayReadingBody, RawHosafahRow, PostHosafahBody, AuthStatus } from '../types/index.js';
+import { parshiot, occasions as occasionsTable } from './schema.js';
+import { APP_META_GET_SQL, APP_META_UPSERT_SQL } from './queries.js';
+import type { HebcalData, AuthStatus } from '../types/index.js';
 import { scheduleFromEntries, datesByParshaFromEntries, fetchLiveHebcalItemsForDate, entriesFromHebcalItems } from '../utils/sedra.js';
 import { holidayDatesFromEntries } from '../utils/occasionDates.js';
 import { SEDRA_CACHE, SEDRA_YEARS } from '../data/sedraCache.js';
@@ -13,6 +13,7 @@ import { HOLIDAY_CACHE } from '../data/holidayCache.js';
 import { logEvent } from '../utils/logger-client/index.js';
 import { APP_VERSION_KEY, UNKNOWN_APP_VERSION, formatBackupName } from '../utils/dbBackupName.js';
 import { errText } from '../utils/errText.js';
+import { localDateStr } from '../utils/dates.js';
 import { saveBackup } from './nativeBackups.js';
 
 const sqlite = new SQLiteConnection(CapacitorSQLite);
@@ -230,110 +231,13 @@ export async function importDatabase(file: File): Promise<ImportResult> {
   return { ok: true };
 }
 
-export async function fetchMeta(): Promise<MetaResult> {
-  const [seferRows, parshaRows, pairRows, chapterRows] = await Promise.all([
-    db.select({ name: sefarim.name, name_en: sefarim.nameEn, color: sefarim.color, id: sefarim.id }).from(sefarim).orderBy(sefarim.sortOrder).all(),
-    db.select({ id: parshiot.id, name: parshiot.name, name_en: parshiot.nameEn }).from(parshiot).orderBy(parshiot.sortOrder).all(),
-    db.select({ id: parshaPairs.id, name: parshaPairs.name, name_en: parshaPairs.nameEn, parsha1_id: parshaPairs.parsha1Id, parsha2_id: parshaPairs.parsha2Id }).from(parshaPairs).all(),
-    db.select({ seferId: torahChapters.seferId, verseCount: torahChapters.verseCount }).from(torahChapters).orderBy(torahChapters.seferId, torahChapters.chapter).all(),
-  ]);
-  const cvMap: Record<number, number[]> = {};
-  for (const r of chapterRows) {
-    const arr = cvMap[r.seferId] ?? [];
-    cvMap[r.seferId] = arr;
-    arr.push(r.verseCount);
-  }
-  return {
-    sefarim: seferRows.map(s => ({ name: s.name, name_en: s.name_en, color: s.color, chapter_verses: cvMap[s.id] ?? [] })),
-    parshiot: parshaRows,
-    pairs: pairRows,
-  };
-}
-
-export async function fetchAliyot(): Promise<RawRow[]> {
+// Every read and write below comes from the repository the server shares (src/db/repository.ts).
+const repo = createRepository(db, async (query, params = []) => {
   const conn = await getConn();
-  const res = await conn.query(ALIYOT_SQL, []);
-  return (res.values ?? []) as RawRow[];
-}
+  return (await conn.query(query, params)).values ?? [];
+});
 
-export async function fetchReadings(): Promise<ReadingRecord[]> {
-  const conn = await getConn();
-  const res = await conn.query(READINGS_SQL, []);
-  return (res.values ?? []) as ReadingRecord[];
-}
-
-export async function fetchLocationStats(): Promise<LocationStat[]> {
-  const conn = await getConn();
-  const res = await conn.query(LOCATION_STATS_SQL, []);
-  return (res.values ?? []) as LocationStat[];
-}
-
-async function postReadingFn({ parsha, aliyah, date_read, occasion = '', location = '', pair_id, reading_type: requested_type }: PostReadingBody): Promise<{ id: number; reading_type: string }> {
-  if (!parsha || !aliyah || !date_read) throw Object.assign(new Error('parsha, aliyah, and date_read are required'), { detail: 'parsha, aliyah, and date_read are required' });
-
-  const parshaRow = await db
-    .select({ id: parshiot.id })
-    .from(parshiot)
-    .where(eq(parshiot.name, parsha))
-    .get();
-  if (!parshaRow) throw Object.assign(new Error('Aliyah not found'), { detail: 'Aliyah not found' });
-
-  const aliyahRow = await db
-    .select({ id: aliyot.id })
-    .from(aliyot)
-    .where(and(eq(aliyot.parshaId, parshaRow.id), eq(aliyot.aliyah, aliyah)))
-    .get();
-  if (!aliyahRow) throw Object.assign(new Error('Aliyah not found'), { detail: 'Aliyah not found' });
-
-  const existing = await db
-    .select({ id: readings.id })
-    .from(readings)
-    .where(and(eq(readings.aliyahId, aliyahRow.id), inArray(readings.readingType, ['standard', 'double_parsha'])))
-    .get();
-  let reading_type: string;
-  if (existing) {
-    reading_type = 'additional';
-  } else {
-    reading_type = requested_type === 'double_parsha' ? 'double_parsha' : 'standard';
-  }
-
-  const [inserted] = await db.insert(readings).values({
-    aliyahId: aliyahRow.id,
-    dateRead: date_read,
-    occasion: occasion || null,
-    location: location || null,
-    readingType: reading_type,
-    pairId: pair_id ?? null,
-  }).returning({ id: readings.id });
-  if (!inserted) throw new Error('Insert failed unexpectedly');
-
-  return { id: inserted.id, reading_type };
-}
-
-async function putReadingFn(id: number, { occasion = '', location = '' }: PutReadingBody): Promise<{ id: number }> {
-  const exists = await db
-    .select({ id: readings.id })
-    .from(readings)
-    .where(eq(readings.id, id))
-    .get();
-  if (!exists) throw Object.assign(new Error('Reading not found'), { detail: 'Reading not found' });
-
-  await db.update(readings)
-    .set({ occasion: occasion || null, location: location || null })
-    .where(eq(readings.id, id));
-  return { id };
-}
-
-async function deleteReadingFn(id: number): Promise<void> {
-  const exists = await db
-    .select({ id: readings.id })
-    .from(readings)
-    .where(eq(readings.id, id))
-    .get();
-  if (!exists) throw Object.assign(new Error('Reading not found'), { detail: 'Reading not found' });
-
-  await db.delete(readings).where(eq(readings.id, id));
-}
+export const { fetchMeta, fetchAliyot, fetchReadings, fetchLocationStats, fetchOccasions, fetchOccasionAliyot, fetchSpecialReadings, fetchWeekdayAliyot, fetchHosafotReadings } = repo;
 
 // The upcoming-parsha dates come from the baked cache (src/data/sedraCache.ts, generated
 // from the Hebcal.com REST API — CC BY 4.0). Native builds are cache-only and offline by
@@ -342,9 +246,8 @@ export async function fetchHebcal(): Promise<HebcalData> {
   const parshaRows = await db.select({ name_en: parshiot.nameEn }).from(parshiot).all();
   const known = new Set(parshaRows.map(r => r.name_en));
   const occasionRows = await db.select({ nameEn: occasionsTable.nameEn }).from(occasionsTable).all();
-  const today = new Date().toISOString().slice(0, 10);
   return {
-    schedule:      scheduleFromEntries(SEDRA_CACHE, known, today),
+    schedule:      scheduleFromEntries(SEDRA_CACHE, known, localDateStr()),
     datesByParsha: datesByParshaFromEntries(SEDRA_CACHE, known),
     cacheYears:    [SEDRA_YEARS[0], SEDRA_YEARS[1]],
     holidayDates:  holidayDatesFromEntries(HOLIDAY_CACHE, occasionRows.map(r => r.nameEn)),
@@ -364,153 +267,9 @@ export async function fetchHebcalOnDate(date: string): Promise<{ parshiot: strin
   }
 }
 
-export async function fetchOccasions(): Promise<OccasionRecord[]> {
-  const conn = await getConn();
-  const res  = await conn.query(OCCASIONS_SQL, []);
-  return ((res.values ?? []) as Array<{ id: number; name: string; name_en: string; category: string; sort_order: number }>)
-    .map(r => ({ id: r.id, name: r.name, nameEn: r.name_en, category: r.category, sortOrder: r.sort_order }));
-}
-
-export async function fetchOccasionAliyot(): Promise<RawOccasionAliyahRow[]> {
-  const conn = await getConn();
-  const res  = await conn.query(OCCASION_ALIYOT_SQL, []);
-  return (res.values ?? []) as RawOccasionAliyahRow[];
-}
-
-export async function fetchSpecialReadings(): Promise<RawSpecialReadingRow[]> {
-  const conn = await getConn();
-  const res  = await conn.query(SPECIAL_READINGS_SQL, []);
-  return (res.values ?? []) as RawSpecialReadingRow[];
-}
-
-async function postSpecialReadingFn({ occasion_aliyah_id, date_read, note = '', location = '' }: PostSpecialReadingBody): Promise<{ id: number }> {
-  const oaRow = await db
-    .select({ id: occasionAliyotTable.id })
-    .from(occasionAliyotTable)
-    .where(eq(occasionAliyotTable.id, occasion_aliyah_id))
-    .get();
-  if (!oaRow) throw Object.assign(new Error('Occasion aliyah not found'), { detail: 'Occasion aliyah not found' });
-
-  const [inserted] = await db.insert(specialReadingsTable).values({
-    occasionAliyahId: occasion_aliyah_id,
-    dateRead: date_read,
-    note:     note     || null,
-    location: location || null,
-  }).returning({ id: specialReadingsTable.id });
-  if (!inserted) throw new Error('Insert failed');
-  return { id: inserted.id };
-}
-
-async function deleteSpecialReadingFn(id: number): Promise<void> {
-  const exists = await db
-    .select({ id: specialReadingsTable.id })
-    .from(specialReadingsTable)
-    .where(eq(specialReadingsTable.id, id))
-    .get();
-  if (!exists) throw Object.assign(new Error('Special reading not found'), { detail: 'Special reading not found' });
-  await db.delete(specialReadingsTable).where(eq(specialReadingsTable.id, id));
-}
-
-export async function fetchWeekdayAliyot(): Promise<RawWeekdayAliyahRow[]> {
-  const conn = await getConn();
-  const res  = await conn.query(WEEKDAY_ALIYOT_SQL, []);
-  return (res.values ?? []) as RawWeekdayAliyahRow[];
-}
-
-async function postWeekdayReadingFn({ weekday_aliyah_id, date_read, note = '', location = '' }: PostWeekdayReadingBody): Promise<{ id: number }> {
-  const waRow = await db
-    .select({ id: weekdayAliyotTable.id })
-    .from(weekdayAliyotTable)
-    .where(eq(weekdayAliyotTable.id, weekday_aliyah_id))
-    .get();
-  if (!waRow) throw Object.assign(new Error('Weekday aliyah not found'), { detail: 'Weekday aliyah not found' });
-
-  const [inserted] = await db.insert(weekdayReadingsTable).values({
-    weekdayAliyahId: weekday_aliyah_id,
-    dateRead:        date_read,
-    note:            note     || null,
-    location:        location || null,
-  }).returning({ id: weekdayReadingsTable.id });
-  if (!inserted) throw new Error('Insert failed');
-  return { id: inserted.id };
-}
-
-async function putWeekdayReadingFn(id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> {
-  const exists = await db.select({ id: weekdayReadingsTable.id }).from(weekdayReadingsTable).where(eq(weekdayReadingsTable.id, id)).get();
-  if (!exists) throw Object.assign(new Error('Weekday reading not found'), { detail: 'Weekday reading not found' });
-  await db.update(weekdayReadingsTable).set({ dateRead: body.date_read, note: body.note ?? null, location: body.location ?? null }).where(eq(weekdayReadingsTable.id, id));
-}
-
-async function deleteWeekdayReadingFn(id: number): Promise<void> {
-  const exists = await db
-    .select({ id: weekdayReadingsTable.id })
-    .from(weekdayReadingsTable)
-    .where(eq(weekdayReadingsTable.id, id))
-    .get();
-  if (!exists) throw Object.assign(new Error('Weekday reading not found'), { detail: 'Weekday reading not found' });
-  await db.delete(weekdayReadingsTable).where(eq(weekdayReadingsTable.id, id));
-}
-
-export async function fetchHosafotReadings(): Promise<RawHosafahRow[]> {
-  const conn = await getConn();
-  const res  = await conn.query(HOSAFOT_READINGS_SQL, []);
-  return (res.values ?? []) as RawHosafahRow[];
-}
-
-async function postHosafahFn(body: PostHosafahBody): Promise<{ id: number }> {
-  const {
-    sefer, parsha_id_1 = null, parsha_id_2 = null, occasion_id = null,
-    is_double_parsha = 0, chapter_start, verse_start, chapter_end, verse_end,
-    pseukim, date_read, note = '', location = '',
-  } = body;
-
-  const values: typeof hosafotReadingsTable.$inferInsert = {
-    sefer,
-    parshaId1:      parsha_id_1,
-    parshaId2:      parsha_id_2,
-    occasionId:     occasion_id,
-    isDoubleParsha: is_double_parsha ? 1 : 0,
-    chapterStart:   chapter_start,
-    verseStart:     verse_start,
-    chapterEnd:     chapter_end,
-    verseEnd:       verse_end,
-    pseukim,
-    dateRead:       date_read,
-    note:           note     || null,
-    location:       location || null,
-  };
-  const [inserted] = await db.insert(hosafotReadingsTable).values(values).returning({ id: hosafotReadingsTable.id });
-  if (!inserted) throw new Error('Insert failed');
-  return { id: inserted.id };
-}
-
-async function putHosafahFn(id: number, body: { date_read: string; note?: string; location?: string }): Promise<void> {
-  const exists = await db
-    .select({ id: hosafotReadingsTable.id })
-    .from(hosafotReadingsTable)
-    .where(eq(hosafotReadingsTable.id, id))
-    .get();
-  if (!exists) throw Object.assign(new Error('Hosafah reading not found'), { detail: 'Hosafah reading not found' });
-  await db.update(hosafotReadingsTable)
-    .set({ dateRead: body.date_read, note: body.note ?? null, location: body.location ?? null })
-    .where(eq(hosafotReadingsTable.id, id));
-}
-
-async function deleteHosafahFn(id: number): Promise<void> {
-  const exists = await db
-    .select({ id: hosafotReadingsTable.id })
-    .from(hosafotReadingsTable)
-    .where(eq(hosafotReadingsTable.id, id))
-    .get();
-  if (!exists) throw Object.assign(new Error('Hosafah reading not found'), { detail: 'Hosafah reading not found' });
-  await db.delete(hosafotReadingsTable).where(eq(hosafotReadingsTable.id, id));
-}
-
 // ── logging ───────────────────────────────────────────────────────────────────
-// Wraps each CUD function above with attempt/outcome logging, mirroring what
-// src/db/web.ts's mutateJson/mutateVoid/del do for the web/Electron path — there's no
-// single shared helper here since each function talks to Drizzle directly rather than
-// going through a common fetch wrapper.
+// Wraps each repository write with attempt/outcome logging, mirroring what src/db/web.ts's
+// mutateJson/del do for the web/Electron path (there the server's request log covers the rest).
 function logged<A extends unknown[], R>(label: string, fn: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
   return async (...args: A): Promise<R> => {
     logEvent('debug', 'mutation', `${label} start`);
@@ -525,14 +284,14 @@ function logged<A extends unknown[], R>(label: string, fn: (...args: A) => Promi
   };
 }
 
-export const postReading           = logged('postReading', postReadingFn);
-export const putReading            = logged('putReading', putReadingFn);
-export const deleteReading         = logged('deleteReading', deleteReadingFn);
-export const postSpecialReading    = logged('postSpecialReading', postSpecialReadingFn);
-export const deleteSpecialReading  = logged('deleteSpecialReading', deleteSpecialReadingFn);
-export const postWeekdayReading    = logged('postWeekdayReading', postWeekdayReadingFn);
-export const putWeekdayReading     = logged('putWeekdayReading', putWeekdayReadingFn);
-export const deleteWeekdayReading  = logged('deleteWeekdayReading', deleteWeekdayReadingFn);
-export const postHosafah           = logged('postHosafah', postHosafahFn);
-export const putHosafah            = logged('putHosafah', putHosafahFn);
-export const deleteHosafah         = logged('deleteHosafah', deleteHosafahFn);
+export const postReading           = logged('postReading', repo.postReading);
+export const putReading            = logged('putReading', repo.putReading);
+export const deleteReading         = logged('deleteReading', repo.deleteReading);
+export const postSpecialReading    = logged('postSpecialReading', repo.postSpecialReading);
+export const deleteSpecialReading  = logged('deleteSpecialReading', repo.deleteSpecialReading);
+export const postWeekdayReading    = logged('postWeekdayReading', repo.postWeekdayReading);
+export const putWeekdayReading     = logged('putWeekdayReading', repo.putWeekdayReading);
+export const deleteWeekdayReading  = logged('deleteWeekdayReading', repo.deleteWeekdayReading);
+export const postHosafah           = logged('postHosafah', repo.postHosafah);
+export const putHosafah            = logged('putHosafah', repo.putHosafah);
+export const deleteHosafah         = logged('deleteHosafah', repo.deleteHosafah);
