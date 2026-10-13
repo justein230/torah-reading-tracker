@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 import { STEPS } from '../../helpers/migrations.js';
@@ -74,6 +74,20 @@ describe('AboutModal', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Close license' }));
 
       expect(screen.queryByText('MIT text')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Third-party licenses' })).toBeInTheDocument();
+    });
+
+    it('closes only the viewer when Escape is pressed, leaving the About modal open', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('MIT text') }));
+      const onClose = vi.fn();
+      renderWithProviders(<AboutModal opened onClose={onClose} />);
+      await userEvent.click(screen.getByRole('button', { name: 'MIT license (this app)' }));
+      await screen.findByText('MIT text');
+
+      await userEvent.keyboard('{Escape}');
+
+      await waitFor(() => expect(screen.queryByText('MIT text')).not.toBeInTheDocument());
+      expect(onClose).not.toHaveBeenCalled();
       expect(screen.getByRole('button', { name: 'Third-party licenses' })).toBeInTheDocument();
     });
   });

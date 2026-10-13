@@ -58,6 +58,23 @@ Some packages declare a license in `package.json` but ship no license file. The 
 Overrides are keyed by package name, not version. A package's own `LICENSE` file always wins over an
 override, so an override is harmless once a later version starts shipping one.
 
+## Packages with more than one license
+
+Some packages are dual- or multi-licensed, e.g. `rc` `(BSD-2-Clause OR MIT OR Apache-2.0)` or
+`pako` `(MIT AND Zlib)`. The generators (`scripts/license-expression.mjs`) include the text of **every**
+declared license, so there is no need to record which one was chosen:
+
+- **npm:** every `LICENSE*` / `COPYING*` file in the package is printed. The build fails, naming the package and
+  the license, when an `AND` expression has a license without text, or an `OR` expression has none at all.
+  Supply a missing text as `licenses/overrides/<name>/<SPDX id>.txt` (e.g. `licenses/overrides/pako/Zlib.txt`;
+  scoped names use `__` as above).
+- **Android:** all licenses AboutLibraries lists for a library are printed under a heading that joins their names
+  (`Apache License 2.0 + MIT License`). Maven does not say AND or OR, so each one must have text, or the generator
+  fails. Add it as `licenses/native/overrides/<license id>.txt`; a text named after the library applies only to
+  single-license libraries.
+- **iOS:** the acknowledgements carry no license ids, so a pod whose text contains several licenses is recognised
+  by its wording and the heading names them all. Nothing can be checked here.
+
 ## The native-libraries test fails
 
 `tests/unit/nativeDependencies.test.ts` fails with `covers <dependency>` when a native dependency declared by a

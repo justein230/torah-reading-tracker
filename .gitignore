@@ -66,3 +66,5 @@ code_cleanup.md
 # Wine prefix created inside the mounted project by the electronuserland/builder:wine
 # container when cross-building the Windows target from Linux.
 .wine/
+# Link to the sibling infra checkout (a symlink, so no trailing slash).
+/torah-infra

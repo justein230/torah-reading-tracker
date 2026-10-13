@@ -8,7 +8,7 @@ aboutLibraries {
     // Explicit property access: in Groovy, `collect { }` would call Groovy's own Object.collect(Closure).
     collect.fetchRemoteLicense = false
     export {
-        outputFile = file("$buildDir/aboutlibraries.json")
+        outputFile = layout.buildDirectory.file("aboutlibraries.json")
         prettyPrint = true
     }
 }

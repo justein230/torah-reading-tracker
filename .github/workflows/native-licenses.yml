@@ -12,6 +12,8 @@ on:
       - android/**
       - ios/**
       - scripts/native-licenses.ts
+      - scripts/license-expression.mjs
+      - licenses/native/**
       - .github/workflows/native-licenses.yml
 
 jobs:

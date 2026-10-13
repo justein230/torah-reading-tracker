@@ -1,9 +1,10 @@
 // Runs after `vite build`: adds LICENSE.txt and the licenses of all production npm dependencies to dist/.
 // Fails the build if any dependency is left without license text.
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
 import { nativeLicensesMarkdown } from './native-licenses-bundle.mjs';
+import { checkCoverage, licenseFileHint, parseLicenseExpression } from './license-expression.mjs';
 
 const OVERRIDES_DIR = 'licenses/overrides';
 
@@ -45,6 +46,25 @@ function licenseText(nameAtVersion, info) {
   return file ? readmeLicenseSection(readFileSync(file, 'utf-8')) : null;
 }
 
+// Every license text of a package declared under several licenses (e.g. "(MIT AND Zlib)"): all its license files,
+// plus licenses/overrides/<name>/<SPDX id>.txt for any declared license the package does not ship.
+// Returns null for single-license packages, which keep using licenseText.
+function multiLicenseTexts(nameAtVersion, info) {
+  const parsed = parseLicenseExpression(info.licenses);
+  if (parsed.ids.length < 2 || !info.path) return null;
+  const name = nameAtVersion.slice(0, nameAtVersion.lastIndexOf('@'));
+  const texts = readdirSync(info.path)
+    .filter(file => /^(licen[sc]e|copying)/i.test(file) && statSync(`${info.path}/${file}`).isFile())
+    .sort((a, b) => a.localeCompare(b, 'en'))
+    .map(file => ({ id: licenseFileHint(file), label: file, text: readFileSync(`${info.path}/${file}`, 'utf-8').trim() }));
+  for (const id of checkCoverage(parsed, texts).missing) {
+    const file = `${OVERRIDES_DIR}/${name.replace('/', '__')}/${id}.txt`;
+    if (existsSync(file)) texts.push({ id, label: id, text: readFileSync(file, 'utf-8').trim() });
+  }
+  const { missing, ok } = checkCoverage(parsed, texts);
+  return { texts, missing, ok };
+}
+
 copyFileSync('LICENSE', 'dist/LICENSE.txt');
 // tests/unit/nativeDependencies.test.ts checks it covers every native dependency.
 writeFileSync('dist/THIRD_PARTY_LICENSES_NATIVE.md', nativeLicensesMarkdown());
@@ -57,12 +77,18 @@ const json = execFileSync(process.execPath, [
 
 const missing = [];
 const sections = Object.entries(JSON.parse(json)).map(([nameAtVersion, info]) => {
+  const notice = noticeText(info);
+  const noticeSection = notice ? '\n\nNOTICE:\n\n```text\n' + notice + '\n```' : '';
+  const multi = multiLicenseTexts(nameAtVersion, info);
+  if (multi?.texts.length) {
+    if (!multi.ok) missing.push(`${nameAtVersion} (${multi.missing.join(', ')})`);
+    return `## ${nameAtVersion}\n\nLicense: ${info.licenses} (all license texts included)\n\n` +
+      multi.texts.map(({ label, text }) => `${label}:\n\n` + '```text\n' + text + '\n```').join('\n\n') + noticeSection;
+  }
   const text = licenseText(nameAtVersion, info);
   if (!text) missing.push(nameAtVersion);
-  const notice = noticeText(info);
   return `## ${nameAtVersion}\n\nLicense: ${info.licenses}\n\n` +
-    (text ? '```text\n' + text + '\n```' : '_No license file shipped with this package._') +
-    (notice ? '\n\nNOTICE:\n\n```text\n' + notice + '\n```' : '');
+    (text ? '```text\n' + text + '\n```' : '_No license file shipped with this package._') + noticeSection;
 });
 
 writeFileSync('dist/THIRD_PARTY_LICENSES.md',
@@ -70,6 +96,7 @@ writeFileSync('dist/THIRD_PARTY_LICENSES.md',
 
 if (missing.length > 0) {
   console.error(`No license text found for: ${missing.join(', ')}\n` +
-    'Add licenses/overrides/<name>.txt for each (see docs/LICENSES.md).');
+    'Add licenses/overrides/<name>.txt for each, or licenses/overrides/<name>/<license id>.txt for a missing license ' +
+    'of a multi-licensed package (see docs/LICENSES.md).');
   process.exit(1);
 }

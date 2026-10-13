@@ -16,11 +16,13 @@ interface AboutModalProps {
 }
 
 export default function AboutModal({ opened, onClose }: Readonly<AboutModalProps>) {
+  // `viewing` stays set after the viewer closes, so its title and file don't change during the fade-out.
   const [viewing, setViewing] = useState<(typeof LICENSE_LINKS)[number] | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   return (
     <>
-      <Modal opened={opened} onClose={onClose} closeOnEscape={!viewing} title="About Torah Reading Tracker" size="sm" centered closeButtonProps={{ 'aria-label': 'Close' }}>
+      <Modal opened={opened} onClose={onClose} closeOnEscape={!viewerOpen} title="About Torah Reading Tracker" size="sm" centered closeButtonProps={{ 'aria-label': 'Close' }}>
         <Stack gap="xs">
           <Text size="sm"><Text span c="dimmed" display="inline-block" w={100}>App version</Text>v{__APP_VERSION__}</Text>
           <Text size="sm"><Text span c="dimmed" display="inline-block" w={100}>DB schema</Text>v{__SCHEMA_VERSION__}</Text>
@@ -28,13 +30,13 @@ export default function AboutModal({ opened, onClose }: Readonly<AboutModalProps
           <Text size="sm"><HebcalCredit /></Text>
           <Text size="sm" c="dimmed" mt="sm">Licenses</Text>
           {LICENSE_LINKS.map(link => (
-            <Anchor key={link.href} component="button" type="button" ta="left" size="sm" onClick={() => setViewing(link)}>
+            <Anchor key={link.href} component="button" type="button" ta="left" size="sm" onClick={() => { setViewing(link); setViewerOpen(true); }}>
               {link.label}
             </Anchor>
           ))}
         </Stack>
       </Modal>
-      <LicenseViewerModal title={viewing?.label ?? ''} href={viewing?.href ?? null} onClose={() => setViewing(null)} />
+      {viewing && <LicenseViewerModal title={viewing.label} href={viewing.href} opened={viewerOpen} onClose={() => setViewerOpen(false)} />}
     </>
   );
 }
