@@ -68,7 +68,7 @@ export function Hero({ stats }: HeroProps) {
   const ringSize   = getRingSize(isSmall, isMedium);
   const scopeTitle = formatScopeTitle(filters.sefarim, SEFER_MAP);
   const yearLabel  = formatYearLabel(filters.years);
-  const est        = estimateCompletionFromStats(allRows, filters, forecastConfig, stats, SEFER_MAP, { occasionAliyot, weekdayAliyot, hosafotReadings });
+  const est        = estimateCompletionFromStats(allRows, forecastConfig, stats, SEFER_MAP, { occasionAliyot, weekdayAliyot, hosafotReadings });
   const paceSuffix = getPaceSuffix(forecastConfig.paceOverride, forecastConfig.lookbackYears);
   const loc        = (n: number) => n.toLocaleString();
   const pSubs      = ringSubLabels(readPseukim, committedPseukim, totalPseukim, loc);

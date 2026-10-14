@@ -99,71 +99,35 @@ describe('useAliyahTooltip — showTip', () => {
   });
 });
 
-describe('useAliyahTooltip — showOccasionTip', () => {
-  it('builds tip rows for a read occasion aliyah', () => {
+// What each tooltip says is tested on the pure builders (tests/unit/utils/tooltipRows.test.ts);
+// here we only check that every show* stores its builder's output.
+describe('useAliyahTooltip — show* store the tip', () => {
+  it('showOccasionTip / showWeekdayTip / showDoublePairTip each set the tip', () => {
     const { result } = renderHook(() => useAliyahTooltip());
     act(() => result.current.showOccasionTip(mouseEvent(), baseOccasion, 'Purim'));
     expect(result.current.tip?._tlit).toBe('Purim');
-    expect(result.current.tip?._tipRows.find(r => r.k === 'Read')).toBeTruthy();
+    act(() => result.current.showWeekdayTip(mouseEvent(), baseWeekday));
+    expect(result.current.tip?._aliyah).toBe('Weekday 1');
+    act(() => result.current.showDoublePairTip(mouseEvent(), 'ניצבים-וילך', 'Nitzavim-Vayeilech', 7, [baseRow], '#4a7c59', 40));
+    expect(result.current.tip?._tlit).toBe('Nitzavim-Vayeilech');
   });
 
-  it('shows "—" for % of Torah when totalPseukim is zero', () => {
+  it('uses the stats total for % of Torah, showing — when it is zero', () => {
     mockUseApp.mockReturnValue(makeCtx({ stats: { totalPseukim: 0 } as never }));
     const { result } = renderHook(() => useAliyahTooltip());
     act(() => result.current.showOccasionTip(mouseEvent(), baseOccasion, 'Purim'));
     expect(result.current.tip?._tipRows.find(r => r.k === '% of Torah')?.v).toBe('—');
   });
-
-  it('shows a Re-read row for future dates when hasFuture is set', () => {
-    const { result } = renderHook(() => useAliyahTooltip());
-    const future = { ...baseOccasion, hasFuture: true, allDates: ['2099-01-01'] };
-    act(() => result.current.showOccasionTip(mouseEvent(), future, 'Purim'));
-    expect(result.current.tip?._tipRows.find(r => r.k === 'Re-read on')).toBeTruthy();
-  });
-});
-
-describe('useAliyahTooltip — showWeekdayTip', () => {
-  it('builds tip rows for a read weekday aliyah', () => {
-    const { result } = renderHook(() => useAliyahTooltip());
-    act(() => result.current.showWeekdayTip(mouseEvent(), baseWeekday));
-    expect(result.current.tip?._aliyah).toBe('Weekday 1');
-    expect(result.current.tip?._tipRows.find(r => r.k === 'Read')).toBeTruthy();
-  });
-
-  it('shows the coveredBy label when unread but covered by another reading', () => {
-    const { result } = renderHook(() => useAliyahTooltip());
-    const unread = { ...baseWeekday, isReadPast: false, dateRead: '' };
-    act(() => result.current.showWeekdayTip(mouseEvent(), unread, { date: '2024-02-01', label: 'Covered by Shabbat' }));
-    expect(result.current.tip?._tipRows.find(r => r.k === 'Covered by Shabbat')).toBeTruthy();
-  });
-});
-
-describe('useAliyahTooltip — showDoublePairTip', () => {
-  it('builds a combined tip across the paired rows', () => {
-    const { result } = renderHook(() => useAliyahTooltip());
-    const rows = [baseRow, { ...baseRow, aliyah: 4, readAsDouble: true, isReadPast: true }];
-    act(() => result.current.showDoublePairTip(mouseEvent(), 'ניצבים-וילך', 'Nitzavim-Vayeilech', 7, rows, '#4a7c59', 40));
-    expect(result.current.tip?._tlit).toBe('Nitzavim-Vayeilech');
-    expect(result.current.tip?._tipRows.find(r => r.k === 'Regular Aliyot')).toBeTruthy();
-  });
-
-  it('shows a partial-read row when no row is fully read as a double', () => {
-    const { result } = renderHook(() => useAliyahTooltip());
-    const rows = [{ ...baseRow, readAsDouble: false, isReadPast: true, partialOrig: '' }];
-    act(() => result.current.showDoublePairTip(mouseEvent(), 'x', 'x', 1, rows, '#000', 10));
-    expect(result.current.tip?._tipRows.find(r => r.k === 'Partial read')).toBeTruthy();
-  });
 });
 
 describe('useAliyahTooltip — hideTip / moveTipPos', () => {
-  it('clears the tip and any raised/active cell classes', () => {
-    document.body.innerHTML = '<div class="acell-raised"></div><div class="dot-active"></div>';
+  it('clears the tip and the active cell', () => {
     const { result } = renderHook(() => useAliyahTooltip());
-    act(() => result.current.showTip(mouseEvent(), baseRow));
+    act(() => { result.current.showTip(mouseEvent(), baseRow); result.current.handlers.setActiveId('cell-1'); });
+    expect(result.current.handlers.activeId).toBe('cell-1');
     act(() => result.current.hideTip());
     expect(result.current.tip).toBeNull();
-    expect(document.querySelector('.acell-raised')).toBeNull();
-    expect(document.querySelector('.dot-active')).toBeNull();
+    expect(result.current.handlers.activeId).toBeNull();
   });
 
   it('flips the tooltip to the left/above the cursor near the viewport edge', () => {

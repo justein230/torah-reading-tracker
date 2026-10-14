@@ -207,7 +207,7 @@ export function remainingPseukim(allRows: MappedRow[], stats: Pick<Stats, 'speci
   return totalPseukim - committedPseukim;
 }
 
-export function estimateCompletion(allRows: MappedRow[], _filters: Filters, forecastConfig: ForecastConfig, specialTotalPseukim = 0, specialReadPseukim = 0, seferMap: Record<string, SeferMeta> = {}, specialReads: DatedReading[] = []): ForecastResult | null {
+export function estimateCompletion(allRows: MappedRow[], forecastConfig: ForecastConfig, specialTotalPseukim = 0, specialReadPseukim = 0, seferMap: Record<string, SeferMeta> = {}, specialReads: DatedReading[] = []): ForecastResult | null {
   const today            = new Date();
   const remaining        = remainingPseukim(allRows, { specialTotalPseukim, specialReadPseukim }, seferMap);
   const ratePerYear      = computeReadingRate([...datedStandardReads(allRows), ...specialReads], forecastConfig, today, seferMap);
@@ -219,14 +219,13 @@ export function estimateCompletion(allRows: MappedRow[], _filters: Filters, fore
 
 export function estimateCompletionFromStats(
   allRows: MappedRow[],
-  filters: Filters,
   forecastConfig: ForecastConfig,
   stats: Pick<Stats, 'specialReadPseukim' | 'specialFuturePseukim'>,
   seferMap: Record<string, SeferMeta> = {},
   specialReadings?: SpecialReadings,
 ): ForecastResult | null {
   const specialReads = specialReadings ? datedSpecialReads(specialReadings) : [];
-  return estimateCompletion(allRows, filters, forecastConfig, 0, stats.specialReadPseukim + stats.specialFuturePseukim, seferMap, specialReads);
+  return estimateCompletion(allRows, forecastConfig, 0, stats.specialReadPseukim + stats.specialFuturePseukim, seferMap, specialReads);
 }
 
 function addToYear(

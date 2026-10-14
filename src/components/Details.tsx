@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useId } from 'react';
 import { isSeferAllowed } from '../compute.js';
 import { buildParshaRow, sortParshas } from '../utils/details-utils.js';
 import './Details.css';
@@ -7,7 +7,7 @@ import { SeferDot } from './shared/SeferDot.js';
 import { SortButtons } from './shared/ToggleButtons.js';
 import { useApp } from '../context/AppContext.js';
 import { fmtDate, hex } from '../utils/format.js';
-import { useAliyahTooltip, AliyahTooltip, isTouch } from './AliyahTooltip.js';
+import { useAliyahTooltip, AliyahTooltip, isTouch, type CellHandlers } from './AliyahTooltip.js';
 import type { MappedRow } from '../types/index.js';
 
 interface AliyahDotProps {
@@ -16,12 +16,12 @@ interface AliyahDotProps {
   hasFut: boolean;
   row: MappedRow | undefined;
   showTip: (e: React.MouseEvent | React.TouchEvent, r: MappedRow) => void;
-  moveTipPos: (e: React.MouseEvent) => void;
-  positionFromRect: (rect: DOMRect) => void;
-  hideTip: () => void;
+  handlers: CellHandlers;
 }
 
-function AliyahDot({ color, isRead, hasFut, row, showTip, moveTipPos, positionFromRect, hideTip }: Readonly<AliyahDotProps>) {
+function AliyahDot({ color, isRead, hasFut, row, showTip, handlers }: Readonly<AliyahDotProps>) {
+  const { moveTipPos, positionFromRect, hideTip, activeId, setActiveId } = handlers;
+  const id = useId();
   let bg: string, border: string;
   if (isRead)               { bg = color;                                                          border = color; }
   else if (hasFut)          { bg = 'transparent';                                                  border = hex(color, 0.7); }
@@ -31,8 +31,7 @@ function AliyahDot({ color, isRead, hasFut, row, showTip, moveTipPos, positionFr
 
   function handleTouchClick(e: React.MouseEvent<HTMLButtonElement>) {
     if (!row) return;
-    document.querySelectorAll('.dot-active').forEach(el => el.classList.remove('dot-active'));
-    e.currentTarget.classList.add('dot-active');
+    setActiveId(id);
     showTip(e, row);
     positionFromRect(e.currentTarget.getBoundingClientRect());
   }
@@ -41,7 +40,7 @@ function AliyahDot({ color, isRead, hasFut, row, showTip, moveTipPos, positionFr
   return (
     <button
       type="button"
-      className="dot"
+      className={`dot${activeId === id ? ' dot-active' : ''}`}
       style={{ background: bg, borderColor: border, cursor: row ? 'pointer' : 'default', padding: 0 }}
       onMouseEnter={mouseInteractive ? e => showTip(e, row) : undefined}
       onMouseMove={mouseInteractive ? moveTipPos : undefined}
@@ -54,16 +53,7 @@ function AliyahDot({ color, isRead, hasFut, row, showTip, moveTipPos, positionFr
 export default function Details() {
   const { allRows, SEFER_ORDER, SEFER_MAP, TLIT, parshaIndex, filters, sortMode, setSortMode, schedule,
           occasionAliyot, weekdayAliyot, hosafotReadings } = useApp();
-  const { tip, tipPos, showTip, moveTipPos, positionFromRect, hideTip } = useAliyahTooltip();
-
-  useEffect(() => {
-    if (!isTouch) return;
-    function onDocClick(e: MouseEvent) {
-      if (!(e.target as Element).closest('.dot')) hideTip();
-    }
-    document.addEventListener('click', onDocClick);
-    return () => document.removeEventListener('click', onDocClick);
-  }, [hideTip]);
+  const { tip, tipPos, showTip, handlers } = useAliyahTooltip();
 
   const totalTorahPseukim = allRows.reduce((s, r) => s + r.pseukim, 0);
   const partials = { oa: occasionAliyot, wa: weekdayAliyot, hr: hosafotReadings, totalTorahPseukim };
@@ -115,8 +105,7 @@ export default function Details() {
                 const row    = allRows.find(r => r.parsha === p.parsha && r.aliyah === a);
                 return (
                   <AliyahDot key={a} color={color} isRead={isRead} hasFut={hasFut} row={row}
-                    showTip={showTip} moveTipPos={moveTipPos}
-                    positionFromRect={positionFromRect} hideTip={hideTip} />
+                    showTip={showTip} handlers={handlers} />
                 );
               });
 
@@ -124,8 +113,7 @@ export default function Details() {
               const maftirRow = allRows.find(r => r.parsha === p.parsha && Number(r.aliyah) === 8);
               const maftirDot = (
                 <AliyahDot key={8} color={color} isRead={p.readSet.has(8)} hasFut={p.hasFutureSet.has(8)} row={maftirRow}
-                  showTip={showTip} moveTipPos={moveTipPos}
-                  positionFromRect={positionFromRect} hideTip={hideTip} />
+                  showTip={showTip} handlers={handlers} />
               );
 
               return (

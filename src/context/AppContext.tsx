@@ -6,9 +6,10 @@ import { computeStats, enrichPartialOrig, enrichOccasionPartialOrig, enrichWeekd
 import { TABS } from '../constants.js';
 import { logEvent } from '../utils/logger-client/index.js';
 import { errText } from '../utils/errText.js';
-import { NO_HOLIDAY_DATES, type HolidayDates } from '../utils/occasionDates.js';
+import { NO_HOLIDAY_DATES } from '../utils/occasionDates.js';
+import { buildMetaLookups, EMPTY_LOOKUPS, type MetaLookups } from '../utils/metaLookups.js';
 import type { AppContextValue, HebcalData, MappedRow, MappedOccasionAliyah, MappedHosafah, OccasionRecord, SpecialReadingRecord,
-              Filters, ForecastConfig, ParshaPair, SeferMeta, AppSettings } from '../types/index.js';
+              Filters, ForecastConfig, AppSettings } from '../types/index.js';
 
 const SETTINGS_KEY = 'torah-tracker:settings';
 const DEFAULT_SETTINGS: AppSettings = { liveHebcalLookups: false, debugLogging: false };
@@ -26,24 +27,19 @@ function loadSettings(): AppSettings {
   }
 }
 
+// [0, 9999] cache years until the initial /api/hebcal load resolves (or if it fails), so no date is
+// misreported as "outside the cache" before we actually know its real coverage.
+const HEBCAL_PENDING: HebcalData = { schedule: {}, datesByParsha: {}, cacheYears: [0, 9999], holidayDates: NO_HOLIDAY_DATES };
+
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: Readonly<{ children: React.ReactNode }>) {
-  const [SEFER_ORDER, setSEFER_ORDER] = useState<string[]>([]);
-  const [SEFER_MAP,   setSEFER_MAP]   = useState<Record<string, SeferMeta>>({});
-  const [TLIT,        setTLIT]        = useState<Record<string, string>>({});
-  const [pairs,       setPairs]       = useState<ParshaPair[]>([]);
-  const [parshaById,  setParshaById]  = useState<Record<number, string>>({});
+  const [lookups,     setLookups]     = useState<MetaLookups>(EMPTY_LOOKUPS);
   const [rawRows,     setRawRows]     = useState<MappedRow[]>([]);
-  const [parshaIndex, setParshaIndex] = useState<Record<string, string[]>>({});
-  const [allYears,    setAllYears]    = useState<number[]>([]);
-  const [schedule,    setSchedule]    = useState<Record<string, string>>({});
-  const [datesByParsha, setDatesByParsha] = useState<Record<string, string[]>>({});
-  // [0, 9999] until the initial /api/hebcal load resolves, so no date is misreported
-  // as "outside the cache" before we actually know its real coverage.
-  const [cacheYears,  setCacheYears]  = useState<[number, number]>([0, 9999]);
-  const [holidayDates, setHolidayDates] = useState<HolidayDates>(NO_HOLIDAY_DATES);
-  const [settings,    setSettings]    = useState<AppSettings>(loadSettings);
+  const [hebcal,      setHebcal]      = useState<HebcalData>(HEBCAL_PENDING);
+  const { SEFER_ORDER, SEFER_MAP, TLIT, pairs, parshaById, parshaIndex, allYears } = lookups;
+  const { schedule, datesByParsha, cacheYears, holidayDates } = hebcal;
+  const [settings,   setSettings]    = useState<AppSettings>(loadSettings);
   const [ready,       setReady]       = useState(false);
   const [loadError,   setLoadError]   = useState<string | null>(null);
   const [canWrite,    setCanWrite]    = useState(false);
@@ -98,7 +94,7 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
       const [meta, raw, hebcal, occ, oa, sr, wa, hr] = await Promise.all([
         fetchMeta(),
         fetchAliyot(),
-        fetchHebcal().catch((): HebcalData => ({ schedule: {}, datesByParsha: {}, cacheYears: [0, 9999], holidayDates: NO_HOLIDAY_DATES })),
+        fetchHebcal().catch(() => HEBCAL_PENDING),
         fetchOccasions().catch(() => []),
         fetchOccasionAliyot().catch(() => []),
         fetchSpecialReadings().catch(() => []),
@@ -106,42 +102,10 @@ export function AppProvider({ children }: Readonly<{ children: React.ReactNode }
         fetchHosafotReadings().catch(() => []),
       ]);
 
-      const order = meta.sefarim.map(s => s.name);
-      const map: Record<string, { en: string; color: string; chapterVerses: number[] }> = {};
-      meta.sefarim.forEach(s => { map[s.name] = { en: s.name_en, color: s.color, chapterVerses: s.chapter_verses }; });
-      const tlit: Record<string, string> = {};
-      meta.parshiot.forEach(p => { tlit[p.name] = p.name_en; });
-      const rows  = enrichRows(raw.map(mapRow));
-
-      const idx: Record<string, string[]>  = {};
-      const seen = new Set<string>();
-      for (const s of order) idx[s] = [];
-      for (const r of rows) {
-        const key = r.sefer + '|' + r.parsha;
-        if (!seen.has(key)) { seen.add(key); idx[r.sefer]?.push(r.parsha); }
-      }
-
-      const yearSet = new Set<number>();
-      for (const r of rows) {
-        if (r.yearRead)   yearSet.add(r.yearRead);
-        if (r.futureYear) yearSet.add(r.futureYear);
-      }
-
-      const byId: Record<number, string> = {};
-      meta.parshiot.forEach(p => { byId[p.id] = p.name; });
-
-      setSEFER_ORDER(order);
-      setSEFER_MAP(map);
-      setTLIT(tlit);
-      setPairs(meta.pairs ?? []);
-      setParshaById(byId);
+      const rows = enrichRows(raw.map(mapRow));
+      setLookups(buildMetaLookups(meta, rows));
       setRawRows(rows);
-      setParshaIndex(idx);
-      setAllYears([...yearSet].sort((a, b) => a - b));
-      setSchedule(hebcal.schedule);
-      setDatesByParsha(hebcal.datesByParsha);
-      setCacheYears(hebcal.cacheYears);
-      setHolidayDates(hebcal.holidayDates ?? NO_HOLIDAY_DATES);
+      setHebcal({ ...hebcal, holidayDates: hebcal.holidayDates ?? NO_HOLIDAY_DATES });
       setOccasions(occ);
       setOccasionAliyot(oa.map(mapOccasionAliyahRow));
       setSpecialReadings(sr.map(mapSpecialReadingRow));

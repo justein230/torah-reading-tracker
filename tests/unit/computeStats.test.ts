@@ -203,11 +203,11 @@ describe('computeStats — byYear newPseukim / newAliyot', () => {
 describe('estimateCompletion — insufficient data', () => {
   it('returns null when fewer than 2 rows are read', () => {
     const rows = [makeRow({ isRead: true, orig: '2023-01-01', pseukim: 100 })];
-    expect(estimateCompletion(rows, NO_FILTERS, { lookbackYears: null, paceOverride: null })).toBeNull();
+    expect(estimateCompletion(rows, { lookbackYears: null, paceOverride: null })).toBeNull();
   });
 
   it('returns null when no rows are read', () => {
-    expect(estimateCompletion([makeRow()], NO_FILTERS, { lookbackYears: null, paceOverride: null })).toBeNull();
+    expect(estimateCompletion([makeRow()], { lookbackYears: null, paceOverride: null })).toBeNull();
   });
 });
 
@@ -216,7 +216,7 @@ describe('estimateCompletion — paceOverride', () => {
     const rows = Array.from({ length: 10 }, (_, i) =>
       makeRow({ isRead: true, orig: `2023-0${(i % 9) + 1}-01`, pseukim: 100 })
     );
-    const result = estimateCompletion(rows, NO_FILTERS, { lookbackYears: null, paceOverride: 500 });
+    const result = estimateCompletion(rows, { lookbackYears: null, paceOverride: 500 });
     expect(result).not.toBeNull();
     expect(result!.ratePerYear).toBe(500);
     expect(result!.completion).toBeInstanceOf(Date);
@@ -228,7 +228,7 @@ describe('estimateCompletion — lookback window', () => {
     const recent = makeRow({ isRead: true, orig: '2024-01-01', pseukim: 200 });
     const old    = makeRow({ aliyah: 2, isRead: true, orig: '2020-01-01', pseukim: 50 });
     // With a 2-year window: old row should be excluded → only 1 row in window → returns null
-    const result = estimateCompletion([recent, old], NO_FILTERS, { lookbackYears: 2, paceOverride: null });
+    const result = estimateCompletion([recent, old], { lookbackYears: 2, paceOverride: null });
     expect(result).toBeNull();
   });
 
@@ -238,7 +238,7 @@ describe('estimateCompletion — lookback window', () => {
     try {
       const boundary = makeRow({ isRead: true, orig: '2025-09-13', pseukim: 200 }); // exactly 1 year before today
       const recent   = makeRow({ aliyah: 2, isRead: true, orig: '2026-06-01', pseukim: 100 });
-      const result = estimateCompletion([boundary, recent], NO_FILTERS, { lookbackYears: 1, paceOverride: null });
+      const result = estimateCompletion([boundary, recent], { lookbackYears: 1, paceOverride: null });
       // If the boundary row were excluded, only 1 row would remain in the window and this would be null.
       expect(result).not.toBeNull();
       expect(result!.ratePerYear).toBe(300);
@@ -264,8 +264,8 @@ describe('estimateCompletion — special readings count toward pace', () => {
   it('does not double count pseukim already read as a standard aliyah', () => {
     withFakeToday(() => {
       const oa = makeOA({ sefer: 'Genesis', chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 31, pseukim: 31, isReadPast: true, isRead: true, orig: '2026-02-01' });
-      const without = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
-      const withOA  = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, occasionAliyot: [oa] }));
+      const without = estimateCompletion(base(), CONFIG, 0, 0, SEFER_MAP, []);
+      const withOA  = estimateCompletion(base(), CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, occasionAliyot: [oa] }));
       expect(withOA!.ratePerYear).toBe(without!.ratePerYear);
     });
   });
@@ -273,8 +273,8 @@ describe('estimateCompletion — special readings count toward pace', () => {
   it('ignores special readings older than the lookback window', () => {
     withFakeToday(() => {
       const wa = makeWA({ sefer: 'Genesis', chapterStart: 10, verseStart: 1, chapterEnd: 10, verseEnd: 6, pseukim: 6, isReadPast: true, dateRead: '2020-01-01' });
-      const without = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
-      const withWA  = estimateCompletion(base(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [wa] }));
+      const without = estimateCompletion(base(), CONFIG, 0, 0, SEFER_MAP, []);
+      const withWA  = estimateCompletion(base(), CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [wa] }));
       expect(withWA!.ratePerYear).toBe(without!.ratePerYear);
     });
   });
@@ -322,34 +322,34 @@ describe('estimateCompletion — scheduled readings count toward pace', () => {
 
   it('credits the scheduled pseukim over the days from the first reading to today', () => {
     withToday(TODAY, () => {
-      const result = estimateCompletion([...done(), scheduledRow('2026-10-13')], NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      const result = estimateCompletion([...done(), scheduledRow('2026-10-13')], CONFIG, 0, 0, SEFER_MAP, []);
       expect(result!.ratePerYear).toBe(Math.round(300 / 347 * 365.25));
     });
   });
 
   it('treats a scheduled special reading exactly like a scheduled standard aliyah', () => {
     withToday(TODAY, () => {
-      const viaStandard = estimateCompletion([...done(), scheduledRow('2026-10-13')], NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
-      const viaSpecial  = estimateCompletion(done(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [scheduledWA('2026-10-13')] }));
+      const viaStandard = estimateCompletion([...done(), scheduledRow('2026-10-13')], CONFIG, 0, 0, SEFER_MAP, []);
+      const viaSpecial  = estimateCompletion(done(), CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [scheduledWA('2026-10-13')] }));
       expect(viaSpecial!.ratePerYear).toBe(viaStandard!.ratePerYear);
     });
   });
 
   it('a far-future scheduled reading adds only its own pseukim; it does not stretch the span', () => {
     withToday(TODAY, () => {
-      const result = estimateCompletion([...done(), scheduledRow('2027-09-15')], NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      const result = estimateCompletion([...done(), scheduledRow('2027-09-15')], CONFIG, 0, 0, SEFER_MAP, []);
       expect(result!.ratePerYear).toBe(Math.round(300 / 347 * 365.25));
     });
   });
 
   it('gives the same pace whether a reading is scheduled or already done (so nothing jumps when its day arrives)', () => {
     withToday(TODAY, () => {
-      const asScheduled = estimateCompletion([...done(), scheduledRow('2026-09-13')], NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
-      const asDone      = estimateCompletion([...done(), { ...scheduledRow('2026-09-13'), isReadFuture: false, isReadPast: true }], NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
+      const asScheduled = estimateCompletion([...done(), scheduledRow('2026-09-13')], CONFIG, 0, 0, SEFER_MAP, []);
+      const asDone      = estimateCompletion([...done(), { ...scheduledRow('2026-09-13'), isReadFuture: false, isReadPast: true }], CONFIG, 0, 0, SEFER_MAP, []);
       expect(asDone!.ratePerYear).toBe(asScheduled!.ratePerYear);
 
-      const specialScheduled = estimateCompletion(done(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [scheduledWA('2026-09-13')] }));
-      const specialDone      = estimateCompletion(done(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [{ ...scheduledWA('2026-09-13'), isReadFuture: false, isReadPast: true }] }));
+      const specialScheduled = estimateCompletion(done(), CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [scheduledWA('2026-09-13')] }));
+      const specialDone      = estimateCompletion(done(), CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [{ ...scheduledWA('2026-09-13'), isReadFuture: false, isReadPast: true }] }));
       expect(specialDone!.ratePerYear).toBe(specialScheduled!.ratePerYear);
     });
   });
@@ -357,8 +357,8 @@ describe('estimateCompletion — scheduled readings count toward pace', () => {
   it('does not double count a scheduled special reading over pseukim already read as a standard aliyah', () => {
     withToday(TODAY, () => {
       const overlapping = makeWA({ sefer: 'Genesis', chapterStart: 1, verseStart: 1, chapterEnd: 1, verseEnd: 50, pseukim: 50, isReadFuture: true, dateRead: '2026-10-13' });
-      const without = estimateCompletion(done(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, []);
-      const withWA  = estimateCompletion(done(), NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [overlapping] }));
+      const without = estimateCompletion(done(), CONFIG, 0, 0, SEFER_MAP, []);
+      const withWA  = estimateCompletion(done(), CONFIG, 0, 0, SEFER_MAP, datedSpecialReads({ ...NO_SPECIALS, weekdayAliyot: [overlapping] }));
       expect(withWA!.ratePerYear).toBe(without!.ratePerYear);
     });
   });
@@ -366,7 +366,7 @@ describe('estimateCompletion — scheduled readings count toward pace', () => {
   it('returns null when every reading in the window is still scheduled', () => {
     withToday(TODAY, () => {
       const rows = [scheduledRow('2026-10-13'), scheduledRow('2026-11-13', 4)];
-      expect(estimateCompletion(rows, NO_FILTERS, CONFIG, 0, 0, SEFER_MAP, [])).toBeNull();
+      expect(estimateCompletion(rows, CONFIG, 0, 0, SEFER_MAP, [])).toBeNull();
     });
   });
 });
@@ -378,8 +378,8 @@ describe('estimateCompletion — maftir pseukim deduplication', () => {
     const aliyah2 = makeRow({ aliyah: 2, isRead: true, orig: '2024-01-01', pseukim: 100 });
     const maftir  = makeRow({ aliyah: 8, isRead: true, orig: '2023-06-01', pseukim: 10,
                               chapterStart: 7, verseStart: 21, chapterEnd: 7, verseEnd: 30 });
-    const withMaftir    = estimateCompletion([aliyah7, aliyah2, maftir], NO_FILTERS, { lookbackYears: null, paceOverride: null });
-    const withoutMaftir = estimateCompletion([aliyah7, aliyah2],         NO_FILTERS, { lookbackYears: null, paceOverride: null });
+    const withMaftir    = estimateCompletion([aliyah7, aliyah2, maftir], { lookbackYears: null, paceOverride: null });
+    const withoutMaftir = estimateCompletion([aliyah7, aliyah2],         { lookbackYears: null, paceOverride: null });
     expect(withMaftir).not.toBeNull();
     expect(withMaftir!.ratePerYear).toBe(withoutMaftir!.ratePerYear);
   });
@@ -390,7 +390,7 @@ describe('estimateCompletion — maftir pseukim deduplication', () => {
     const r1     = makeRow({ aliyah: 7, pseukim: 100 });
     const maftir = makeRow({ aliyah: 8, pseukim: 50, isRead: true, orig: '2023-06-01',
                              chapterStart: 7, verseStart: 1, chapterEnd: 7, verseEnd: 50 });
-    const result = estimateCompletion([r1, maftir], NO_FILTERS, { lookbackYears: null, paceOverride: 200 });
+    const result = estimateCompletion([r1, maftir], { lookbackYears: null, paceOverride: 200 });
     expect(result).not.toBeNull();
     expect(result!.remaining).toBe(50);
   });
@@ -400,12 +400,12 @@ describe('estimateCompletion — zero / negative rate', () => {
   it('returns null when paceOverride is 0 (treated as no override, falls through to insufficient history)', () => {
     // paceOverride <= 0 means "use history"; with only 1 read row → null
     const rows = [makeRow({ isRead: true, orig: '2023-06-01', pseukim: 100 })];
-    expect(estimateCompletion(rows, NO_FILTERS, { lookbackYears: null, paceOverride: 0 })).toBeNull();
+    expect(estimateCompletion(rows, { lookbackYears: null, paceOverride: 0 })).toBeNull();
   });
 
   it('returns null when paceOverride is negative', () => {
     const rows = [makeRow({ isRead: true, orig: '2023-06-01', pseukim: 100 })];
-    expect(estimateCompletion(rows, NO_FILTERS, { lookbackYears: null, paceOverride: -100 })).toBeNull();
+    expect(estimateCompletion(rows, { lookbackYears: null, paceOverride: -100 })).toBeNull();
   });
 });
 
@@ -428,7 +428,7 @@ describe('remainingPseukim', () => {
     expect(remaining).toBe(130);
 
     const forecastResult = estimateCompletion(
-      [r1, r2], NO_FILTERS, { lookbackYears: null, paceOverride: 200 },
+      [r1, r2], { lookbackYears: null, paceOverride: 200 },
       stats.specialTotalPseukim, stats.specialReadPseukim,
     );
     expect(forecastResult!.remaining).toBe(remaining);
@@ -653,7 +653,7 @@ describe('computeStats — special/occasion pseukim', () => {
     const r2 = makeRow({ aliyah: 2, isRead: true, orig: '2024-01-01', pseukim: 100 });
     const oa = makeOA({ chapterStart: 3, verseStart: 1, chapterEnd: 3, verseEnd: 10, pseukim: 50, isReadPast: true, isRead: true });
     const { specialReadPseukim, specialTotalPseukim } = computeStats([r1, r2], [oa], SEFER_ORDER, SEFER_MAP, NO_FILTERS);
-    const result = estimateCompletion([r1, r2], NO_FILTERS, { lookbackYears: null, paceOverride: 200 }, specialTotalPseukim, specialReadPseukim);
+    const result = estimateCompletion([r1, r2], { lookbackYears: null, paceOverride: 200 }, specialTotalPseukim, specialReadPseukim);
     expect(result).not.toBeNull();
     expect(result!.remaining).toBe(0);
 
@@ -661,8 +661,8 @@ describe('computeStats — special/occasion pseukim', () => {
     // computeReadingRate): 200 standard + 50 special verses read, vs 200 standard alone.
     const oaRead = { ...oa, orig: '2024-06-01' };
     const config = { lookbackYears: null, paceOverride: null };
-    const paceWithout = estimateCompletion([r1, r2], NO_FILTERS, config, 0, 0, SEFER_MAP, []);
-    const paceWith    = estimateCompletion([r1, r2], NO_FILTERS, config, 0, 0, SEFER_MAP, datedSpecialReads({ occasionAliyot: [oaRead], weekdayAliyot: [], hosafotReadings: [] }));
+    const paceWithout = estimateCompletion([r1, r2], config, 0, 0, SEFER_MAP, []);
+    const paceWith    = estimateCompletion([r1, r2], config, 0, 0, SEFER_MAP, datedSpecialReads({ occasionAliyot: [oaRead], weekdayAliyot: [], hosafotReadings: [] }));
     expect(paceWith!.ratePerYear).toBeGreaterThan(paceWithout!.ratePerYear);
   });
 });
