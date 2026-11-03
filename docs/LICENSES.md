@@ -130,8 +130,10 @@ A fix only reaches users in a new build:
   `scripts/post-build-licenses.mjs`. Check that its JSON output still has a `licenseFile` field per package.
 - The list covers production dependencies only (`--production`). If frontend code ever imports a package
   from `devDependencies`, it ends up in the bundle without being listed: move it to `dependencies`.
-- Fonts (Inter, Noto Sans Hebrew) are loaded from Google Fonts at runtime and are not redistributed, so
-  they are not listed. If they are ever self-hosted, their SIL OFL text must be added.
+- Fonts (Inter, Noto Sans Hebrew) are bundled from the `@fontsource/*` packages (imported in `src/main.tsx`),
+  which are production dependencies and ship their SIL OFL 1.1 text as `LICENSE`, so they are listed like any other
+  package. Keep them in `dependencies`; a font added any other way (a file copied into `public/`, a CDN link) is
+  invisible to the scan and needs its OFL text added by hand.
 - Apache-2.0 packages that ship a `NOTICE` file get its text appended to their entry in
   `THIRD_PARTY_LICENSES.md` (`noticeText` in `scripts/post-build-licenses.mjs`), as Apache-2.0 §4(d) requires.
   None of the current production dependencies has one.
