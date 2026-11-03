@@ -19,15 +19,18 @@ interface AliyahDotProps {
   handlers: CellHandlers;
 }
 
+function dotColors(color: string, isRead: boolean, hasFut: boolean, row: MappedRow | undefined): { bg: string; border: string } {
+  if (isRead)                      return { bg: color,                                                      border: color };
+  if (hasFut)                      return { bg: 'transparent',                                              border: hex(color, 0.7) };
+  if (row?.partialOrig)            return { bg: `linear-gradient(to right, ${color} 50%, ${color}44 50%)`, border: color + 'aa' };
+  if (row?.futurePartialOrig)      return { bg: `${color}44`,                                              border: hex(color, 0.7) };
+  return { bg: 'var(--surface)', border: 'var(--border)' };
+}
+
 function AliyahDot({ color, isRead, hasFut, row, showTip, handlers }: Readonly<AliyahDotProps>) {
   const { moveTipPos, positionFromRect, hideTip, activeId, setActiveId } = handlers;
   const id = useId();
-  let bg: string, border: string;
-  if (isRead)               { bg = color;                                                          border = color; }
-  else if (hasFut)          { bg = 'transparent';                                                  border = hex(color, 0.7); }
-  else if (row?.partialOrig){ bg = `linear-gradient(to right, ${color} 50%, ${color}44 50%)`;     border = color + 'aa'; }
-  else if (row?.futurePartialOrig){ bg = `${color}44`;                                            border = hex(color, 0.7); }
-  else                      { bg = 'var(--surface)';                                               border = 'var(--border)'; }
+  const { bg, border } = dotColors(color, isRead, hasFut, row);
 
   function handleTouchClick(e: React.MouseEvent<HTMLButtonElement>) {
     if (!row) return;

@@ -50,7 +50,7 @@ for (const name of names) {
 
   const db   = createDb(raw);
   const repo = createRepository(db, async (sql, params = []) => raw.prepare(sql).all(...params));
-  const plan = planDemoReadings(await loadDemoReference(db), { sedra: SEDRA_CACHE, holidays: HOLIDAY_CACHE }, DEMO_PROFILES[name], asOf, mulberry32(seed));
+  const plan = planDemoReadings(loadDemoReference(db), { sedra: SEDRA_CACHE, holidays: HOLIDAY_CACHE }, DEMO_PROFILES[name], asOf, mulberry32(seed));
   raw.exec('BEGIN'); // one transaction: thousands of separately-synced inserts take minutes
   await writeDemoPlan(repo, plan);
   raw.exec('COMMIT');

@@ -40,7 +40,7 @@ let ref: DemoReference;
 const plans = {} as Record<DemoProfileName, DemoPlan>;
 
 beforeAll(async () => {
-  ref = await loadDemoReference(migratedDb().db);
+  ref = loadDemoReference(migratedDb().db);
   for (const name of Object.keys(DEMO_PROFILES) as DemoProfileName[]) {
     plans[name] = planDemoReadings(ref, CAL, DEMO_PROFILES[name], AS_OF, mulberry32(1));
   }

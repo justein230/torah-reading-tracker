@@ -287,7 +287,7 @@ function planFill(b: PlanBuilder, ref: DemoReference, cal: DemoCalendar, occasio
   for (const s of shabbatotBetween(cal, ref, '0000-01-01', asOf)) {
     for (const id of s.parshaIds) latest.set(id, s.date);
   }
-  const simchatTorah = (occasionDates['Simchat Torah'] ?? []).filter(d => d <= asOf).at(-1);
+  const simchatTorah = (occasionDates['Simchat Torah'] ?? []).reduce<string | undefined>((best, d) => d <= asOf && (!best || d > best) ? d : best, undefined);
   for (const a of ref.aliyot) {
     if (sefarim !== 'all' && !sefarim.includes(a.seferEn)) continue;
     if (b.read.has(aliyahKey(a.parsha, a.aliyah))) continue;

@@ -3,8 +3,9 @@
 // versionName derived from package.json. Signing uses android/keystore.properties (docs/ANDROID_RELEASE.md);
 // without it this stops before building anything.
 import fs   from 'node:fs';
+import os   from 'node:os';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { androidVersion } from '../src/utils/androidVersion.js';
 
@@ -26,9 +27,12 @@ const { versionCode, versionName } = androidVersion(version);
 const env = { ...process.env };
 env.JAVA_HOME ??= miseJavaHome();
 
+// Absolute path, so a writable directory earlier on PATH can't substitute its own `mise`.
+const miseBin = path.join(os.homedir(), '.local', 'bin', 'mise');
+
 function miseJavaHome(): string | undefined {
   try {
-    return execSync('mise where java', { cwd: root, encoding: 'utf8' }).trim();
+    return execFileSync(miseBin, ['where', 'java'], { cwd: root, encoding: 'utf8' }).trim();
   } catch {
     return undefined; // no mise: Gradle falls back to whatever java is on PATH
   }
