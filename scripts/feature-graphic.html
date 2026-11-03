@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  Play Store feature graphic, 1024×500 (scripts/screenshots.ts fills the {{…}} slots): the app
+  name and a line about it on the left, the top of the Overview screen in a phone on the right.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: Inter; font-weight: 600; src: url({{font600}}) format('woff2'); }
+  @font-face { font-family: Inter; font-weight: 800; src: url({{font800}}) format('woff2'); }
+  @font-face { font-family: 'Noto Sans Hebrew'; font-weight: 700; src: url({{fontHebrew}}) format('woff2'); }
+
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1024px; height: 500px; overflow: hidden; }
+  body {
+    position: relative; font-family: Inter, sans-serif; color: #f1f5f9;
+    background:
+      radial-gradient(520px 420px at 8% 20%,  #0072B240, transparent 70%),
+      radial-gradient(460px 380px at 60% 110%, #009E7330, transparent 70%),
+      radial-gradient(420px 360px at 95% 0%,  #E69F0030, transparent 70%),
+      #0f172a;
+  }
+  .text { position: absolute; left: 64px; top: 0; bottom: 0; width: 520px; display: flex; flex-direction: column; justify-content: center; }
+  .hebrew  { font-family: 'Noto Sans Hebrew', sans-serif; font-weight: 700; font-size: 40px; color: #38BDF8; direction: rtl; align-self: flex-start; }
+  .name    { font-weight: 800; font-size: 54px; line-height: 1.05; letter-spacing: -1px; margin-top: 6px; }
+  .tagline { font-weight: 600; font-size: 24px; line-height: 1.35; color: #94a3b8; margin-top: 18px; }
+  .dots    { display: flex; gap: 10px; margin-top: 26px; }
+  .dots span { width: 14px; height: 14px; border-radius: 50%; }
+
+  /* Phone, cropped by the bottom edge: only the top of the screen shows. */
+  .phone {
+    position: absolute; right: 64px; top: 52px; width: 330px; padding: 8px; border-radius: 44px;
+    background: #05080f; box-shadow: 0 0 0 2px #2c3748, 0 30px 80px #000a;
+  }
+  .screen { border-radius: 36px; overflow: hidden; background: #0f172a; }
+  .shot { display: block; width: 100%; }
+</style>
+</head>
+<body>
+  <div class="text">
+    <div class="hebrew">מעקב תורה</div>
+    <div class="name">Torah Reading Tracker</div>
+    <div class="tagline">Every aliyah you read, every parsha you finish, in one place.</div>
+    <div class="dots">
+      <span style="background:#0072B2"></span><span style="background:#E69F00"></span><span style="background:#009E73"></span>
+      <span style="background:#D55E00"></span><span style="background:#CC79A7"></span>
+    </div>
+  </div>
+  <div class="phone"><div class="screen"><img class="shot" src="{{shot}}"></div></div>
+</body>
+</html>

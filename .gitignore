@@ -34,6 +34,10 @@ docker-compose.override.yml
 2025-*.txt
 old/
 
+# Demo databases and store screenshots (npm run db:demo / npm run screenshots)
+demo/
+store/screenshots/
+
 # Mac files
 .DS_Store
 

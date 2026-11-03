@@ -40,6 +40,8 @@
     "android:release": "tsx scripts/android-release.ts",
     "db:init": "tsx scripts/db-init.ts",
     "db:rollback": "tsx scripts/db-rollback.ts",
+    "db:demo": "tsx scripts/seed-demo.ts",
+    "screenshots": "tsx scripts/screenshots.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
