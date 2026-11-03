@@ -16,6 +16,7 @@ services:
       # First start only; the app hashes it into the DB. Remove from .env after.
       TORAH_ADMIN_PASSWORD: ${TORAH_ADMIN_PASSWORD:-}
       TORAH_REQUIRE_PROXY_HEADER: ${TORAH_REQUIRE_PROXY_HEADER:-}
+      TORAH_TRUST_PROXY: ${TORAH_TRUST_PROXY:-}
     volumes:
       - torah-data:/data
     restart: unless-stopped

@@ -19,6 +19,7 @@ import { importDatabase, ImportValidationError } from './src/utils/import-server
 import { stampAppVersion } from './src/utils/backup-server.js';
 import { buildCalendarFeed } from './src/utils/calendar-feed.js';
 import { errText } from './src/utils/errText.js';
+import { parseTrustProxy } from './src/utils/trustProxy.js';
 import { localDateStr } from './src/utils/dates.js';
 import { createLogger, createHttpLogger, allLogFiles } from './src/utils/logger-server.js';
 
@@ -68,6 +69,8 @@ rawDb.pragma('foreign_keys = ON');
 // ── express app ───────────────────────────────────────────────────────────────
 
 export const app = express();
+// Off unless TORAH_TRUST_PROXY is set; see parseTrustProxy for the accepted values.
+app.set('trust proxy', parseTrustProxy(process.env.TORAH_TRUST_PROXY));
 app.use(express.json());
 app.use(httpLogger);
 app.use(express.static(path.join(PROJECT_ROOT, 'dist')));
