@@ -37,6 +37,7 @@
     "licenses:android": "npx cap sync android && cd android && ./gradlew :app:exportLibraryDefinitions && cd .. && tsx scripts/native-licenses.ts android android/app/build/aboutlibraries.json",
     "licenses:ios": "npx cap sync ios && tsx scripts/native-licenses.ts ios \"ios/App/Pods/Target Support Files/Pods-App/Pods-App-acknowledgements.markdown\"",
     "cap:android": "npm run cap:db && npm run build && rm -rf public/assets && npx cap sync && npx cap open android",
+    "android:release": "tsx scripts/android-release.ts",
     "db:init": "tsx scripts/db-init.ts",
     "db:rollback": "tsx scripts/db-rollback.ts",
     "test": "vitest run",
