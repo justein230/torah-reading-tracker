@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 
 const {
   isNativePlatform, fetchAliyot, fetchMeta, toBlob, writeFile, getUri, share, getUrl,
@@ -37,7 +37,10 @@ import { exportExcel, exportDb } from '../../../src/utils/export.js';
 function stubAnchor() {
   const click = vi.fn();
   const anchor = { href: '', download: '', click } as unknown as HTMLAnchorElement;
-  vi.spyOn(document, 'createElement').mockReturnValue(anchor);
+  // Electron's types add a createElement('webview') overload, and spyOn types the
+  // mock from the last overload, so narrow it to the generic signature.
+  const createElement = vi.spyOn(document, 'createElement') as unknown as MockInstance<(tag: string) => HTMLElement>;
+  createElement.mockReturnValue(anchor);
   return { anchor, click };
 }
 
