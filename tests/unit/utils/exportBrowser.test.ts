@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 
 const {
-  isNativePlatform, fetchAliyot, fetchMeta, toBlob, writeFile, copy, getUri, share, getUrl,
+  isNativePlatform, fetchAliyot, fetchMeta, toBlob, writeFile, copy, getUri, share, getUrl, stat, deleteFile, mkdir,
 } = vi.hoisted(() => ({
   isNativePlatform: vi.fn(() => false),
   fetchAliyot: vi.fn(),
@@ -13,6 +13,9 @@ const {
   getUri: vi.fn((_opts: unknown) => Promise.resolve({ uri: 'file:///cache/torah-readings.xlsx' })),
   share: vi.fn((_opts: unknown) => Promise.resolve()),
   getUrl: vi.fn((_opts: unknown) => Promise.resolve({ url: 'file:///data/torah.db' })),
+  stat: vi.fn((_opts: unknown): Promise<object> => Promise.reject(new Error('File does not exist'))),
+  deleteFile: vi.fn((_opts: unknown) => Promise.resolve()),
+  mkdir: vi.fn((_opts: unknown) => Promise.resolve()),
 }));
 
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => isNativePlatform() } }));
@@ -25,15 +28,18 @@ vi.mock('../../../src/api.js', async () => {
 vi.mock('write-excel-file/browser', () => ({ default: () => ({ toBlob }) }));
 
 vi.mock('@capacitor/filesystem', () => ({
-  Filesystem: { writeFile: (a: unknown) => writeFile(a), copy: (a: unknown) => copy(a), getUri: (a: unknown) => getUri(a) },
-  Directory: { Cache: 'CACHE' },
+  Filesystem: {
+    writeFile: (a: unknown) => writeFile(a), copy: (a: unknown) => copy(a), getUri: (a: unknown) => getUri(a),
+    stat: (a: unknown) => stat(a), deleteFile: (a: unknown) => deleteFile(a), mkdir: (a: unknown) => mkdir(a),
+  },
+  Directory: { Cache: 'CACHE', Documents: 'DOCUMENTS' },
 }));
 
 vi.mock('@capacitor/share', () => ({ Share: { share: (a: unknown) => share(a) } }));
 
 vi.mock('@capacitor-community/sqlite', () => ({ CapacitorSQLite: { getUrl: (a: unknown) => getUrl(a) } }));
 
-import { exportExcel, exportDb } from '../../../src/utils/export.js';
+import { exportExcel, exportDb, saveDbToDocuments } from '../../../src/utils/export.js';
 
 function stubAnchor() {
   const click = vi.fn();
@@ -95,6 +101,16 @@ describe('exportDb — browser', () => {
     expect(globalThis.URL.revokeObjectURL).toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
+
+  it('downloads under the given file name', async () => {
+    const { anchor } = stubAnchor();
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ blob: () => Promise.resolve(new Blob(['db'])) })));
+
+    await exportDb('readings-20261105.db');
+
+    expect(anchor.download).toBe('readings-20261105.db');
+    vi.unstubAllGlobals();
+  });
 });
 
 describe('exportDb — native platform', () => {
@@ -116,5 +132,70 @@ describe('exportDb — native platform', () => {
     getUrl.mockResolvedValueOnce({ url: '' });
     await expect(exportDb()).rejects.toThrow('Could not locate the database');
     expect(share).not.toHaveBeenCalled();
+  });
+});
+
+describe('exportDb — native platform, custom name', () => {
+  it('shares the cache copy under the given file name', async () => {
+    isNativePlatform.mockReturnValue(true);
+    await exportDb('readings-20261105.db');
+
+    expect(copy).toHaveBeenCalledWith({ from: 'file:///data/torah.db', to: 'readings-20261105.db', toDirectory: 'CACHE' });
+    expect(getUri).toHaveBeenCalledWith({ path: 'readings-20261105.db', directory: 'CACHE' });
+  });
+});
+
+describe('saveDbToDocuments', () => {
+  beforeEach(() => {
+    copy.mockClear();
+    deleteFile.mockClear();
+    mkdir.mockReset();
+    mkdir.mockResolvedValue(undefined);
+    stat.mockReset();
+    stat.mockRejectedValue(new Error('File does not exist'));
+  });
+
+  it('creates the Torah Tracker folder and copies the live DB into it when no file of that name exists', async () => {
+    await expect(saveDbToDocuments('torah-20261105.db')).resolves.toBe('saved');
+
+    expect(mkdir).toHaveBeenCalledWith({ path: 'Torah Tracker', directory: 'DOCUMENTS', recursive: true });
+    expect(stat).toHaveBeenCalledWith({ path: 'Torah Tracker/torah-20261105.db', directory: 'DOCUMENTS' });
+    expect(copy).toHaveBeenCalledWith({ from: 'file:///data/torah.db', to: 'Torah Tracker/torah-20261105.db', toDirectory: 'DOCUMENTS' });
+    expect(deleteFile).not.toHaveBeenCalled();
+  });
+
+  it('leaves an existing file alone and reports it, unless told to overwrite', async () => {
+    stat.mockResolvedValue({});
+    await expect(saveDbToDocuments('torah.db')).resolves.toBe('exists');
+
+    expect(copy).not.toHaveBeenCalled();
+    expect(deleteFile).not.toHaveBeenCalled();
+  });
+
+  it('replaces an existing file when overwrite is set', async () => {
+    stat.mockResolvedValue({});
+    await expect(saveDbToDocuments('torah.db', true)).resolves.toBe('saved');
+
+    expect(deleteFile).toHaveBeenCalledWith({ path: 'Torah Tracker/torah.db', directory: 'DOCUMENTS' });
+    expect(copy).toHaveBeenCalledWith({ from: 'file:///data/torah.db', to: 'Torah Tracker/torah.db', toDirectory: 'DOCUMENTS' });
+  });
+
+  it('propagates a failed delete (Android 11+ file owned by a previous install) without copying', async () => {
+    stat.mockResolvedValue({});
+    deleteFile.mockRejectedValueOnce(new Error('Permission denied'));
+    await expect(saveDbToDocuments('torah.db', true)).rejects.toThrow('Permission denied');
+    expect(copy).not.toHaveBeenCalled();
+  });
+
+  it('still copies when the folder already exists (mkdir rejects)', async () => {
+    mkdir.mockRejectedValueOnce(new Error('Directory exists'));
+    await expect(saveDbToDocuments('torah.db')).resolves.toBe('saved');
+    expect(copy).toHaveBeenCalledWith({ from: 'file:///data/torah.db', to: 'Torah Tracker/torah.db', toDirectory: 'DOCUMENTS' });
+  });
+
+  it('throws when the DB location is unknown', async () => {
+    getUrl.mockResolvedValueOnce({ url: '' });
+    await expect(saveDbToDocuments('torah.db')).rejects.toThrow('Could not locate the database');
+    expect(copy).not.toHaveBeenCalled();
   });
 });

@@ -25,7 +25,9 @@ const exportExcel = vi.fn();
 const exportDb     = vi.fn();
 vi.mock('../../../src/utils/export.js', () => ({
   exportExcel: () => exportExcel(),
-  exportDb: () => exportDb(),
+  exportDb: (name: string) => exportDb(name),
+  saveDbToDocuments: vi.fn(),
+  documentsExportPath: (n: string) => `Torah Tracker/${n}`,
 }));
 
 const importDb = vi.fn();
@@ -42,7 +44,7 @@ const notificationsShow = vi.fn();
 vi.mock('@mantine/notifications', () => ({ notifications: { show: (...a: unknown[]) => notificationsShow(...a) } }));
 
 const platform = vi.hoisted(() => ({ native: false }));
-vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => platform.native } }));
+vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => platform.native, getPlatform: () => (platform.native ? 'android' : 'web') } }));
 
 const listBackups = vi.fn();
 vi.mock('../../../src/db/nativeBackups.js', () => ({ listBackups: () => listBackups() }));
@@ -210,13 +212,14 @@ describe('SettingsDrawer — writable actions', () => {
     await waitFor(() => expect(exportExcel).toHaveBeenCalled());
   });
 
-  it('triggers exportDb when "Export DB (.sqlite)" is clicked', async () => {
+  it('opens the export dialog when "Export DB (.sqlite)" is clicked', async () => {
     setCtx({ canWrite: true });
     renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
     await screen.findByText('Export DB (.sqlite)');
 
     fireEvent.click(screen.getByText('Export DB (.sqlite)'));
-    await waitFor(() => expect(exportDb).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: 'Download' }));
+    await waitFor(() => expect(exportDb).toHaveBeenCalledWith(expect.stringMatching(/^torah-\d{8}\.db$/)));
   });
 
   it('calls logout and refreshes canWrite', async () => {

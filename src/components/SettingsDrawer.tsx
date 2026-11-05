@@ -5,11 +5,12 @@ import { modals } from '@mantine/modals';
 import { Capacitor } from '@capacitor/core';
 import { useApp } from '../context/AppContext.js';
 import { fetchAuthStatus, login, logout, changePassword } from '../api.js';
-import { exportExcel, exportDb } from '../utils/export.js';
+import { exportExcel } from '../utils/export.js';
 import { importDb } from '../utils/import.js';
 import { exportLogs } from '../utils/logger-client/index.js';
 import { electronBridge } from '../utils/electronBridge.js';
 import BackupsModal from './BackupsModal.js';
+import ExportDbModal from './ExportDbModal.js';
 import type { AuthStatus } from '../types/index.js';
 
 interface SettingsDrawerProps {
@@ -20,7 +21,8 @@ interface SettingsDrawerProps {
 export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps) {
   const { SEFER_ORDER, SEFER_MAP, allYears, filters, setFilters, canWrite, refreshCanWrite,
           settings, setSettings, cacheYears } = useApp();
-  const [exporting, setExporting] = useState<'excel' | 'db' | 'logs' | null>(null);
+  const [exporting, setExporting] = useState<'excel' | 'logs' | null>(null);
+  const [exportDbOpen, setExportDbOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [backupsOpen, setBackupsOpen] = useState(false);
@@ -86,12 +88,6 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
   async function handleExcelExport() {
     setExporting('excel');
     try { await exportExcel(); }
-    finally { setExporting(null); }
-  }
-
-  async function handleDbExport() {
-    setExporting('db');
-    try { await exportDb(); }
     finally { setExporting(null); }
   }
 
@@ -271,10 +267,10 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
               loading={exporting === 'excel'} onClick={handleExcelExport}>
               Export to Excel
             </Button>
-            <Button variant="light" color="gray" fullWidth
-              loading={exporting === 'db'} onClick={handleDbExport}>
+            <Button variant="light" color="gray" fullWidth onClick={() => setExportDbOpen(true)}>
               Export DB (.sqlite)
             </Button>
+            <ExportDbModal opened={exportDbOpen} onClose={() => setExportDbOpen(false)} />
             <Button variant="light" color="gray" fullWidth
               loading={exporting === 'logs'} onClick={handleLogsExport}>
               Export logs

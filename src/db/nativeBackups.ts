@@ -1,5 +1,5 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+import { shareFile } from '../utils/share.js';
 import { backupsToPrune, parseBackupName } from '../utils/dbBackupName.js';
 
 // Pre-migration backups on iOS/Android (the server keeps its own beside torah.db — see
@@ -50,7 +50,7 @@ export async function listBackups(): Promise<NativeBackup[]> {
 export async function shareBackup(name: string): Promise<void> {
   await Filesystem.copy({ from: backupPath(name), directory: Directory.Data, to: name, toDirectory: Directory.Cache });
   const { uri } = await Filesystem.getUri({ path: name, directory: Directory.Cache });
-  await Share.share({ url: uri, title: 'Torah Readings DB backup', dialogTitle: 'Export backup' });
+  await shareFile({ url: uri, title: 'Torah Readings DB backup', dialogTitle: 'Export backup' });
 }
 
 export async function deleteBackup(name: string): Promise<void> {

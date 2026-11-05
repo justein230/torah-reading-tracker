@@ -1,5 +1,5 @@
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+import { shareFile } from '../share.js';
 import type { LogLevel } from './types.js';
 import { redact, isDebugEnabled } from './types.js';
 
@@ -45,5 +45,5 @@ export function logEvent(level: LogLevel, category: string, message: string, met
 export async function exportLogs(): Promise<void> {
   await Filesystem.copy({ from: LOG_PATH, directory: Directory.Data, to: 'app.log', toDirectory: Directory.Cache });
   const { uri } = await Filesystem.getUri({ path: 'app.log', directory: Directory.Cache });
-  await Share.share({ url: uri, title: 'Torah Tracker Logs', dialogTitle: 'Export Logs' });
+  await shareFile({ url: uri, title: 'Torah Tracker Logs', dialogTitle: 'Export Logs' });
 }

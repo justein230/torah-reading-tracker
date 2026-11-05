@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { getTodayStr } from '../api.js';
 import { bytesToBase64 } from './base64.js';
+import { DEFAULT_DB_EXPORT_BASE, DB_EXPORT_EXT } from './exportFileName.js';
 import type { Row, CellObject } from 'write-excel-file/browser';
 
 export interface AliyotRow {
@@ -121,12 +122,12 @@ export async function exportExcel(): Promise<void> {
 
   if (Capacitor.isNativePlatform()) {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
-    const { Share } = await import('@capacitor/share');
+    const { shareFile } = await import('./share.js');
     const blob    = await writeExcelFile(sheets).toBlob();
     const base64  = bytesToBase64(new Uint8Array(await blob.arrayBuffer()));
     await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
     const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
-    await Share.share({ url: uri, title: 'Torah Readings', dialogTitle: 'Export Readings' });
+    await shareFile({ url: uri, title: 'Torah Readings', dialogTitle: 'Export Readings' });
   } else {
     const blob = await writeExcelFile(sheets).toBlob();
     const a    = document.createElement('a');
@@ -137,27 +138,69 @@ export async function exportExcel(): Promise<void> {
   }
 }
 
-const DB_EXPORT_NAME = 'torah.db';
+const DEFAULT_DB_EXPORT_NAME = `${DEFAULT_DB_EXPORT_BASE}${DB_EXPORT_EXT}`;
 
-export async function exportDb(): Promise<void> {
+// The live on-device db file, as a file:// url.
+async function nativeDbUrl(): Promise<string> {
+  const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
+  const { url } = await CapacitorSQLite.getUrl({ database: 'torah' });
+  if (!url) throw new Error('Could not locate the database on device.');
+  return url;
+}
+
+// Native: opens the share sheet on a copy of the db named `fileName`. Web/Electron: downloads it.
+export async function exportDb(fileName: string = DEFAULT_DB_EXPORT_NAME): Promise<void> {
   if (Capacitor.isNativePlatform()) {
-    const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
-    const { Share } = await import('@capacitor/share');
+    const { shareFile } = await import('./share.js');
     // Share a cache copy, not the live file: Android's share sheet can only read files under the
     // FileProvider roots in android/app/src/main/res/xml/file_paths.xml, and databases/ isn't one.
-    const { url } = await CapacitorSQLite.getUrl({ database: 'torah' });
-    if (!url) throw new Error('Could not locate the database on device.');
-    await Filesystem.copy({ from: url, to: DB_EXPORT_NAME, toDirectory: Directory.Cache });
-    const { uri } = await Filesystem.getUri({ path: DB_EXPORT_NAME, directory: Directory.Cache });
-    await Share.share({ url: uri, title: 'Torah Readings DB', dialogTitle: 'Export Torah DB' });
+    await Filesystem.copy({ from: await nativeDbUrl(), to: fileName, toDirectory: Directory.Cache });
+    const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
+    await shareFile({ url: uri, title: 'Torah Readings DB', dialogTitle: 'Export Torah DB' });
   } else {
     const res = await fetch('/api/export/db');
     const blob = await res.blob();
     const a    = document.createElement('a');
     a.href     = URL.createObjectURL(blob);
-    a.download = DB_EXPORT_NAME;
+    a.download = fileName;
     a.click();
     URL.revokeObjectURL(a.href);
   }
+}
+
+export type SaveToDocumentsResult = 'saved' | 'exists';
+
+// Saved exports go in their own folder inside Documents, so they're easy to find and don't mix
+// with the user's other files.
+export const DOCUMENTS_EXPORT_FOLDER = 'Torah Tracker';
+
+// Where saveDbToDocuments puts `fileName`, relative to Documents.
+export function documentsExportPath(fileName: string): string {
+  return `${DOCUMENTS_EXPORT_FOLDER}/${fileName}`;
+}
+
+// Android only: copies the db into Documents/Torah Tracker (creating the folder if needed), where
+// file managers and the Files app can see it. Unless `overwrite` is set, an existing file of that name is left alone
+// and 'exists' is returned so the caller can ask first. On Android 11+ an app may only replace
+// files it created itself, so overwriting an older export from a previous install fails.
+// (Not offered on iOS: there the SQLite plugin keeps the live db in Documents, and the share
+// sheet's "Save to Files" already does this.) Android 10 and older need the storage permission,
+// which the Filesystem plugin requests itself.
+export async function saveDbToDocuments(fileName: string, overwrite = false): Promise<SaveToDocumentsResult> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+  const path   = documentsExportPath(fileName);
+  const target = { path, directory: Directory.Documents };
+  const exists = await Filesystem.stat(target).then(() => true, () => false);
+  if (exists) {
+    if (!overwrite) return 'exists';
+    await Filesystem.deleteFile(target);
+  } else {
+    // mkdir rejects when the folder already exists; if it failed for any other reason, the
+    // copy below fails too and reports it.
+    await Filesystem.mkdir({ path: DOCUMENTS_EXPORT_FOLDER, directory: Directory.Documents, recursive: true })
+      .catch(() => {});
+  }
+  await Filesystem.copy({ from: await nativeDbUrl(), to: path, toDirectory: Directory.Documents });
+  return 'saved';
 }

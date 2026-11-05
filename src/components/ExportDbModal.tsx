@@ -1,0 +1,101 @@
+import { useState } from 'react';
+import { Modal, Stack, Group, Text, TextInput, Checkbox, Button } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { modals } from '@mantine/modals';
+import { Capacitor } from '@capacitor/core';
+import { exportDb, saveDbToDocuments, documentsExportPath } from '../utils/export.js';
+import { dbExportFileName, DEFAULT_DB_EXPORT_BASE } from '../utils/exportFileName.js';
+import { errText } from '../utils/errText.js';
+
+// Exports the readings db under a name the user picks, optionally stamped with today's date.
+// Android: save straight to Documents/Torah Tracker, or share. iOS: share (its share sheet
+// has "Save to Files"). Web/Electron: download.
+
+interface ExportDbModalProps {
+  readonly opened:  boolean;
+  readonly onClose: () => void;
+}
+
+type Busy = 'save' | 'share' | null;
+
+export default function ExportDbModal({ opened, onClose }: ExportDbModalProps) {
+  const [name, setName]               = useState(DEFAULT_DB_EXPORT_BASE);
+  const [withDate, setWithDate]       = useState(true);
+  const [busy, setBusy]               = useState<Busy>(null);
+
+  const isNative    = Capacitor.isNativePlatform();
+  const canSaveDocs = Capacitor.getPlatform() === 'android';
+  const fileName    = dbExportFileName(name, withDate);
+  const savedPath   = `Documents/${documentsExportPath(fileName)}`;
+
+  async function run(kind: Exclude<Busy, null>, action: () => Promise<void>) {
+    setBusy(kind);
+    try {
+      await action();
+    } catch (e: unknown) {
+      notifications.show({ message: `Export failed: ${errText(e)}`, color: 'red' });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function save(overwrite: boolean) {
+    await run('save', async () => {
+      const result = await saveDbToDocuments(fileName, overwrite);
+      if (result === 'exists') {
+        confirmOverwrite();
+        return;
+      }
+      notifications.show({ message: `Saved to ${savedPath}` });
+      onClose();
+    });
+  }
+
+  function confirmOverwrite() {
+    modals.openConfirmModal({
+      title:    'Replace file?',
+      children: <Text size="sm">{savedPath} already exists. Replace it?</Text>,
+      labels:   { confirm: 'Replace', cancel: 'Cancel' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => void save(true),
+    });
+  }
+
+  async function share() {
+    await run('share', async () => {
+      await exportDb(fileName);
+      onClose();
+    });
+  }
+
+  return (
+    <Modal opened={opened} onClose={onClose} title="Export DB" centered>
+      <Stack gap="sm">
+        <TextInput
+          label="File name"
+          value={name}
+          onChange={e => setName(e.currentTarget.value)}
+          placeholder={DEFAULT_DB_EXPORT_BASE}
+          data-autofocus
+        />
+        <Checkbox
+          label="Add date suffix (yyyymmdd)"
+          checked={withDate}
+          onChange={e => setWithDate(e.currentTarget.checked)}
+        />
+        <Text size="sm" c="dimmed">Exports as <Text span ff="monospace">{fileName}</Text></Text>
+        <Group justify="flex-end" gap="sm">
+          {canSaveDocs && (
+            <Button loading={busy === 'save'} disabled={busy === 'share'} onClick={() => void save(false)}>
+              Save to Documents
+            </Button>
+          )}
+          <Button variant={canSaveDocs ? 'light' : 'filled'} loading={busy === 'share'}
+            disabled={busy === 'save'} onClick={() => void share()}>
+            {isNative ? 'Share…' : 'Download'}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
