@@ -1,5 +1,10 @@
 {
   "appId": "com.justein.torahtracker",
   "appName": "Torah Tracker",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorSQLite": {
+      "androidIsEncryption": false
+    }
+  }
 }
