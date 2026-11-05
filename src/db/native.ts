@@ -13,6 +13,7 @@ import { HOLIDAY_CACHE } from '../data/holidayCache.js';
 import { logEvent } from '../utils/logger-client/index.js';
 import { APP_VERSION_KEY, UNKNOWN_APP_VERSION, formatBackupName } from '../utils/dbBackupName.js';
 import { errText } from '../utils/errText.js';
+import { bytesToBase64 } from '../utils/base64.js';
 import { localDateStr } from '../utils/dates.js';
 import { saveBackup } from './nativeBackups.js';
 
@@ -160,7 +161,7 @@ async function prepareImportedDb(bytes: Uint8Array): Promise<{ ok: true; data: s
   const { url: checkUrl } = await CapacitorSQLite.getUrl({ database: CHECK_DB });
   await sqlite.closeConnection(CHECK_DB, false);
   if (!checkUrl) return { ok: false, error: 'Could not locate scratch database on device.' };
-  await Filesystem.writeFile({ path: checkUrl, data: Buffer.from(bytes).toString('base64') });
+  await Filesystem.writeFile({ path: checkUrl, data: bytesToBase64(bytes) });
 
   try {
     const checked = await checkImportedDb(CHECK_DB);
@@ -171,7 +172,7 @@ async function prepareImportedDb(bytes: Uint8Array): Promise<{ ok: true; data: s
     // over a connection isn't safe: any read-write open with a version number can itself trigger
     // the plugin's upgrade from the file's stale version.
     new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint32(60, checked.version);
-    await Filesystem.writeFile({ path: checkUrl, data: Buffer.from(bytes).toString('base64') });
+    await Filesystem.writeFile({ path: checkUrl, data: bytesToBase64(bytes) });
 
     try {
       await sqlite.addUpgradeStatement(CHECK_DB, NATIVE_UPGRADE_STATEMENTS);

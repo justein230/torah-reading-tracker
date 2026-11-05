@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { getTodayStr } from '../api.js';
+import { bytesToBase64 } from './base64.js';
 import type { Row, CellObject } from 'write-excel-file/browser';
 
 export interface AliyotRow {
@@ -122,7 +123,7 @@ export async function exportExcel(): Promise<void> {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
     const { Share } = await import('@capacitor/share');
     const blob    = await writeExcelFile(sheets).toBlob();
-    const base64  = Buffer.from(await blob.arrayBuffer()).toString('base64');
+    const base64  = bytesToBase64(new Uint8Array(await blob.arrayBuffer()));
     await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
     const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
     await Share.share({ url: uri, title: 'Torah Readings', dialogTitle: 'Export Readings' });
