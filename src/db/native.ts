@@ -69,8 +69,23 @@ async function backupBeforeUpgrade(): Promise<void> {
   }
 }
 
+// The plugin's connections live on the native side and survive a WebView reload, while this
+// module's record of them (and dbPromise) doesn't. After DB import reloads the page, the old
+// 'torah' connection is still open natively, so createConnection would fail with "Connection
+// torah already exists". checkConnectionsConsistency closes every native connection the JS side
+// doesn't know about — on a fresh page, all of them. Best-effort: if it fails, createConnection
+// reports the real problem.
+async function closeStaleConnections(): Promise<void> {
+  try {
+    await sqlite.checkConnectionsConsistency();
+  } catch (e: unknown) {
+    logEvent('warn', 'db', 'Could not check native connection consistency', { detail: errText(e) });
+  }
+}
+
 function getConn() {
   dbPromise ??= (async () => {
+    await closeStaleConnections();
     await sqlite.copyFromAssets(false);
     await backupBeforeUpgrade();
     // Applies any drizzle migrations added since the on-device db's PRAGMA user_version was
