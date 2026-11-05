@@ -1,10 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 
 const { share } = vi.hoisted(() => ({ share: vi.fn((_opts: unknown) => Promise.resolve()) }));
 
 vi.mock('@capacitor/share', () => ({ Share: { share: (a: unknown) => share(a) } }));
 
-import { isShareCanceled, shareFile } from '../../../src/utils/share.js';
+// node-unit runs with isolate: false, so an earlier file in the same worker may already have
+// loaded share.ts bound to a different @capacitor/share (the real web plugin, which throws
+// "Share API not available in this browser"). Reset the module cache and import it fresh so it
+// binds to the mock above, whatever order the files run in.
+let isShareCanceled: typeof import('../../../src/utils/share.js').isShareCanceled;
+let shareFile:       typeof import('../../../src/utils/share.js').shareFile;
+beforeAll(async () => {
+  vi.resetModules();
+  ({ isShareCanceled, shareFile } = await import('../../../src/utils/share.js'));
+});
 
 beforeEach(() => { share.mockReset(); });
 
