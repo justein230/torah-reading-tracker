@@ -40,7 +40,10 @@ export function logEvent(level: LogLevel, category: string, message: string, met
   })();
 }
 
+// Shares a copy from the cache dir: Android's share sheet can only read files under the
+// FileProvider roots in android/app/src/main/res/xml/file_paths.xml, and Directory.Data isn't one.
 export async function exportLogs(): Promise<void> {
-  const { uri } = await Filesystem.getUri({ path: LOG_PATH, directory: Directory.Data });
+  await Filesystem.copy({ from: LOG_PATH, directory: Directory.Data, to: 'app.log', toDirectory: Directory.Cache });
+  const { uri } = await Filesystem.getUri({ path: 'app.log', directory: Directory.Cache });
   await Share.share({ url: uri, title: 'Torah Tracker Logs', dialogTitle: 'Export Logs' });
 }

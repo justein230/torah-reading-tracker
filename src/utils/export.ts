@@ -137,18 +137,26 @@ export async function exportExcel(): Promise<void> {
   }
 }
 
+const DB_EXPORT_NAME = 'torah.db';
+
 export async function exportDb(): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
     const { Share } = await import('@capacitor/share');
+    // Share a cache copy, not the live file: Android's share sheet can only read files under the
+    // FileProvider roots in android/app/src/main/res/xml/file_paths.xml, and databases/ isn't one.
     const { url } = await CapacitorSQLite.getUrl({ database: 'torah' });
-    await Share.share({ url, title: 'Torah Readings DB', dialogTitle: 'Export Torah DB' });
+    if (!url) throw new Error('Could not locate the database on device.');
+    await Filesystem.copy({ from: url, to: DB_EXPORT_NAME, toDirectory: Directory.Cache });
+    const { uri } = await Filesystem.getUri({ path: DB_EXPORT_NAME, directory: Directory.Cache });
+    await Share.share({ url: uri, title: 'Torah Readings DB', dialogTitle: 'Export Torah DB' });
   } else {
     const res = await fetch('/api/export/db');
     const blob = await res.blob();
     const a    = document.createElement('a');
     a.href     = URL.createObjectURL(blob);
-    a.download = 'torah.db';
+    a.download = DB_EXPORT_NAME;
     a.click();
     URL.revokeObjectURL(a.href);
   }

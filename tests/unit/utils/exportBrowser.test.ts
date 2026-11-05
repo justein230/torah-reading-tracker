@@ -2,13 +2,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 
 const {
-  isNativePlatform, fetchAliyot, fetchMeta, toBlob, writeFile, getUri, share, getUrl,
+  isNativePlatform, fetchAliyot, fetchMeta, toBlob, writeFile, copy, getUri, share, getUrl,
 } = vi.hoisted(() => ({
   isNativePlatform: vi.fn(() => false),
   fetchAliyot: vi.fn(),
   fetchMeta: vi.fn(),
   toBlob: vi.fn(() => Promise.resolve(new Blob(['x']))),
   writeFile: vi.fn((_opts: unknown) => Promise.resolve()),
+  copy: vi.fn((_opts: unknown) => Promise.resolve({ uri: '' })),
   getUri: vi.fn((_opts: unknown) => Promise.resolve({ uri: 'file:///cache/torah-readings.xlsx' })),
   share: vi.fn((_opts: unknown) => Promise.resolve()),
   getUrl: vi.fn((_opts: unknown) => Promise.resolve({ url: 'file:///data/torah.db' })),
@@ -24,7 +25,7 @@ vi.mock('../../../src/api.js', async () => {
 vi.mock('write-excel-file/browser', () => ({ default: () => ({ toBlob }) }));
 
 vi.mock('@capacitor/filesystem', () => ({
-  Filesystem: { writeFile: (a: unknown) => writeFile(a), getUri: (a: unknown) => getUri(a) },
+  Filesystem: { writeFile: (a: unknown) => writeFile(a), copy: (a: unknown) => copy(a), getUri: (a: unknown) => getUri(a) },
   Directory: { Cache: 'CACHE' },
 }));
 
@@ -97,11 +98,23 @@ describe('exportDb — browser', () => {
 });
 
 describe('exportDb — native platform', () => {
-  it('shares the native DB URL via Capacitor APIs', async () => {
+  // Android's share sheet can't read the app's databases/ folder, so the live file must be
+  // copied into the cache dir and the copy shared.
+  it('copies the native DB into the cache dir and shares the copy', async () => {
     isNativePlatform.mockReturnValue(true);
+    getUri.mockResolvedValueOnce({ uri: 'file:///cache/torah.db' });
     await exportDb();
 
     expect(getUrl).toHaveBeenCalledWith({ database: 'torah' });
-    expect(share).toHaveBeenCalledWith(expect.objectContaining({ url: 'file:///data/torah.db' }));
+    expect(copy).toHaveBeenCalledWith({ from: 'file:///data/torah.db', to: 'torah.db', toDirectory: 'CACHE' });
+    expect(getUri).toHaveBeenCalledWith({ path: 'torah.db', directory: 'CACHE' });
+    expect(share).toHaveBeenCalledWith(expect.objectContaining({ url: 'file:///cache/torah.db' }));
+  });
+
+  it('throws without sharing when the DB location is unknown', async () => {
+    isNativePlatform.mockReturnValue(true);
+    getUrl.mockResolvedValueOnce({ url: '' });
+    await expect(exportDb()).rejects.toThrow('Could not locate the database');
+    expect(share).not.toHaveBeenCalled();
   });
 });
