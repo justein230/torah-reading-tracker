@@ -1,4 +1,5 @@
-// Names for the backups both platforms take just before running a pending migration, e.g.
+// Names for the backups both platforms take just before running a pending migration (and that
+// the native app also takes before a DB import), e.g.
 // torah-backup-2026-10-08T14-03-22Z-schema7-app1.0.8.db. The name records when the copy was made,
 // the copy's own schema version (which app versions can open it) and the app version that last
 // used the file (app_meta.last_app_version, or 'unknown' for a file from before that table).

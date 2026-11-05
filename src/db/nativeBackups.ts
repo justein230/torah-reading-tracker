@@ -2,7 +2,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { shareFile } from '../utils/share.js';
 import { backupsToPrune, parseBackupName } from '../utils/dbBackupName.js';
 
-// Pre-migration backups on iOS/Android (the server keeps its own beside torah.db — see
+// Pre-migration and pre-import backups on iOS/Android (the server keeps its own beside torah.db — see
 // utils/backup-server.ts). They live in the app's private data folder (filesDir on Android,
 // Documents on iOS), and the Settings drawer's Backups list exports, restores and deletes them.
 // Lazily imported, like native.ts, so Capacitor plugins never load on web.

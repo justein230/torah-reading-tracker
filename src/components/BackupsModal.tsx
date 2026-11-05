@@ -5,7 +5,7 @@ import { modals } from '@mantine/modals';
 import type { NativeBackup } from '../db/nativeBackups.js';
 import { errText } from '../utils/errText.js';
 
-// iOS/Android only: the pre-migration backups the app keeps in its data folder (see
+// iOS/Android only: the pre-migration and pre-import backups the app keeps in its data folder (see
 // db/nativeBackups.ts). Lazily imported so the Capacitor plugins never load on web.
 const nativeBackups = () => import('../db/nativeBackups.js');
 
@@ -93,7 +93,7 @@ export default function BackupsModal({ opened, onClose, onRestore }: BackupsModa
     <Modal opened={opened} onClose={onClose} title="Backups" centered>
       <Stack gap="sm">
         <Text size="sm" c="dimmed">
-          A copy of your data is saved here automatically before an app update changes the database.
+          A copy of your data is saved here automatically before an app update changes the database and before every import.
           The newest 5 are kept.
         </Text>
         {backups === null && <Loader size="sm" mx="auto" />}

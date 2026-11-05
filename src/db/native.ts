@@ -202,13 +202,16 @@ async function prepareImportedDb(bytes: Uint8Array): Promise<{ ok: true; data: s
     return { ok: true, data: data as string };
   } finally {
     await sqlite.closeConnection(CHECK_DB, false).catch(() => {});
-    await CapacitorSQLite.deleteDatabase({ database: CHECK_DB }).catch(() => {});
+    // Delete the file itself: the plugin's deleteDatabase only works while a read-write
+    // connection is registered, and by now it's closed, so it would silently leave the copy behind.
+    await Filesystem.deleteFile({ path: checkUrl }).catch(() => {});
   }
 }
 
 // Native equivalent of importDatabase in utils/import-server.ts, minus auth-row preservation
-// (native has no auth). Validates and upgrades a scratch copy, then overwrites the live db file
-// in place; if the result won't open, the previous file is restored.
+// (native has no auth). Validates and upgrades a scratch copy, backs up the live db into the
+// backups folder (so it shows in Settings → Backups), then overwrites the live file in place; if
+// the result won't open, the previous file is restored. Nothing is imported without the backup.
 export async function importDatabase(file: File): Promise<ImportResult> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const header = new TextDecoder('latin1').decode(bytes.slice(0, 16));
@@ -221,25 +224,32 @@ export async function importDatabase(file: File): Promise<ImportResult> {
   const { url: mainUrl } = await CapacitorSQLite.getUrl({ database: 'torah' });
   if (!mainUrl) return { ok: false, error: 'Could not locate the database on device.' };
 
-  // Best-effort backup, not surfaced in the UI — shouldn't block the import if it fails.
-  let previous: string | null = null;
-  try {
-    previous = (await Filesystem.readFile({ path: mainUrl })).data as string;
-    await Filesystem.writeFile({ path: `${mainUrl}.bak`, data: previous });
-  } catch {
-    // ignore
-  }
-
+  // Close the live db first, so the backup and the in-memory copy (kept to restore from if the
+  // import won't open) are a settled file. getConn() has upgraded it, so it's at the current
+  // schema and stamped with this app version.
   const conn = await getConn();
   await conn.close();
   await sqlite.closeConnection('torah', false);
+  dbPromise = null; // next getConn() reopens, against whichever file ends up in place
+
+  let previous: string;
+  try {
+    const name = formatBackupName({ dbBase: 'torah', date: new Date(), schemaVersion: NATIVE_DB_VERSION, appVersion: __APP_VERSION__ });
+    await saveBackup(mainUrl, name);
+    previous = (await Filesystem.readFile({ path: mainUrl })).data as string;
+    logEvent('info', 'db', `Backed up the current database to ${name} before importing`);
+  } catch (e: unknown) {
+    logEvent('warn', 'db', 'Pre-import backup failed; import cancelled', { detail: errText(e) });
+    return { ok: false, error: `Couldn't back up your current data, so nothing was imported: ${errText(e)}` };
+  }
+  // Older versions kept a single hidden copy here instead; it's superseded by the backup above.
+  await Filesystem.deleteFile({ path: `${mainUrl}.bak` }).catch(() => {});
+
   await Filesystem.writeFile({ path: mainUrl, data: prepared.data });
-  dbPromise = null; // next getConn() reopens against the file just written
 
   try {
     await getConn();
   } catch {
-    if (previous === null) return { ok: false, error: 'The imported database could not be opened.' };
     await sqlite.closeConnection('torah', false).catch(() => {});
     await Filesystem.writeFile({ path: mainUrl, data: previous });
     return { ok: false, error: 'The imported database could not be opened; your previous data was restored.' };
