@@ -181,3 +181,14 @@ input[type="date"]::-webkit-date-and-time-value {
 @media (max-width: 767px) {
   .app-tabs-bar { display: none; }
 }
+
+/* ── Toasts (<Notifications> in main.tsx) ────────────────────────────────────*/
+/* Clear the status bar / notch. Mantine renders a container for every position and puts this
+   class on all six, so the rule must target the top ones only: on a bottom container (which
+   already has bottom set) a top value stretches it over the whole screen, and that invisible
+   layer swallows every tap. Mantine's own position rules use :where(), so this wins. */
+.app-notifications[data-position^='top'] { top: calc(env(safe-area-inset-top, 0px) + var(--mantine-spacing-md)); }
+.app-notifications .mantine-Notification-root { padding-top: var(--mantine-spacing-sm); padding-bottom: var(--mantine-spacing-sm); }
+.app-notifications .mantine-Notification-title,
+.app-notifications .mantine-Notification-description { font-size: var(--mantine-font-size-md); line-height: 1.4; }
+.app-notifications .mantine-Notification-title { font-weight: 600; }

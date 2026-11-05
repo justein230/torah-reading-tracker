@@ -23,7 +23,10 @@ import App from './App.js';
 
 createRoot(document.getElementById('root')!).render(
   <MantineProvider theme={theme} defaultColorScheme="dark">
-    <Notifications />
+    {/* Top-center and larger than Mantine's default (small, bottom-right): on a phone the
+        default was barely readable and sat down by the bottom nav. Styles: .app-notifications
+        in global.css. */}
+    <Notifications position="top-center" containerWidth={480} autoClose={5000} className="app-notifications" />
     <ModalsProvider>
       <AppProvider>
         <App />
