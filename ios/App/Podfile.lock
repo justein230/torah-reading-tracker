@@ -1,5 +1,5 @@
 PODS:
-  - Capacitor (8.5.2):
+  - Capacitor (8.6.0):
     - CapacitorCordova
   - CapacitorApp (8.1.2):
     - Capacitor
@@ -7,13 +7,13 @@ PODS:
     - Capacitor
     - SQLCipher
     - ZIPFoundation
-  - CapacitorCordova (8.5.2)
-  - CapacitorFilesystem (8.1.4):
+  - CapacitorCordova (8.6.0)
+  - CapacitorFilesystem (8.1.5):
     - Capacitor
-    - IONFilesystemLib (~> 2.0.0)
+    - IONFilesystemLib (= 2.0.1)
   - CapacitorShare (8.0.3):
     - Capacitor
-  - IONFilesystemLib (2.0.0)
+  - IONFilesystemLib (2.0.1)
   - SQLCipher (4.10.0):
     - SQLCipher/standard (= 4.10.0)
   - SQLCipher/common (4.10.0)
@@ -50,13 +50,13 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/share"
 
 SPEC CHECKSUMS:
-  Capacitor: 89067779e14fb7ea56af07b4817f45d1f0c2a269
+  Capacitor: 62cab4ab4ba04ea925576ddd1be188869e90d9ea
   CapacitorApp: 7b7e43debe505bc61beedb83796aa1368c86078b
   CapacitorCommunitySqlite: 785553c54e52da62d058238d4571db5692c022c4
-  CapacitorCordova: 5bec5648cbd09a176ce34ce5e7b6cdabb2c8a327
-  CapacitorFilesystem: 17ee1862a45ef2e5012311a87e18de1d45a6811b
+  CapacitorCordova: 922f0a94dae286165215f0c7cf16fbde662d5ee4
+  CapacitorFilesystem: e3bc7123acb1554df1b7b099fa5847064b9e1bd4
   CapacitorShare: 5b5e53347556bee89ae6163ed20b5b3c25fe75f1
-  IONFilesystemLib: 0a001124dedc317c03032d138aaefbf4c18adb09
+  IONFilesystemLib: 306469e4c563f61de82d7bca2bbfed9e64d1b2d2
   SQLCipher: eb79c64049cb002b4e9fcb30edb7979bf4706dfc
   ZIPFoundation: dfd3d681c4053ff7e2f7350bc4e53b5dba3f5351
 
