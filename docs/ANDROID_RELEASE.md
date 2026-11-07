@@ -47,7 +47,10 @@ npm run android:release
 This runs the same db/web pipeline as `cap:android`, then `./gradlew bundleRelease assembleRelease`.
 The output is:
 
-- `android/app/build/outputs/bundle/release/app-release.aab`: upload this to Play.
+- `android/app/release/torah-<version>-<versionCode>.aab`: upload this to Play. It's copied out
+  of `build/`, which `gradlew clean` wipes and the next build overwrites, so each release keeps
+  its own file. That folder is also Android Studio's default for signed bundles, but Studio's
+  bundles are named `app-release.aab` and carry version 1.0 (Studio doesn't pass the version).
 - `android/app/build/outputs/apk/release/app-release.apk`: install with `adb install` to try it.
 
 `versionName` is package.json's version and `versionCode` is packed from it: 1.1.3 → 10103

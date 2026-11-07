@@ -46,6 +46,13 @@ run('rm -rf public/assets');
 run('npx cap sync android');
 run(`./gradlew bundleRelease assembleRelease -PversionCode=${versionCode} -PversionName=${versionName}`, androidDir);
 
+// build/ is wiped by `gradlew clean` and overwritten by the next build, so keep each release's
+// bundle under its own name in app/release/ (Android Studio's signed-bundle default folder).
+const releaseDir = path.join(androidDir, 'app/release');
+const bundle     = path.join(releaseDir, `torah-${versionName}-${versionCode}.aab`);
+fs.mkdirSync(releaseDir, { recursive: true });
+fs.copyFileSync(path.join(outputs, 'bundle/release/app-release.aab'), bundle);
+
 console.log(`\nBuilt ${versionName} (versionCode ${versionCode}):`);
-console.log(`  Upload to Play: ${path.join(outputs, 'bundle/release/app-release.aab')}`);
+console.log(`  Upload to Play: ${bundle}`);
 console.log(`  Sideload:       ${path.join(outputs, 'apk/release/app-release.apk')}`);
