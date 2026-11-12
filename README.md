@@ -1,6 +1,11 @@
 # Torah Reading Tracker
 
+
 A personal tracking app for Torah aliyah readings. Log every aliyah you read, visualize your progress across all five books, and forecast when you'll complete the Torah.
+
+<a href="https://play.google.com/store/apps/details?id=com.justein.torahtracker">
+  <img alt="Get it on Google Play" height="60" src="./assets/GetItOnGooglePlay_Badge_Web_color_English.svg" />
+</a>
 
 ## Features
 
@@ -260,3 +265,5 @@ The project carries no `@hebcal/*` package dependency; it uses only the hosted A
 Torah Tracker is released under the [MIT License](LICENSE). The licenses of the third-party packages and native
 libraries it includes are shown in the app under About (the "i" icon) → Licenses; see
 [docs/LICENSES.md](docs/LICENSES.md) for how they are produced.
+
+*Google Play and the Google Play logo are trademarks of Google LLC.*
