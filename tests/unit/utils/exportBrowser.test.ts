@@ -39,7 +39,7 @@ vi.mock('@capacitor/share', () => ({ Share: { share: (a: unknown) => share(a) } 
 
 vi.mock('@capacitor-community/sqlite', () => ({ CapacitorSQLite: { getUrl: (a: unknown) => getUrl(a) } }));
 
-import { exportExcel, exportDb, saveDbToDocuments } from '../../../src/utils/export.js';
+import { exportExcel, exportDb, saveDbToDocuments, saveExcelToDocuments } from '../../../src/utils/export.js';
 
 function stubAnchor() {
   const click = vi.fn();
@@ -72,19 +72,48 @@ describe('exportExcel — browser', () => {
     expect(fetchMeta).toHaveBeenCalled();
     expect(toBlob).toHaveBeenCalled();
     expect(click).toHaveBeenCalled();
-    expect(anchor.download).toMatch(/^torah-readings-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(anchor.download).toBe('torah-readings.xlsx');
     expect(globalThis.URL.revokeObjectURL).toHaveBeenCalled();
+  });
+
+  it('downloads under the given file name', async () => {
+    const { anchor } = stubAnchor();
+    await exportExcel('report-20261105.xlsx');
+    expect(anchor.download).toBe('report-20261105.xlsx');
   });
 });
 
 describe('exportExcel — native platform', () => {
   it('writes the file and shares it via Capacitor APIs', async () => {
     isNativePlatform.mockReturnValue(true);
-    await exportExcel();
+    await exportExcel('report-20261105.xlsx');
 
-    expect(writeFile).toHaveBeenCalled();
-    expect(getUri).toHaveBeenCalled();
+    expect(writeFile).toHaveBeenCalledWith(expect.objectContaining({ path: 'report-20261105.xlsx', directory: 'CACHE' }));
+    expect(getUri).toHaveBeenCalledWith({ path: 'report-20261105.xlsx', directory: 'CACHE' });
     expect(share).toHaveBeenCalledWith(expect.objectContaining({ url: 'file:///cache/torah-readings.xlsx' }));
+  });
+});
+
+describe('saveExcelToDocuments', () => {
+  it('writes the workbook into Documents/Torah Tracker, creating the folder', async () => {
+    await expect(saveExcelToDocuments('report-20261105.xlsx')).resolves.toBe('saved');
+    expect(mkdir).toHaveBeenCalledWith(expect.objectContaining({ path: 'Torah Tracker', directory: 'DOCUMENTS' }));
+    expect(writeFile).toHaveBeenCalledWith(expect.objectContaining({
+      path: 'Torah Tracker/report-20261105.xlsx', directory: 'DOCUMENTS',
+    }));
+  });
+
+  it('leaves an existing file alone and reports "exists" unless told to overwrite', async () => {
+    stat.mockResolvedValueOnce({});
+    await expect(saveExcelToDocuments('report.xlsx')).resolves.toBe('exists');
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('replaces an existing file when overwrite is set', async () => {
+    stat.mockResolvedValueOnce({});
+    await expect(saveExcelToDocuments('report.xlsx', true)).resolves.toBe('saved');
+    expect(deleteFile).toHaveBeenCalledWith(expect.objectContaining({ path: 'Torah Tracker/report.xlsx' }));
+    expect(writeFile).toHaveBeenCalled();
   });
 });
 

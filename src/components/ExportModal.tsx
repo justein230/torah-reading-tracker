@@ -3,29 +3,48 @@ import { Modal, Stack, Group, Text, TextInput, Checkbox, Button } from '@mantine
 import { notifications } from '@mantine/notifications';
 import { modals } from '@mantine/modals';
 import { Capacitor } from '@capacitor/core';
-import { exportDb, saveDbToDocuments, documentsExportPath } from '../utils/export.js';
-import { dbExportFileName, DEFAULT_DB_EXPORT_BASE } from '../utils/exportFileName.js';
+import {
+  exportDb, saveDbToDocuments, exportExcel, saveExcelToDocuments, documentsExportPath,
+  type SaveToDocumentsResult,
+} from '../utils/export.js';
+import { exportFileName, DB_EXPORT_FORMAT, EXCEL_EXPORT_FORMAT, type ExportFormat } from '../utils/exportFileName.js';
 import { errText } from '../utils/errText.js';
 
-// Exports the readings db under a name the user picks, optionally stamped with today's date.
-// Android: save straight to Documents/Torah Tracker, or share. iOS: share (its share sheet
-// has "Save to Files"). Web/Electron: download.
+// Exports the readings (as a db or an Excel workbook) under a name the user picks, optionally
+// stamped with today's date. Android: save straight to Documents/Torah Tracker, or share.
+// iOS: share (its share sheet has "Save to Files"). Web/Electron: download.
 
-interface ExportDbModalProps {
+export type ExportKind = 'db' | 'excel';
+
+interface KindConfig {
+  readonly title:  string;
+  readonly format: ExportFormat;
+  readonly share:  (fileName: string) => Promise<void>;
+  readonly save:   (fileName: string, overwrite: boolean) => Promise<SaveToDocumentsResult>;
+}
+
+const KINDS: Record<ExportKind, KindConfig> = {
+  db:    { title: 'Export DB',    format: DB_EXPORT_FORMAT,    share: exportDb,    save: saveDbToDocuments },
+  excel: { title: 'Export Excel', format: EXCEL_EXPORT_FORMAT, share: exportExcel, save: saveExcelToDocuments },
+};
+
+interface ExportModalProps {
+  readonly kind:    ExportKind;
   readonly opened:  boolean;
   readonly onClose: () => void;
 }
 
 type Busy = 'save' | 'share' | null;
 
-export default function ExportDbModal({ opened, onClose }: ExportDbModalProps) {
-  const [name, setName]               = useState(DEFAULT_DB_EXPORT_BASE);
+export default function ExportModal({ kind, opened, onClose }: ExportModalProps) {
+  const { title, format, share: shareFile, save: saveFile } = KINDS[kind];
+  const [name, setName]               = useState(format.defaultBase);
   const [withDate, setWithDate]       = useState(true);
   const [busy, setBusy]               = useState<Busy>(null);
 
   const isNative    = Capacitor.isNativePlatform();
   const canSaveDocs = Capacitor.getPlatform() === 'android';
-  const fileName    = dbExportFileName(name, withDate);
+  const fileName    = exportFileName(name, format, withDate);
   const savedPath   = `Documents/${documentsExportPath(fileName)}`;
 
   async function run(kind: Exclude<Busy, null>, action: () => Promise<void>) {
@@ -41,7 +60,7 @@ export default function ExportDbModal({ opened, onClose }: ExportDbModalProps) {
 
   async function save(overwrite: boolean) {
     await run('save', async () => {
-      const result = await saveDbToDocuments(fileName, overwrite);
+      const result = await saveFile(fileName, overwrite);
       if (result === 'exists') {
         confirmOverwrite();
         return;
@@ -63,19 +82,19 @@ export default function ExportDbModal({ opened, onClose }: ExportDbModalProps) {
 
   async function share() {
     await run('share', async () => {
-      await exportDb(fileName);
+      await shareFile(fileName);
       onClose();
     });
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Export DB" centered>
+    <Modal opened={opened} onClose={onClose} title={title} centered>
       <Stack gap="sm">
         <TextInput
           label="File name"
           value={name}
           onChange={e => setName(e.currentTarget.value)}
-          placeholder={DEFAULT_DB_EXPORT_BASE}
+          placeholder={format.defaultBase}
           data-autofocus
         />
         <Checkbox

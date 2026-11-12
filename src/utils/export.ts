@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { getTodayStr } from '../api.js';
 import { bytesToBase64 } from './base64.js';
-import { DEFAULT_DB_EXPORT_BASE, DB_EXPORT_EXT } from './exportFileName.js';
+import { DB_EXPORT_FORMAT, EXCEL_EXPORT_FORMAT } from './exportFileName.js';
 import type { Row, CellObject } from 'write-excel-file/browser';
 
 export interface AliyotRow {
@@ -96,7 +96,10 @@ export function buildSheetData(
   return { portions, summary };
 }
 
-export async function exportExcel(): Promise<void> {
+const DEFAULT_EXCEL_EXPORT_NAME = `${EXCEL_EXPORT_FORMAT.defaultBase}${EXCEL_EXPORT_FORMAT.ext}`;
+
+// The readings workbook (Portions + Summary sheets) as an .xlsx blob.
+async function buildExcelBlob(): Promise<Blob> {
   const { fetchAliyot, fetchMeta } = await import('../api.js');
 
   const [rows, meta] = await Promise.all([fetchAliyot(), fetchMeta()]);
@@ -118,18 +121,24 @@ export async function exportExcel(): Promise<void> {
     { data: portions, sheet: 'Portions' },
     { data: summary, sheet: 'Summary' },
   ];
-  const fileName = `torah-readings-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  return writeExcelFile(sheets).toBlob();
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  return bytesToBase64(new Uint8Array(await blob.arrayBuffer()));
+}
+
+// Native: opens the share sheet on a cache copy named `fileName`. Web/Electron: downloads it.
+export async function exportExcel(fileName: string = DEFAULT_EXCEL_EXPORT_NAME): Promise<void> {
+  const blob = await buildExcelBlob();
 
   if (Capacitor.isNativePlatform()) {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
     const { shareFile } = await import('./share.js');
-    const blob    = await writeExcelFile(sheets).toBlob();
-    const base64  = bytesToBase64(new Uint8Array(await blob.arrayBuffer()));
-    await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+    await Filesystem.writeFile({ path: fileName, data: await blobToBase64(blob), directory: Directory.Cache });
     const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
     await shareFile({ url: uri, title: 'Torah Readings', dialogTitle: 'Export Readings' });
   } else {
-    const blob = await writeExcelFile(sheets).toBlob();
     const a    = document.createElement('a');
     a.href     = URL.createObjectURL(blob);
     a.download = fileName;
@@ -138,7 +147,7 @@ export async function exportExcel(): Promise<void> {
   }
 }
 
-const DEFAULT_DB_EXPORT_NAME = `${DEFAULT_DB_EXPORT_BASE}${DB_EXPORT_EXT}`;
+const DEFAULT_DB_EXPORT_NAME = `${DB_EXPORT_FORMAT.defaultBase}${DB_EXPORT_FORMAT.ext}`;
 
 // The live on-device db file, as a file:// url.
 async function nativeDbUrl(): Promise<string> {
@@ -175,19 +184,22 @@ export type SaveToDocumentsResult = 'saved' | 'exists';
 // with the user's other files.
 export const DOCUMENTS_EXPORT_FOLDER = 'Torah Tracker';
 
-// Where saveDbToDocuments puts `fileName`, relative to Documents.
+// Where saveDbToDocuments / saveExcelToDocuments put `fileName`, relative to Documents.
 export function documentsExportPath(fileName: string): string {
   return `${DOCUMENTS_EXPORT_FOLDER}/${fileName}`;
 }
 
-// Android only: copies the db into Documents/Torah Tracker (creating the folder if needed), where
-// file managers and the Files app can see it. Unless `overwrite` is set, an existing file of that name is left alone
+// Android only: puts a file into Documents/Torah Tracker (creating the folder if needed), where
+// file managers and the Files app can see it. `write` creates the file at the Documents-relative
+// path it is given. Unless `overwrite` is set, an existing file of that name is left alone
 // and 'exists' is returned so the caller can ask first. On Android 11+ an app may only replace
 // files it created itself, so overwriting an older export from a previous install fails.
 // (Not offered on iOS: there the SQLite plugin keeps the live db in Documents, and the share
 // sheet's "Save to Files" already does this.) Android 10 and older need the storage permission,
 // which the Filesystem plugin requests itself.
-export async function saveDbToDocuments(fileName: string, overwrite = false): Promise<SaveToDocumentsResult> {
+async function saveToDocuments(
+  fileName: string, overwrite: boolean, write: (path: string) => Promise<void>,
+): Promise<SaveToDocumentsResult> {
   const { Filesystem, Directory } = await import('@capacitor/filesystem');
   const path   = documentsExportPath(fileName);
   const target = { path, directory: Directory.Documents };
@@ -197,10 +209,25 @@ export async function saveDbToDocuments(fileName: string, overwrite = false): Pr
     await Filesystem.deleteFile(target);
   } else {
     // mkdir rejects when the folder already exists; if it failed for any other reason, the
-    // copy below fails too and reports it.
+    // write below fails too and reports it.
     await Filesystem.mkdir({ path: DOCUMENTS_EXPORT_FOLDER, directory: Directory.Documents, recursive: true })
       .catch(() => {});
   }
-  await Filesystem.copy({ from: await nativeDbUrl(), to: path, toDirectory: Directory.Documents });
+  await write(path);
   return 'saved';
+}
+
+export async function saveDbToDocuments(fileName: string, overwrite = false): Promise<SaveToDocumentsResult> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+  return saveToDocuments(fileName, overwrite, async path => {
+    await Filesystem.copy({ from: await nativeDbUrl(), to: path, toDirectory: Directory.Documents });
+  });
+}
+
+export async function saveExcelToDocuments(fileName: string, overwrite = false): Promise<SaveToDocumentsResult> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+  return saveToDocuments(fileName, overwrite, async path => {
+    const data = await blobToBase64(await buildExcelBlob());
+    await Filesystem.writeFile({ path, data, directory: Directory.Documents });
+  });
 }

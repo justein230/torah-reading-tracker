@@ -24,9 +24,10 @@ vi.mock('../../../src/api.js', async () => {
 const exportExcel = vi.fn();
 const exportDb     = vi.fn();
 vi.mock('../../../src/utils/export.js', () => ({
-  exportExcel: () => exportExcel(),
+  exportExcel: (name: string) => exportExcel(name),
   exportDb: (name: string) => exportDb(name),
   saveDbToDocuments: vi.fn(),
+  saveExcelToDocuments: vi.fn(),
   documentsExportPath: (n: string) => `Torah Tracker/${n}`,
 }));
 
@@ -203,13 +204,14 @@ describe('SettingsDrawer — writable actions', () => {
     expect(await screen.findByText('No backups yet.')).toBeInTheDocument();
   });
 
-  it('triggers exportExcel when "Export to Excel" is clicked', async () => {
+  it('opens the export dialog when "Export to Excel" is clicked', async () => {
     setCtx({ canWrite: true });
     renderWithProviders(<SettingsDrawer opened onClose={vi.fn()} />);
     await screen.findByText('Export to Excel');
 
     fireEvent.click(screen.getByText('Export to Excel'));
-    await waitFor(() => expect(exportExcel).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: 'Download' }));
+    await waitFor(() => expect(exportExcel).toHaveBeenCalledWith(expect.stringMatching(/^torah-readings-\d{8}\.xlsx$/)));
   });
 
   it('opens the export dialog when "Export DB (.sqlite)" is clicked', async () => {
