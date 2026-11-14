@@ -18,9 +18,12 @@ publish:
   publishAutoUpdate: false   # we don't use electron-updater; skip latest*.yml manifest
 linux:
   target:
-    - AppImage
-    - deb
-    - rpm
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64, arm64]
+    - target: rpm
+      arch: [x64, arm64]
   category: Education
   syncDesktopName: true
 mac:
@@ -31,6 +34,8 @@ mac:
 dmg:
   writeUpdateInfo: false   # skip generating the .blockmap; we don't use electron-updater
 win:
-  target: nsis
+  target:
+    - target: nsis
+      arch: [x64, arm64]
 nsis:
   differentialPackage: false   # skip generating the .blockmap; we don't use electron-updater
