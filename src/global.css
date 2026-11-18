@@ -192,3 +192,23 @@ input[type="date"]::-webkit-date-and-time-value {
 .app-notifications .mantine-Notification-title,
 .app-notifications .mantine-Notification-description { font-size: var(--mantine-font-size-md); line-height: 1.4; }
 .app-notifications .mantine-Notification-title { font-weight: 600; }
+
+/* ── Side rail (see utils/sideRail.ts) ───────────────────────────────────────
+   The header and page keep out of the right-hand status column, and the primary nav
+   becomes a vertical rail in that column below the status cluster. */
+html[data-side-rail] {
+  --rail-top: 160px; /* clears the camera / clock / signal cluster */
+}
+html[data-side-rail] .app-header { padding-right: var(--rail-w); }
+html[data-side-rail] .mantine-AppShell-main { padding-right: var(--rail-w) !important; padding-bottom: 0 !important; }
+html[data-side-rail] footer:has(> .bottom-nav) {
+  top: var(--rail-top); bottom: 0; left: auto; right: 0;
+  width: var(--rail-w); height: auto !important;
+  padding: 0 0 env(safe-area-inset-bottom) !important;
+  border-top: none; border-left: 1px solid var(--surface2);
+  background: var(--bg) !important;
+}
+/* The Overview sefer cards switch to the compact layout below 388px of width; the page now has
+   (window − rail) of it, which the window media query can't see. */
+html[data-side-rail] .sefercards-narrow { display: block; }
+html[data-side-rail] .sefercards-wide { display: none; }

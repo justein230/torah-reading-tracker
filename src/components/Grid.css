@@ -39,3 +39,18 @@
 .grids-xs .aliyah-col-spacer { width: 100px; min-width: 100px; }
 .grids-xs .aliyah-col-num { width: 26px; }
 .grids-xs .acell { width: 26px; height: 26px; border-radius: 4px; }
+
+/* Narrow layout: let the cells share whatever width the row has instead of a fixed 26px, so the grid fills
+   the screen at any narrow width (a column of 8 cells either side-by-side or fewer, never wider than 8). */
+.grids-xs .parsha-label, .grids-xs .aliyah-col-spacer { width: 84px; min-width: 84px; padding-right: 4px; }
+.grids-xs .parsha-row, .grids-xs .aliyah-col-header { gap: 4px; }
+.grids-xs .aliyah-cells { flex: 1; min-width: 0; gap: 4px; }
+.grids-xs .acell, .grids-xs .aliyah-col-num { flex: 0 0 calc((100% - 28px) / 8); width: auto; height: auto; aspect-ratio: 1; box-sizing: border-box; }
+.grids-xs .aliyah-col-num { aspect-ratio: auto; }
+
+/* Narrow layout: compact view selector (all four fit on one row) and legend. */
+.grids-xs .grid-view-tabs .mantine-Tabs-list { flex-wrap: wrap; gap: 4px; }
+.grids-xs .grid-view-tabs .mantine-Tabs-tab { padding: 6px 9px; font-size: 0.75rem; }
+.grids-xs .grid-legend { gap: 6px 14px; padding: 8px 10px; margin-bottom: 16px; }
+.grids-xs .legend-item { gap: 5px; }
+.grids-xs .legend-label { font-size: 0.6875rem; }

@@ -17,3 +17,6 @@
   .est-divider { padding-bottom: 10px; border-bottom: 1px solid var(--surface2); margin-bottom: 4px; }
   .hero-group { align-items: flex-start; }
 }
+
+/* Hero in the side-rail layout (iPhone Duo front screen): tighten the gaps between the title block and the rings. */
+html[data-side-rail] .hero-group { row-gap: 8px !important; }

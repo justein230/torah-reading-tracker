@@ -86,7 +86,7 @@ export function Hero({ stats }: HeroProps) {
 
         <Stack align="center" gap={4} className="book-label">
           <Text fw={700} size="xl">{scopeTitle}</Text>
-          <Text size="sm" c="dimmed" className="label-caps" mb={10}>{yearLabel}</Text>
+          <Text size="sm" c="dimmed" className="label-caps" mb={4}>{yearLabel}</Text>
           <Text fw={600}>
             {stats.readAliyot}
             {stats.committedAliyot > stats.readAliyot && (

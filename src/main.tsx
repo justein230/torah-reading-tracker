@@ -20,6 +20,9 @@ import './global.css';
 import { theme } from './theme.js';
 import { AppProvider } from './context/AppContext.js';
 import App from './App.js';
+import { initSideRail } from './utils/sideRail.js';
+
+initSideRail();
 
 createRoot(document.getElementById('root')!).render(
   <MantineProvider theme={theme} defaultColorScheme="dark">

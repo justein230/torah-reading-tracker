@@ -57,3 +57,7 @@
 }
 
 .bottom-nav-item span { white-space: nowrap; }
+
+/* Side rail: vertical nav in the right-hand column (see utils/sideRail.ts, global.css) */
+html[data-side-rail] .bottom-nav { flex-direction: column; }
+html[data-side-rail] .bottom-nav-item::before { inset: 4px 6px; }

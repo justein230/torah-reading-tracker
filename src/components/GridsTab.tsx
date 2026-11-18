@@ -17,7 +17,7 @@ export default function GridsTab() {
   const { ref, width } = useElementWidth();
   return (
     <Box ref={ref} className={gridWidthClass(width)}>
-      <Tabs value={view} onChange={v => setView(v as GridView)} variant="pills" mb={16}>
+      <Tabs value={view} onChange={v => setView(v as GridView)} variant="pills" mb={16} className="grid-view-tabs">
         <Tabs.List>
           <Tabs.Tab value="portions">Portions</Tabs.Tab>
           <Tabs.Tab value="double">Double Parshiyot</Tabs.Tab>
