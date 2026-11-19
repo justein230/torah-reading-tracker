@@ -7,6 +7,11 @@
    to shrink below its icon+label size and spill out past the 0-height footer. */
 .bottom-nav { display: flex; height: 100%; overflow: hidden; }
 
+/* Only where the page is narrower than the screen (Safari on the iPhone Duo keeps a column for its own
+   buttons and paints it with the page color; see utils/sideRail.ts), match the bar and its top line to the page
+   and the header's divider. Other phones keep the default footer gray. */
+html[data-letterboxed] footer:has(> .bottom-nav) { background: var(--bg) !important; border-top-color: var(--surface2) !important; }
+
 /* AppShell.Footer's withBorder renders border-top on the <footer> itself,
    independent of the height variable that collapses to 0 above 768px, so
    the border survives as a stray line unless removed here too. Its height

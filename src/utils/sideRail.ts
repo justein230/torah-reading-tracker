@@ -13,8 +13,15 @@ function measureInset(side: 'left' | 'right'): number {
   return px;
 }
 
+/* A browser that keeps the page narrower than the screen (Safari on the Duo's front screen reserves a column
+   for its own buttons): the layout viewport is much narrower than the screen. Normal phones never differ. */
+const MIN_LETTERBOX_PX = 48;
+
 export function updateSideRail(): void {
   const root = document.documentElement;
+  const letterboxed = globalThis.innerWidth < 768 && globalThis.screen.width - globalThis.innerWidth >= MIN_LETTERBOX_PX;
+  if (letterboxed) root.dataset['letterboxed'] = 'true';
+  else delete root.dataset['letterboxed'];
   const right = measureInset('right');
   const on = right >= MIN_RAIL_PX && globalThis.innerWidth < 768;
   if (on) {
