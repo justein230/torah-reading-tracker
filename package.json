@@ -46,7 +46,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint ."
+    "lint": "oxlint .",
+    "docs:dev": "npm --prefix site run start",
+    "docs:build": "npm --prefix site run build"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^8.1.0",

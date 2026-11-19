@@ -26,6 +26,7 @@
     "dist",
     "node_modules",
     "src/db/nativeMigrations.generated.ts",
-    "public/assets"
+    "public/assets",
+    "site"
   ]
 }

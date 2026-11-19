@@ -193,55 +193,16 @@ Capacitor bundles it into the app and copies it onto the device on first launch
 (`copyFromAssets`). The seed DB is generated at build time — never committed —
 so it always matches the current schema and reference data.
 
-## Deployment (Docker + reverse proxy)
+## Documentation
 
-The recommended production setup runs the app in a Docker container behind a reverse proxy (e.g. Caddy) on the host.
+Deployment, configuration and backup guides are on the docs site: <https://justein230.github.io/torah-reading-tracker/>. Its source is in `site/` (Docusaurus); preview it with `npm --prefix site install` then `npm run docs:dev`, and build it with `npm run docs:build`.
 
-```bash
-# Build image and start container
-./deploy.sh
+## Development environment variables
 
-# Or manually
-docker compose build
-docker compose up -d
-```
-
-`docker-compose.yml` publishes no port by default — the container is not reachable from outside the Docker network until you either add a `ports:` mapping in the override file or put a reverse proxy in front of it. It reads its environment values from `.env` (see `.env.example`), except `TORAH_DB_PATH`, which is pinned to the `/data` volume. Any IP-based access restriction (e.g. LAN-only) belongs in that reverse proxy (e.g. Traefik's `ipallowlist` middleware), not in the app. Deployment-specific values (private registry image, host bind-mount path) belong in `docker-compose.override.yml`, which Compose merges automatically — see `docker-compose.override.yml.example`.
-
-## Deployment (bare Node + systemd)
-
-Alternatively, deploy without Docker using the systemd service file:
-
-```bash
-DEPLOY_MODE=systemd ./deploy.sh
-```
-
-Write access to the API (`POST`/`PUT`/`DELETE` on `/api/readings`) is gated by the app's own auth — see [Write-access auth](#write-access-auth) below. Any IP-based restriction should be enforced by the reverse proxy in front of it.
-
-## Write-access auth
-
-Two mutually exclusive auth modes, picked via `TORAH_AUTH_MODE`:
-
-- **`password`** (default) — the app's own login, and nothing else. Write access is purely "is there a valid session", so there's no ambiguity about whether you're actually logged in. Set `TORAH_ADMIN_PASSWORD` (plaintext) and start the app; it hashes the password into the database on that first start, so the plaintext env var doesn't need to stay set — **remove it once the app is up**. If it's still set on a later start and a hash already exists, the app shows a persistent "insecure config" banner, since a leaked plaintext password is worse than a leaked hash. Log in from the Settings drawer.
-- **`header`** — trust a header your reverse proxy sets after doing its *own* auth (e.g. Traefik's `basicAuth` middleware sets `X-Forwarded-User` on success; Authelia, oauth2-proxy, Tailscale Serve, and Cloudflare Access all have equivalents). Set `TORAH_AUTH_MODE=header`, `TORAH_AUTH_HEADER` to the header name, and `TORAH_REQUIRE_PROXY_HEADER=true`.
-
-  This only works if **every** router in front of the app either sets that header (after authenticating) or blanks it — never just passes an unauthenticated client's own header through unchanged, or anyone can grant themselves write access by sending it directly.
-
-  Any IP-based restriction (e.g. LAN-only access to an internal hostname) is the reverse proxy's job, not the app's — e.g. Traefik's `ipallowlist` middleware on the router in front of this service. That keeps IP filtering correct regardless of whether the proxy also forwards a real client-IP header to the app.
-
-## Environment Variables
+These only affect the dev servers. Production settings (`PORT`, `TORAH_*`, auth) are on the [docs site](https://justein230.github.io/torah-reading-tracker/deploy/configuration).
 
 | Variable | Default | Description |
 |---|---|---|
-| `NODE_ENV` | *(none)*; `production` in the Docker image | `production` marks the session cookie `Secure`, so login requires HTTPS |
-| `PORT` | `3000` | Port the Express server listens on |
-| `TORAH_HOST` | `127.0.0.1` | Interface the Express server binds to |
-| `TORAH_HOST_PORT` | `3000` | Docker only: host-side port published for the container (container side uses `PORT`) |
-| `TORAH_DB_PATH` | `./torah.db` | Path to the SQLite database. Under Docker this is pinned to `/data/torah.db` in `docker-compose.yml`, not read from `.env` |
-| `TORAH_AUTH_MODE` | `password` | `password` (built-in login) or `header` (trust an upstream reverse-proxy auth header). See [Write-access auth](#write-access-auth). |
-| `TORAH_ADMIN_PASSWORD` | *(none)* | `password` mode, first start only: plaintext password to hash into the DB. Remove after the app has started once. |
-| `TORAH_AUTH_HEADER` | `X-Forwarded-User` | `header` mode: name of the header to trust as proof of auth. |
-| `TORAH_REQUIRE_PROXY_HEADER` | `false` in dev, `true` in production | `header` mode: only trust `TORAH_AUTH_HEADER` when set by a proxy, never from a direct client. Required for `header` mode. |
 | `VITE_HOST` | `127.0.0.1` | Interface the Vite dev server binds to |
 | `VITE_DEV_PORT` | `8000` | Port the Vite dev server listens on |
 | `VITE_API_PORT` | `3000` | Express port Vite proxies `/api` to in dev |
