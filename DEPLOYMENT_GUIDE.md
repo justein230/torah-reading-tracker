@@ -1,6 +1,6 @@
 # Torah Reading Tracker deployment
 
-See [Docker setup](https://justein230.github.io/torah-reading-tracker/deploy/docker-password) for installation and updates.
+See [Docker setup](https://docs.torah.justein.com/deploy/docker-password) for installation and updates.
 
 - [Docker setup source](site/docs/deploy/docker-password.md)
 - [Authentication proxy](site/docs/deploy/docker-proxy.md)

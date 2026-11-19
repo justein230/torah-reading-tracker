@@ -7,8 +7,8 @@ const config: Config = {
   tagline: 'Track which aliyot you have read',
   favicon: 'img/favicon.png',
 
-  url: 'https://justein230.github.io',
-  baseUrl: '/torah-reading-tracker/',
+  url: 'https://docs.torah.justein.com',
+  baseUrl: '/',
   organizationName: 'justein230',
   projectName: 'torah-reading-tracker',
   trailingSlash: false,

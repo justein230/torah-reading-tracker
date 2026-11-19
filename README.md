@@ -195,11 +195,11 @@ so it always matches the current schema and reference data.
 
 ## Documentation
 
-Deployment, configuration and backup guides are on the docs site: <https://justein230.github.io/torah-reading-tracker/>. Its source is in `site/` (Docusaurus); preview it with `npm --prefix site install` then `npm run docs:dev`, and build it with `npm run docs:build`.
+Deployment, configuration and backup guides are on the docs site: <https://docs.torah.justein.com/>. Its source is in `site/` (Docusaurus); preview it with `npm --prefix site install` then `npm run docs:dev`, and build it with `npm run docs:build`.
 
 ## Development environment variables
 
-These only affect the dev servers. Production settings (`PORT`, `TORAH_*`, auth) are on the [docs site](https://justein230.github.io/torah-reading-tracker/deploy/configuration).
+These only affect the dev servers. Production settings (`PORT`, `TORAH_*`, auth) are on the [docs site](https://docs.torah.justein.com/deploy/configuration).
 
 | Variable | Default | Description |
 |---|---|---|
