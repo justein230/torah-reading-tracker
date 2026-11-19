@@ -48,5 +48,6 @@ export function exportFileName(
   name: string, format: ExportFormat, withDateSuffix: boolean, now: Date = new Date(),
 ): string {
   const base = sanitizeBaseName(name, format);
-  return `${withDateSuffix ? `${base}-${dateStamp(now)}` : base}${format.ext}`;
+  const stem = withDateSuffix ? `${base}-${dateStamp(now)}` : base;
+  return `${stem}${format.ext}`;
 }

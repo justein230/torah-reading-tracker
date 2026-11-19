@@ -37,7 +37,6 @@
 }
 .grids-xs .parsha-label { width: 100px; min-width: 100px; }
 .grids-xs .aliyah-col-spacer { width: 100px; min-width: 100px; }
-.grids-xs .aliyah-col-num { width: 26px; }
 .grids-xs .acell { width: 26px; height: 26px; border-radius: 4px; }
 
 /* Narrow layout: let the cells share whatever width the row has instead of a fixed 26px, so the grid fills
