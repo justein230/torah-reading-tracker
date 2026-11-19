@@ -115,7 +115,10 @@ input[type="date"]::-webkit-date-and-time-value {
 .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
 .safe-area-left { padding-left: env(safe-area-inset-left); }
 .safe-area-right { padding-right: env(safe-area-inset-right); }
-.modal-header-safe { padding-top: max(var(--mantine-spacing-md), env(safe-area-inset-top)); }
+.modal-header-safe {
+  padding-top: max(var(--mantine-spacing-md), env(safe-area-inset-top));
+  padding-right: max(var(--mantine-spacing-md), env(safe-area-inset-right, 0px)); /* keep the close button out of the iPhone Duo's status column */
+}
 
 .hebrew { font-family: 'Noto Sans Hebrew', serif; direction: rtl; unicode-bidi: embed; }
 
@@ -157,7 +160,7 @@ input[type="date"]::-webkit-date-and-time-value {
 .window-btn[data-active] { color: var(--text) !important; border-color: var(--accent) !important; }
 
 /* ── App shell layout ────────────────────────────────────────────────────────*/
-.app-header { background: var(--bg); padding-top: env(safe-area-inset-top); }
+.app-header { background: var(--bg); padding-top: env(safe-area-inset-top); padding-right: env(safe-area-inset-right, 0px); /* header, tab bar and their borders stop short of a status column (iPhone Duo) */ }
 .insecure-config-banner { background: var(--accent2); color: #1a1200; padding: 6px 12px; }
 /* user-select: none lives here (not on .app-header) so it only covers the
    title/icon row — not the whole header — otherwise a user-select: none ancestor
@@ -176,6 +179,12 @@ input[type="date"]::-webkit-date-and-time-value {
 .app-main-inner.wide { max-width: none; }
 .tab-list-wrap { position: relative; }
 .indicator-line { position: absolute; bottom: 0; left: 0; width: 0; height: 2px; background: var(--accent); border-radius: 1px; z-index: 2; }
+
+/* The header stops short of a status column (see .app-header), which leaves the tab bar's bottom line
+   ending in empty space. The column's cluster sits above that line, so draw it across the full width. */
+@media (min-width: 768px) {
+  .app-header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--surface2); pointer-events: none; }
+}
 
 /* Bottom nav (BottomNav.tsx) replaces the top tab bar below this breakpoint */
 @media (max-width: 767px) {
@@ -199,7 +208,6 @@ input[type="date"]::-webkit-date-and-time-value {
 html[data-side-rail] {
   --rail-top: 160px; /* clears the camera / clock / signal cluster */
 }
-html[data-side-rail] .app-header { padding-right: var(--rail-w); }
 html[data-side-rail] .mantine-AppShell-main { padding-right: var(--rail-w) !important; padding-bottom: 0 !important; }
 html[data-side-rail] footer:has(> .bottom-nav) {
   top: var(--rail-top); bottom: 0; left: auto; right: 0;
