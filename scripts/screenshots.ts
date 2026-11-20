@@ -1,8 +1,10 @@
 /**
- * Captures the Play Store phone screenshots from a demo database and frames each one with a
- * caption and phone mockup (scripts/screenshot-frame.html).
+ * Captures the store screenshots from a demo database and frames each one with a caption and
+ * device mockup: Play Store phone shots (scripts/screenshot-frame.html) or App Store iPhone and
+ * iPad shots (scripts/screenshot-frame-ios.html).
  *
- *   npm run db:demo -- showcase && npm run build && npm run screenshots
+ *   npm run db:demo -- showcase && npm run build && npm run screenshots          # Play
+ *   npm run screenshots:ios                                                      # App Store
  *   npm run screenshots -- --db demo/torah-demo-complete.db --as-of 2026-11-02
  *
  * Runs the built app (dist/) on its own port against a throwaway copy of the demo db, so neither
@@ -10,6 +12,10 @@
  *   store/screenshots/raw/NN-name.png    the bare 1170×2460 phone capture
  *   store/screenshots/play/NN-name.jpg   the framed 1080×1920 image to upload (JPEG: Play rejects alpha)
  *   store/screenshots/play/feature-graphic.jpg   the 1024×500 feature graphic
+ * and with --platform ios (JPEG too, so there is no alpha channel):
+ *   store/screenshots/raw/ios-{iphone,ipad}/NN-name.png        the bare captures
+ *   store/screenshots/appstore/iphone-6.9/NN-name.jpg          framed 1320×2868
+ *   store/screenshots/appstore/ipad-13/NN-name.jpg             framed 2048×2732
  */
 import fs   from 'node:fs';
 import os   from 'node:os';
@@ -30,16 +36,43 @@ const { values } = parseArgs({
     'as-of': { type: 'string' },
     port:    { type: 'string', default: '3100' },
     only:    { type: 'string' },   // comma-separated shot names, to iterate on a few
+    platform: { type: 'string', default: 'play' },   // play | ios
   },
 });
+if (values.platform !== 'play' && values.platform !== 'ios') throw new Error('--platform must be play or ios');
 const AS_OF   = values['as-of'] ?? localDateStr();
 const BASE    = `http://127.0.0.1:${values.port}`;
-const OUT_RAW = path.join(ROOT, 'store/screenshots/raw');
-const OUT     = path.join(ROOT, 'store/screenshots/play');
+const SHOTS_DIR = path.join(ROOT, 'store/screenshots');
+
+/** One set of images: a device size to capture at and the frame it is placed in. */
+interface Target {
+  viewport:  { width: number; height: number };
+  scale:     number;
+  template:  string;                          // in scripts/
+  canvas:    { width: number; height: number };
+  device?:   'iphone' | 'ipad';               // the iOS frame's {{device}} slot
+  rawDir:    string;
+  outDir:    string;
+  featureGraphic: boolean;
+}
 
 // The app's phone layout (bottom nav, agenda calendar, tap tooltips) needs a touch device.
-// 820 tall, plus the frame’s 40px status bar, is a 390×860 phone.
-const VIEWPORT = { width: 390, height: 820 };
+// Each viewport plus the frame's status bar is the device's full screen:
+//   play    820 + 40 → a 390×860 phone
+//   iphone  878 + 54 → a 430×932 phone (6.9" iPhone, 1320×2868 at 3×)
+//   ipad   1069 + 24 → an 820×1093 tablet (10.9" iPad Air width, which is ≥768px: the tab bar replaces the bottom nav)
+const TARGETS: Target[] = values.platform === 'play'
+  ? [{
+      viewport: { width: 390, height: 820 }, scale: 3, template: 'screenshot-frame.html', canvas: { width: 1080, height: 1920 },
+      rawDir: path.join(SHOTS_DIR, 'raw'), outDir: path.join(SHOTS_DIR, 'play'), featureGraphic: true,
+    }]
+  : [{
+      viewport: { width: 430, height: 878 }, scale: 3, template: 'screenshot-frame-ios.html', canvas: { width: 1320, height: 2868 }, device: 'iphone',
+      rawDir: path.join(SHOTS_DIR, 'raw/ios-iphone'), outDir: path.join(SHOTS_DIR, 'appstore/iphone-6.9'), featureGraphic: false,
+    }, {
+      viewport: { width: 820, height: 1069 }, scale: 2, template: 'screenshot-frame-ios.html', canvas: { width: 2048, height: 2732 }, device: 'ipad',
+      rawDir: path.join(SHOTS_DIR, 'raw/ios-ipad'), outDir: path.join(SHOTS_DIR, 'appstore/ipad-13'), featureGraphic: false,
+    }];
 
 interface Shot {
   name:    string;
@@ -48,8 +81,13 @@ interface Shot {
   show:    (page: Page) => Promise<void>;
 }
 
+const TABLET_MIN_WIDTH = 768;   // where the app swaps its bottom nav for the header's tab bar (global.css)
+
+/** Opens a tab from the bottom nav on a phone, or the header's tab bar on a tablet. */
 const tab = (label: string) => async (page: Page) => {
-  await page.locator('.bottom-nav-item', { hasText: label }).click();
+  // The bottom nav stays in the DOM on a tablet (collapsed to zero height), so go by width: 768px is its breakpoint.
+  const phone = page.viewportSize()!.width < TABLET_MIN_WIDTH;
+  await (phone ? page.locator('.bottom-nav-item', { hasText: label }) : page.getByRole('tab', { name: label })).click();
   await settle(page);
 };
 
@@ -88,6 +126,7 @@ const SHOTS: Shot[] = [
       // The agenda opens on January; start two reading months before this one instead (months
       // without readings have no label), with the first upcoming day open.
       await tab('Calendar')(page);
+      if (await page.locator('.cal-agenda-future-badge').count() === 0) return;   // tablets open the month grid instead, which needs no scrolling
       await page.locator('.collapsible-summary', { has: page.locator('.cal-agenda-future-badge') }).first().click();
       const labels = page.locator('.cal-agenda-month-label');
       const months = (await labels.allTextContents()).map(t => localDateStr(new Date(`1 ${t}`)).slice(0, 7));
@@ -174,7 +213,7 @@ const FONTS = {
   fontHebrew: font('noto-sans-hebrew/files/noto-sans-hebrew-hebrew-700-normal.woff2'),
 };
 
-/** Fills a template's {{slots}} and saves it as a JPEG (Play rejects images with an alpha channel). */
+/** Fills a template's {{slots}} and saves it as a JPEG (Play and the App Store reject images with an alpha channel). */
 async function render(browser: Browser, template: string, size: { width: number; height: number }, slots: Record<string, string>, outJpg: string): Promise<void> {
   const html = Object.entries({ ...FONTS, ...slots })
     .reduce((h, [slot, value]) => h.replaceAll(`{{${slot}}}`, value), fs.readFileSync(path.join(ROOT, 'scripts', template), 'utf8'));
@@ -195,41 +234,42 @@ const { dir, dbPath, password } = prepareDb(path.resolve(ROOT, values.db));
 const server  = await startServer(dbPath);
 const browser = await launchBrowser();
 try {
-  fs.mkdirSync(OUT_RAW, { recursive: true });
-  fs.mkdirSync(OUT, { recursive: true });
+  for (const target of TARGETS) {
+    fs.mkdirSync(target.rawDir, { recursive: true });
+    fs.mkdirSync(target.outDir, { recursive: true });
 
-  const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'en-US', colorScheme: 'dark' });
-  const page = await context.newPage();
-  await page.clock.setFixedTime(new Date(`${AS_OF}T10:00:00`));
-  await page.goto(BASE);
-  await settle(page);
+    const context = await browser.newContext({ viewport: target.viewport, deviceScaleFactor: target.scale, isMobile: true, hasTouch: true, locale: 'en-US', colorScheme: 'dark' });
+    const page = await context.newPage();
+    await page.clock.setFixedTime(new Date(`${AS_OF}T10:00:00`));
+    await page.goto(BASE);
+    await settle(page);
 
-  for (const shot of shots) {
-    // The add-reading form only renders once logged in; log in just for it, so every other
-    // shot stays free of the edit/delete icons.
-    if (shot.name === 'add') {
-      const res = await page.request.post(`${BASE}/api/auth/login`, { data: { password } });
-      if (!res.ok()) throw new Error(`login failed: ${res.status()}`);
-      await page.reload();
-      await settle(page);
+    for (const shot of shots) {
+      // The add-reading form only renders once logged in; log in just for it, so every other
+      // shot stays free of the edit/delete icons.
+      if (shot.name === 'add') {
+        const res = await page.request.post(`${BASE}/api/auth/login`, { data: { password } });
+        if (!res.ok()) throw new Error(`login failed: ${res.status()}`);
+        await page.reload();
+        await settle(page);
+      }
+      await shot.show(page);
+      const raw = path.join(target.rawDir, `${shot.file}.png`);
+      await page.screenshot({ path: raw });
+      await render(browser, target.template, target.canvas,
+        { caption: escapeHtml(shot.caption), shot: dataUri(raw, 'image/png'), device: target.device ?? '' }, path.join(target.outDir, `${shot.file}.jpg`));
+      console.log(`${path.basename(target.outDir)}/${shot.file}  “${shot.caption}”`);
     }
-    await shot.show(page);
-    const raw = path.join(OUT_RAW, `${shot.file}.png`);
-    await page.screenshot({ path: raw });
-    await render(browser, 'screenshot-frame.html', { width: 1080, height: 1920 },
-      { caption: escapeHtml(shot.caption), shot: dataUri(raw, 'image/png') }, path.join(OUT, `${shot.file}.jpg`));
-    console.log(`${shot.file}  “${shot.caption}”`);
-  }
-  await context.close();
+    await context.close();
 
-  const overview = path.join(OUT_RAW, '01-overview.png');
-  if (shots.some(s => s.name === 'overview')) {
-    await render(browser, 'feature-graphic.html', { width: 1024, height: 500 }, { shot: dataUri(overview, 'image/png') }, path.join(OUT, 'feature-graphic.jpg'));
-    console.log('feature-graphic');
+    if (target.featureGraphic && shots.some(s => s.name === 'overview')) {
+      await render(browser, 'feature-graphic.html', { width: 1024, height: 500 }, { shot: dataUri(path.join(target.rawDir, '01-overview.png'), 'image/png') }, path.join(target.outDir, 'feature-graphic.jpg'));
+      console.log('feature-graphic');
+    }
   }
 } finally {
   await browser.close();
   server.kill();
   fs.rmSync(dir, { recursive: true, force: true });
 }
-console.log(`→ ${path.relative(ROOT, OUT)}/`);
+console.log(`→ ${path.relative(ROOT, SHOTS_DIR)}/`);

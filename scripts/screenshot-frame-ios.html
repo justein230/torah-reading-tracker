@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  App Store frame for one screenshot (scripts/screenshots.ts fills the {{…}} slots): a caption over a
+  device mockup on the app's dark background, tinted with the sefer colours. Same look as
+  screenshot-frame.html (Play), with an iOS status bar. {{device}} is "iphone" or "ipad":
+    iphone  1320×2868 (App Store's 6.9" iPhone size). Screen is a 430×932 phone: 54px status bar
+            with the Dynamic Island, then the 878px capture.
+    ipad    2048×2732 (13" iPad size, scaled by App Store Connect to smaller iPads). Screen is an
+            820×1093 iPad (the 10.9" Air's width): 24px status bar, then the 1069px capture.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Torah Reading Tracker App Store screenshot</title>
+<style>
+  @font-face { font-family: Inter; font-weight: 600; src: url({{font600}}) format('woff2'); }
+  @font-face { font-family: Inter; font-weight: 800; src: url({{font800}}) format('woff2'); }
+
+  :root { --bg: #0f172a; --text: #f1f5f9; }
+  body.iphone {
+    --canvas-w: 1320px; --canvas-h: 2868px;
+    --screen-w: 1000px; --scale: 2.3256;           /* 1000px screen / 430px viewport */
+    --status: 54;       --bezel: 20px; --pad-top: 190px; --gap: 110px;
+    --caption-w: 1160px; --caption-size: 104px;
+    --phone-radius: 130px; --screen-radius: 110px; --status-size: 17;
+  }
+  body.ipad {
+    --canvas-w: 2048px; --canvas-h: 2732px;
+    --screen-w: 1560px; --scale: 1.9024;           /* 1560px screen / 820px viewport */
+    --status: 24;       --bezel: 34px; --pad-top: 120px; --gap: 70px;
+    --caption-w: 1800px; --caption-size: 120px;
+    --phone-radius: 90px;  --screen-radius: 58px;  --status-size: 13;
+  }
+
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: var(--canvas-w); height: var(--canvas-h); overflow: hidden; background: var(--bg); }
+  body {
+    font-family: Inter, sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding-top: var(--pad-top);
+    /* Okabe-Ito sefer colours, as soft glows behind the device */
+    background:
+      radial-gradient(1100px 900px at 12% 30%, #0072B233, transparent 70%),
+      radial-gradient(1000px 900px at 92% 52%, #E69F0026, transparent 70%),
+      radial-gradient(1100px 1000px at 20% 95%, #009E7326, transparent 70%),
+      radial-gradient(900px 800px at 85% 8%,  #CC79A726, transparent 70%),
+      var(--bg);
+  }
+
+  .caption {
+    width: var(--caption-w); margin-bottom: var(--gap);
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    color: var(--text); font-weight: 800; font-size: var(--caption-size); line-height: 1.12; letter-spacing: -2px;
+    text-wrap: balance;
+  }
+
+  .device {
+    width: calc(var(--screen-w) + 2 * var(--bezel)); padding: var(--bezel); border-radius: var(--phone-radius);
+    background: #05080f;
+    box-shadow: 0 0 0 4px #2c3748, 0 50px 150px #000a, 0 0 200px #38bdf81a;
+  }
+  .screen { width: var(--screen-w); border-radius: var(--screen-radius); overflow: hidden; background: var(--bg); }
+
+  .status {
+    position: relative; height: calc(var(--status) * 1px * var(--scale));
+    display: flex; align-items: center; justify-content: space-between;
+    color: var(--text); font-weight: 600; font-size: calc(var(--status-size) * 1px * var(--scale));
+  }
+  .iphone .status { padding: 22px 76px 0 92px; }   /* clears the rounded corners and the island */
+  .ipad   .status { padding: 0 44px; }
+  .island {
+    position: absolute; left: 50%; top: 26px; width: 250px; height: 74px; transform: translateX(-50%);
+    border-radius: 37px; background: #000;
+  }
+  .ipad .island { display: none; }
+  .icons { display: flex; gap: 12px; align-items: center; }
+  .ipad .time { display: flex; gap: 14px; }
+  .icons svg { height: calc(var(--status-size) * 0.8px * var(--scale)); width: auto; }
+  .shot { display: block; width: 100%; }
+</style>
+</head>
+<body class="{{device}}">
+  <div class="caption">{{caption}}</div>
+  <div class="device">
+    <div class="screen">
+      <div class="status">
+        <span class="time">9:41</span>
+        <span class="island"></span>
+        <span class="icons">
+          <!-- cellular bars, Wi-Fi, battery -->
+          <svg viewBox="0 0 19 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+          <svg viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 2.3c2.3 0 4.4.9 6 2.4l1-1.1A10.5 10.5 0 0 0 8.5.8 10.5 10.5 0 0 0 1.5 3.6l1 1.1a8.9 8.9 0 0 1 6-2.4Zm0 3.4c1.4 0 2.6.5 3.600 1.400l1-1.100A7.300 7.300 0 0 0 8.500 4.200a7.300 7.300 0 0 0-4.600 1.800l1 1.100c1-.9 2.200-1.400 3.600-1.400Zm0 3.300c.7 0 1.300.3 1.800.7L8.500 11.500 6.700 9.700c.5-.4 1.100-.7 1.800-.7Z"/></svg>
+          <svg viewBox="0 0 28 13" fill="none"><rect x=".5" y=".5" width="23" height="12" rx="3.500" stroke="currentColor" opacity=".45"/><rect x="2" y="2" width="20" height="9" rx="2" fill="currentColor"/><path d="M25 4.500v4c.8-.3 1.500-1.100 1.500-2s-.7-1.700-1.500-2Z" fill="currentColor" opacity=".5"/></svg>
+        </span>
+      </div>
+      <img class="shot" src="{{shot}}" alt="Screenshot of the Torah Reading Tracker app">
+    </div>
+  </div>
+</body>
+</html>
