@@ -44,7 +44,7 @@
 .grids-xs .parsha-label, .grids-xs .aliyah-col-spacer { width: 84px; min-width: 84px; padding-right: 4px; }
 .grids-xs .parsha-row, .grids-xs .aliyah-col-header { gap: 4px; }
 .grids-xs .aliyah-cells { flex: 1; min-width: 0; gap: 4px; }
-.grids-xs .acell, .grids-xs .aliyah-col-num { flex: 0 0 calc((100% - 28px) / 8); width: auto; height: auto; aspect-ratio: 1; box-sizing: border-box; }
+.grids-xs .acell, .grids-xs .aliyah-col-num { flex: 0 0 calc((100% - 28px) / 8); width: auto; height: auto; aspect-ratio: 1; box-sizing: border-box; max-width: 34px; /* don't balloon on wide narrow-layout screens (e.g. the Duo in landscape) */ }
 .grids-xs .aliyah-col-num { aspect-ratio: auto; }
 
 /* Narrow layout: compact view selector (all four fit on one row) and legend. */

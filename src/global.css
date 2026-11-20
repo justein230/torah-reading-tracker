@@ -216,6 +216,14 @@ html[data-side-rail] footer:has(> .bottom-nav) {
   border-top: none; border-left: 1px solid var(--surface2);
   background: var(--bg) !important;
 }
+/* Rotated to landscape, the status cluster (camera, clock, signal) sits at the bottom of the column
+   instead of the top. Clearing it at both ends keeps the nav centered on the screen, growing out from the middle. */
+@media (orientation: landscape) {
+  html[data-side-rail] { --rail-top: 80px; } /* the screen is short here; the camera needs far less than the portrait cluster */
+  html[data-side-rail] footer:has(> .bottom-nav) {
+    padding-bottom: max(env(safe-area-inset-bottom), var(--rail-top)) !important;
+  }
+}
 /* The Overview sefer cards switch to the compact layout below 388px of width; the page now has
    (window − rail) of it, which the window media query can't see. */
 html[data-side-rail] .sefercards-narrow { display: block; }
