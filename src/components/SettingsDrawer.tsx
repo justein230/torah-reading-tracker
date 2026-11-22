@@ -8,6 +8,7 @@ import { fetchAuthStatus, login, logout, changePassword } from '../api.js';
 import { importDb } from '../utils/import.js';
 import { exportLogs } from '../utils/logger-client/index.js';
 import { electronBridge } from '../utils/electronBridge.js';
+import { dbFileAccept } from '../utils/dbFileAccept.js';
 import BackupsModal from './BackupsModal.js';
 import ExportModal from './ExportModal.js';
 import type { AuthStatus } from '../types/index.js';
@@ -272,7 +273,7 @@ export default function SettingsDrawer({ opened, onClose }: SettingsDrawerProps)
             <input
               ref={importInputRef}
               type="file"
-              accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3"
+              accept={dbFileAccept(Capacitor.getPlatform())}
               hidden
               onChange={handleImportFileSelected}
             />
