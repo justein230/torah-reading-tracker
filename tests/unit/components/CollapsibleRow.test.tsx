@@ -9,12 +9,20 @@ describe('CollapsibleRow', () => {
     expect(screen.getByRole('button', { name: /Section Header/ })).toBeInTheDocument();
   });
 
-  it('children are in the DOM but row starts closed', () => {
+  it('starts closed with children not yet mounted', () => {
     const { container } = render(
       <CollapsibleRow summary="Header"><p>detail</p></CollapsibleRow>
     );
-    expect(screen.getByText('detail')).toBeInTheDocument();
+    expect(screen.queryByText('detail')).not.toBeInTheDocument();
     expect(container.querySelector('.collapsible-row')).not.toHaveClass('open');
+  });
+
+  it('mounts children on first open and keeps them mounted after closing', async () => {
+    render(<CollapsibleRow summary="Header"><p>detail</p></CollapsibleRow>);
+    await userEvent.click(screen.getByRole('button'));
+    expect(screen.getByText('detail')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button'));
+    expect(screen.getByText('detail')).toBeInTheDocument();
   });
 
   it('clicking summary adds open class', async () => {

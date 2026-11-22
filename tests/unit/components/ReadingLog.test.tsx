@@ -1,4 +1,5 @@
 import { screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi, type Mock } from 'vitest';
 import ReadingLog from '../../../src/components/ReadingLog.js';
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
@@ -263,11 +264,13 @@ describe('ReadingLog — CRUD surface', () => {
     expect(screen.queryByTestId('form-Add Reading')).not.toBeInTheDocument();
   });
 
-  it('shows the collapsible add card when canWrite is true', () => {
+  it('shows the collapsible add card when canWrite is true', async () => {
     (useReadingCrud as Mock).mockReturnValue(makeCrud({ canWrite: true }));
     (useApp as Mock).mockReturnValue(makeCtx({ allRows: [standardRow], hosafotReadings: [] }));
     renderWithProviders(<ReadingLog />);
     expect(screen.getByText('Add a Reading')).toBeInTheDocument();
+    expect(screen.queryByTestId('form-Add Reading')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Add a Reading/ }));
     expect(screen.getByTestId('form-Add Reading')).toBeInTheDocument();
   });
 
@@ -299,7 +302,7 @@ describe('ReadingLog — CRUD surface', () => {
     expect(screen.queryByTitle('Edit')).not.toBeInTheDocument();
   });
 
-  it('puts actions on the components of a double parsha, never on the combined summary', () => {
+  it('puts actions on the components of a double parsha, never on the combined summary', async () => {
     const dpRow = (aliyah: number) => makeRow({
       sefer: MOCK_SEFER, parsha: MOCK_PARSHA,
       pairName: 'תזריע-מצורע', pairNameEn: 'Tazria-Metzora', combinedAliyah: 1, readAsDouble: true,
@@ -312,6 +315,8 @@ describe('ReadingLog — CRUD surface', () => {
     (useReadingCrud as Mock).mockReturnValue(makeCrud({ canWrite: true, readingsById }));
     (useApp as Mock).mockReturnValue(makeCtx({ allRows: [dpRow(1), dpRow(2)], hosafotReadings: [] }));
     renderWithProviders(<ReadingLog />);
+    // Component rows mount only once the combined card is opened.
+    await userEvent.click(screen.getByRole('button', { name: /Tazria-Metzora/ }));
     // Two component rows resolve to records → two edit controls; the combined summary adds none.
     expect(screen.getAllByTitle('Edit')).toHaveLength(2);
   });
