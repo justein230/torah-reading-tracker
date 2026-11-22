@@ -49,14 +49,17 @@ The output is:
 
 - `android/app/release/torah-<version>-<versionCode>.aab`: upload this to Play. It's copied out
   of `build/`, which `gradlew clean` wipes and the next build overwrites, so each release keeps
-  its own file. That folder is also Android Studio's default for signed bundles, but Studio's
-  bundles are named `app-release.aab` and carry version 1.0 (Studio doesn't pass the version).
+  its own file. That folder is also Android Studio's default for signed bundles; Studio's
+  bundles are named `app-release.aab` but carry the same version, since Gradle reads it itself.
 - `android/app/build/outputs/apk/release/app-release.apk`: install with `adb install` to try it.
 
-`versionName` is package.json's version and `versionCode` is packed from it: 1.1.3 → 10103
-(`src/utils/androidVersion.ts`). Play rejects a versionCode it has already seen, so bump the
-version (`npm version patch`/`minor`/`major`) before each upload. Prerelease versions
-(`-dev.N`, `-qa.N`) are refused.
+`versionName` is package.json's version and `versionCode` is packed from it: 1.1.3 → 10103.
+`android/app/build.gradle` reads package.json itself, so every build gets it, Android Studio's
+included. The packing is repeated in `src/utils/appVersion.ts` (shared with iOS);
+`tests/unit/appVersion.test.ts` fails if the two disagree, and `android:release` checks the built
+version against it before naming the bundle. Play rejects a versionCode it has already seen, so
+bump the version (`npm version patch`/`minor`/`major`) before each upload. Release builds refuse
+prerelease versions (`-dev.N`, `-qa.N`); debug builds take them, with the release's versionCode.
 
 ## First upload in Play Console
 

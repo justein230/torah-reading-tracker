@@ -2,18 +2,18 @@
 // drift. MARKETING_VERSION is the version users see (CFBundleShortVersionString) and
 // CURRENT_PROJECT_VERSION is the build number (CFBundleVersion). App Store Connect rejects an
 // upload whose build number isn't higher than every earlier one for that version, so the build
-// number packs major.minor.patch the same way Android's versionCode does: 1.2.0 → 10200.
-import { androidVersion } from './androidVersion.js';
+// number is the shared version code (src/utils/appVersion.ts), the same as Android's versionCode: 1.2.0 → 10200.
+import { appVersion } from './appVersion.js';
 
 export interface IosVersion {
   marketingVersion: string;
   buildNumber:      string;
 }
 
-/** Throws for anything but a plain X.Y.Z release (same rules as Android: prereleases would share a build number). */
+/** Throws for anything but a plain X.Y.Z release (see appVersion). */
 export function iosVersion(version: string): IosVersion {
-  const { versionName, versionCode } = androidVersion(version);
-  return { marketingVersion: versionName, buildNumber: String(versionCode) };
+  const { name, code } = appVersion(version);
+  return { marketingVersion: name, buildNumber: String(code) };
 }
 
 /** Contents of ios/App/Version.xcconfig, which the Xcode project uses for both settings. */

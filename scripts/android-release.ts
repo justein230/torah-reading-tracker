@@ -1,13 +1,13 @@
 // Builds the signed Android release: an .aab to upload to Google Play and an .apk to sideload.
-// Runs the same web/db pipeline as `npm run cap:android`, then Gradle with the versionCode and
-// versionName derived from package.json. Signing uses android/keystore.properties (docs/ANDROID_RELEASE.md);
-// without it this stops before building anything.
+// Runs the same web/db pipeline as `npm run cap:android`, then Gradle, which reads versionCode and
+// versionName from package.json itself (android/app/build.gradle). Signing uses android/keystore.properties
+// (docs/ANDROID_RELEASE.md); without it this stops before building anything.
 import fs   from 'node:fs';
 import os   from 'node:os';
 import path from 'node:path';
 import { execFileSync, execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { androidVersion } from '../src/utils/androidVersion.js';
+import { appVersion } from '../src/utils/appVersion.js';
 
 const root       = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const androidDir = path.join(root, 'android');
@@ -19,7 +19,8 @@ if (!fs.existsSync(path.join(androidDir, 'keystore.properties'))) {
 }
 
 const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-const { versionCode, versionName } = androidVersion(version);
+// Gradle refuses a prerelease too, but only after the slow db/web pipeline; fail before it instead.
+const { name: versionName, code: versionCode } = appVersion(version);
 
 // Gradle 8.14 can't run on Java 25 ("Unsupported class file major version 69"), which is both
 // Fedora's default java and Android Studio's bundled JBR. mise.toml pins JDK 21; a shell with
@@ -44,7 +45,16 @@ run('npm run cap:db');
 run('npm run build');
 run('rm -rf public/assets');
 run('npx cap sync android');
-run(`./gradlew bundleRelease assembleRelease -PversionCode=${versionCode} -PversionName=${versionName}`, androidDir);
+run('./gradlew bundleRelease assembleRelease', androidDir);
+
+// Gradle packs the version in its own copy of appVersion's formula; refuse to hand over a build
+// whose version differs from what this script names the bundle after.
+const apkMetadata = JSON.parse(fs.readFileSync(path.join(outputs, 'apk/release/output-metadata.json'), 'utf8'));
+const built       = apkMetadata.elements[0];
+if (built.versionCode !== versionCode || built.versionName !== versionName) {
+  console.error(`Gradle built ${built.versionName} (versionCode ${built.versionCode}) but package.json gives ${versionName} (${versionCode}); android/app/build.gradle and src/utils/appVersion.ts disagree.`);
+  process.exit(1);
+}
 
 // build/ is wiped by `gradlew clean` and overwritten by the next build, so keep each release's
 // bundle under its own name in app/release/ (Android Studio's signed-bundle default folder).
