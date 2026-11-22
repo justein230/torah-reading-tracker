@@ -1,0 +1,48 @@
+<!doctype html>
+<!--
+  App Store Connect "Header" and "Search Results" asset (scripts/screenshots.ts fills the {{…}} slots).
+  The product page already shows the icon and name right under the header, and the phone's status bar,
+  Dynamic Island and the back/share buttons cover its top and corners, so the artwork is only the
+  tagline and a few progress bars, centred at {{cy}} of the height, away from every edge. All sizes are
+  in vmin (1% of the shorter side), so it renders the same at 5244×2950 (16:9) and 3840×2560 (3:2).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Torah Reading Tracker App Store header</title>
+<style>
+  @font-face { font-family: Inter; font-weight: 600; src: url({{font600}}) format('woff2'); }
+  @font-face { font-family: Inter; font-weight: 800; src: url({{font800}}) format('woff2'); }
+
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 100vw; height: 100vh; overflow: hidden; }
+  body {
+    position: relative; text-align: center;
+    font-family: Inter, sans-serif; color: #f1f5f9; background-color: #0f172a;
+    /* Okabe-Ito sefer colours, as soft glows */
+    background-image:
+      radial-gradient(70vmin 60vmin at 20% 25%, #0072B240, transparent 70%),
+      radial-gradient(60vmin 55vmin at 78% 95%, #009E7330, transparent 70%),
+      radial-gradient(55vmin 50vmin at 88% 10%, #E69F0030, transparent 70%),
+      radial-gradient(50vmin 45vmin at 8% 90%,  #CC79A726, transparent 70%);
+  }
+  .stack   { position: absolute; left: 50%; top: {{cy}}; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; }
+  .tagline { font-weight: 800; font-size: 7.6vmin; line-height: 1.12; letter-spacing: -0.15vmin; width: 74vmin; text-wrap: balance; }
+  .bars    { display: flex; flex-direction: column; gap: 1.4vmin; width: 58vmin; margin-top: 5vmin; }
+  .bar     { height: 1.7vmin; border-radius: 1vmin; background: #1e293b; overflow: hidden; }
+  .bar span { display: block; height: 100%; border-radius: 1vmin; }
+</style>
+</head>
+<body>
+  <div class="stack">
+    <div class="tagline">Track your Torah reading statistics</div>
+    <div class="bars">
+      <div class="bar"><span style="width:78%; background:#0072B2"></span></div>
+      <div class="bar"><span style="width:52%; background:#E69F00"></span></div>
+      <div class="bar"><span style="width:36%; background:#009E73"></span></div>
+      <div class="bar"><span style="width:64%; background:#D55E00"></span></div>
+      <div class="bar"><span style="width:24%; background:#CC79A7"></span></div>
+    </div>
+  </div>
+</body>
+</html>

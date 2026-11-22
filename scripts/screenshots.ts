@@ -12,10 +12,14 @@
  *   store/screenshots/raw/NN-name.png    the bare 1170×2460 phone capture
  *   store/screenshots/play/NN-name.jpg   the framed 1080×1920 image to upload (JPEG: Play rejects alpha)
  *   store/screenshots/play/feature-graphic.jpg   the 1024×500 feature graphic
- * and with --platform ios (JPEG too, so there is no alpha channel):
+ * and with --platform ios (PNG, RGB with no alpha channel):
  *   store/screenshots/raw/ios-{iphone,ipad}/NN-name.png        the bare captures
- *   store/screenshots/appstore/iphone-6.9/NN-name.jpg          framed 1320×2868
- *   store/screenshots/appstore/ipad-13/NN-name.jpg             framed 2048×2732
+ *   store/screenshots/appstore/iphone-6.3/NN-name.png          the same, scaled to 1206×2622 (the 6.1"/6.3" slot)
+ *   store/screenshots/appstore/iphone-6.9/NN-name.png          framed 1320×2868
+ *   store/screenshots/appstore/ipad-13/NN-name.png             framed 2048×2732
+ *   store/screenshots/appstore/header-5244x2950.png            App Store Connect "Header" asset
+ *   store/screenshots/appstore/search-results-3840x2560.png    its "Search Results" asset
+ * (`--only banner` renders just those two.)
  */
 import fs   from 'node:fs';
 import os   from 'node:os';
@@ -54,6 +58,9 @@ interface Target {
   rawDir:    string;
   outDir:    string;
   featureGraphic: boolean;
+  /** Also saved scaled to these sizes (same aspect ratio to within a pixel or two), for store slots that want another size. */
+  resizedTo?: { dir: string; width: number; height: number }[];
+  ext:       'jpg' | 'png';                 // Play takes JPEG; App Store Connect's uploader wants PNG
 }
 
 // The app's phone layout (bottom nav, agenda calendar, tap tooltips) needs a touch device.
@@ -64,14 +71,15 @@ interface Target {
 const TARGETS: Target[] = values.platform === 'play'
   ? [{
       viewport: { width: 390, height: 820 }, scale: 3, template: 'screenshot-frame.html', canvas: { width: 1080, height: 1920 },
-      rawDir: path.join(SHOTS_DIR, 'raw'), outDir: path.join(SHOTS_DIR, 'play'), featureGraphic: true,
+      rawDir: path.join(SHOTS_DIR, 'raw'), outDir: path.join(SHOTS_DIR, 'play'), featureGraphic: true, ext: 'jpg',
     }]
   : [{
       viewport: { width: 430, height: 878 }, scale: 3, template: 'screenshot-frame-ios.html', canvas: { width: 1320, height: 2868 }, device: 'iphone',
-      rawDir: path.join(SHOTS_DIR, 'raw/ios-iphone'), outDir: path.join(SHOTS_DIR, 'appstore/iphone-6.9'), featureGraphic: false,
+      rawDir: path.join(SHOTS_DIR, 'raw/ios-iphone'), outDir: path.join(SHOTS_DIR, 'appstore/iphone-6.9'), featureGraphic: false, ext: 'png',
+      resizedTo: [{ dir: path.join(SHOTS_DIR, 'appstore/iphone-6.3'), width: 1206, height: 2622 }],
     }, {
       viewport: { width: 820, height: 1069 }, scale: 2, template: 'screenshot-frame-ios.html', canvas: { width: 2048, height: 2732 }, device: 'ipad',
-      rawDir: path.join(SHOTS_DIR, 'raw/ios-ipad'), outDir: path.join(SHOTS_DIR, 'appstore/ipad-13'), featureGraphic: false,
+      rawDir: path.join(SHOTS_DIR, 'raw/ios-ipad'), outDir: path.join(SHOTS_DIR, 'appstore/ipad-13'), featureGraphic: false, ext: 'png',
     }];
 
 interface Shot {
@@ -213,14 +221,29 @@ const FONTS = {
   fontHebrew: font('noto-sans-hebrew/files/noto-sans-hebrew-hebrew-700-normal.woff2'),
 };
 
-/** Fills a template's {{slots}} and saves it as a JPEG (Play and the App Store reject images with an alpha channel). */
-async function render(browser: Browser, template: string, size: { width: number; height: number }, slots: Record<string, string>, outJpg: string): Promise<void> {
+/** Fills a template's {{slots}} and saves it, as a PNG or JPEG by the file's extension. Play and the App Store reject alpha, which Chromium's page screenshots don't have (RGB PNG). */
+async function render(browser: Browser, template: string, size: { width: number; height: number }, slots: Record<string, string>, outFile: string): Promise<void> {
   const html = Object.entries({ ...FONTS, ...slots })
     .reduce((h, [slot, value]) => h.replaceAll(`{{${slot}}}`, value), fs.readFileSync(path.join(ROOT, 'scripts', template), 'utf8'));
   const page = await browser.newPage({ viewport: size });
   await page.setContent(html, { waitUntil: 'load' });
   await page.evaluate(() => document.fonts.ready);
-  await page.screenshot({ path: outJpg, type: 'jpeg', quality: 92 });
+  await page.screenshot(outFile.endsWith('.png') ? { path: outFile, type: 'png' } : { path: outFile, type: 'jpeg', quality: 92 });
+  await page.close();
+}
+
+// App Store Connect's Header and Search Results assets are one centred artwork at two sizes
+// (scripts/app-store-banner.html), from the sizes its upload boxes list as supported.
+const BANNERS = [
+  { file: 'header-5244x2950',         size: { width: 5244, height: 2950 }, cy: '38%' },   // the product page covers the top and the bottom third
+  { file: 'search-results-3840x2560', size: { width: 3840, height: 2560 }, cy: '50%' },
+];
+
+/** Saves `src` scaled to exactly `size` (a PNG in, a PNG out). */
+async function resizeImage(browser: Browser, src: string, size: { width: number; height: number }, outFile: string): Promise<void> {
+  const page = await browser.newPage({ viewport: size });
+  await page.setContent(`<style>*{margin:0}</style><img src="${dataUri(src, 'image/png')}" width="${size.width}" height="${size.height}" style="display:block">`, { waitUntil: 'load' });
+  await page.screenshot({ path: outFile, type: 'png' });
   await page.close();
 }
 
@@ -229,12 +252,13 @@ async function render(browser: Browser, template: string, size: { width: number;
 const only  = values.only?.split(',');
 const shots = SHOTS.map((s, i) => ({ ...s, file: `${String(i + 1).padStart(2, '0')}-${s.name}` }))
   .filter(s => !only || only.includes(s.name));
+const bannersWanted = values.platform === 'ios' && (!only || only.includes('banner'));
 
 const { dir, dbPath, password } = prepareDb(path.resolve(ROOT, values.db));
 const server  = await startServer(dbPath);
 const browser = await launchBrowser();
 try {
-  for (const target of TARGETS) {
+  for (const target of shots.length ? TARGETS : []) {
     fs.mkdirSync(target.rawDir, { recursive: true });
     fs.mkdirSync(target.outDir, { recursive: true });
 
@@ -257,7 +281,11 @@ try {
       const raw = path.join(target.rawDir, `${shot.file}.png`);
       await page.screenshot({ path: raw });
       await render(browser, target.template, target.canvas,
-        { caption: escapeHtml(shot.caption), shot: dataUri(raw, 'image/png'), device: target.device ?? '' }, path.join(target.outDir, `${shot.file}.jpg`));
+        { caption: escapeHtml(shot.caption), shot: dataUri(raw, 'image/png'), device: target.device ?? '' }, path.join(target.outDir, `${shot.file}.${target.ext}`));
+      for (const extra of target.resizedTo ?? []) {
+        fs.mkdirSync(extra.dir, { recursive: true });
+        await resizeImage(browser, path.join(target.outDir, `${shot.file}.${target.ext}`), extra, path.join(extra.dir, `${shot.file}.${target.ext}`));
+      }
       console.log(`${path.basename(target.outDir)}/${shot.file}  “${shot.caption}”`);
     }
     await context.close();
@@ -265,6 +293,15 @@ try {
     if (target.featureGraphic && shots.some(s => s.name === 'overview')) {
       await render(browser, 'feature-graphic.html', { width: 1024, height: 500 }, { shot: dataUri(path.join(target.rawDir, '01-overview.png'), 'image/png') }, path.join(target.outDir, 'feature-graphic.jpg'));
       console.log('feature-graphic');
+    }
+  }
+
+  if (bannersWanted) {
+    const outDir = path.join(SHOTS_DIR, 'appstore');
+    fs.mkdirSync(outDir, { recursive: true });
+    for (const { file, size, cy } of BANNERS) {
+      await render(browser, 'app-store-banner.html', size, { cy }, path.join(outDir, `${file}.png`));
+      console.log(file);
     }
   }
 } finally {

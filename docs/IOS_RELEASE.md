@@ -59,12 +59,26 @@ mockup (`scripts/screenshot-frame-ios.html`). Output in `store/screenshots/` (gi
 
 | Folder | Size | App Store Connect slot |
 |---|---|---|
-| `appstore/iphone-6.9/` | 1320×2868 | iPhone 6.9" Display (required; Apple scales it down for smaller iPhones) |
+| `appstore/iphone-6.3/` | 1206×2622 | iPhone 6.1" / 6.3" Display (the slot App Store Connect showed for Dynamic Island iPhones; it only takes 1179×2556 or 1206×2622) |
+| `appstore/iphone-6.9/` | 1320×2868 | iPhone 6.9" Display (same images before scaling) |
 | `appstore/ipad-13/` | 2048×2732 | iPad 13" Display (required because the app also targets iPad; scaled down for the 8–11" iPads) |
 
-They are JPEGs, so there is no alpha channel, which App Store Connect rejects. The iPad shots are
+They are PNGs without an alpha channel (App Store Connect rejects alpha, and its uploader wouldn't take our JPEGs). The iPad shots are
 captured at 820 px wide, a 10.9" iPad Air's width, so they show the real tablet layout (tab bar
-instead of the bottom nav). There is no feature graphic on the App Store. Upload the images in file
+instead of the bottom nav). There is no feature graphic on the App Store, but App Store Connect's "Header and Search Results"
+tab takes two more assets, which the same command renders (`--only banner` for just these):
+
+| File | Size | Slot |
+|---|---|---|
+| `appstore/header-5244x2950.png` | 5244×2950 (16:9) | Header (also accepts 3840×1646) |
+| `appstore/search-results-3840x2560.png` | 3840×2560 (3:2) | Search Results (also accepts 5244×2950 and 1920×1280) |
+
+Apple crops these per device and orientation, and the product page draws the icon, name, status bar,
+Dynamic Island and back/share buttons over and under the header. So the artwork
+(`scripts/app-store-banner.html`) has no icon or name: just the tagline and five progress bars in
+a centred block, kept clear of the edges (it sits at 38% of the header's height, 50% for search
+results). Use the tab's Preview button to check the crops, and move or shrink the block in that file
+(`cy` in `scripts/screenshots.ts`) if anything is cut off. Upload the images in file
 order: the first three show in search results.
 
 ## Listing
@@ -74,7 +88,7 @@ Drafts to paste into App Store Connect. Check the limits it shows and edit freel
 - **Name** (30): Torah Reading Tracker
 - **Subtitle** (30): Track every aliyah you read
 - **Promotional text** (170, editable without a new release):
-  Every aliyah you read, every parsha you finish, in one place. Log readings in a few taps and see your progress through all five books.
+  Track your Torah reading statistics. Log readings in a few taps and see your progress through all five books.
 - **Keywords** (100, comma-separated, no spaces after commas):
   torah,aliyah,aliyot,parsha,parashat,chumash,pentateuch,hebrew,jewish,reading,tracker,shabbat,leyning
 - **Description** (4000):
