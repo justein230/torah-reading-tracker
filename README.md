@@ -1,6 +1,5 @@
 # Torah Reading Tracker
 
-
 A personal tracking app for Torah aliyah readings. Log every aliyah you read, visualize your progress across all five books, and forecast when you'll complete the Torah.
 
 <a href="https://play.google.com/store/apps/details?id=com.justein.torahtracker">
