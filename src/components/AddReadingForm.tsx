@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Text, Select, MultiSelect, Button, TextInput, Group, Switch, Radio, Card, SegmentedControl } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
+import { DateField } from './shared/DateField.js';
 import { useApp } from '../context/AppContext.js';
 import { countPseukim } from '../compute.js';
 import { fmtDate, toDateStr } from '../utils/format.js';
@@ -442,7 +442,7 @@ export function AddReadingForm({
           </Group>
         )}
       </Group>
-      <DateInput
+      <DateField
         label={null}
         placeholder="Pick a date"
         value={form.date instanceof Date ? form.date : null}

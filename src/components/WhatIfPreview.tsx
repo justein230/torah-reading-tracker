@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell, Drawer, CloseButton, ScrollArea, Button, MultiSelect, Group, Stack, Text, ActionIcon, Switch, useMantineTheme } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
+import { DateField } from './shared/DateField.js';
 import { useMediaQuery } from '@mantine/hooks';
 import { useApp } from '../context/AppContext.js';
 import { computeStats, estimateCompletionFromStats, effectivePseukimOf, committedPseukimOf } from '../compute.js';
@@ -239,7 +239,7 @@ export function WhatIfPreview({ opened, onClose }: WhatIfPreviewProps) {
             onChange={e => setAutoFillDate(e.currentTarget.checked)}
           />
         </Group>
-        <DateInput
+        <DateField
           label={null}
           placeholder="Pick a future date"
           value={date}
